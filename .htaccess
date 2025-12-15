@@ -1,0 +1,91 @@
+#############################################
+# OPTIMASI .HTACCESS UNTUK WEBVIEW (APPSGEYSER)
+#############################################
+
+# Timezone
+php_value date.timezone "Asia/Jakarta"
+
+# Disable directory listing
+Options -Indexes
+
+# Charset default
+AddDefaultCharset UTF-8
+
+#############################################
+# 1. FORCE HTTPS (AMAN UNTUK APPSGEYSER)
+#############################################
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# Hindari redirect loop
+RewriteCond %{HTTPS} off
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+# Tambahkan baris ini agar tidak memaksa HTTPS di localhost
+RewriteCond %{HTTP_HOST} !^localhost [NC]
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+#############################################
+# 2. PROTECT SENSITIVE FILES
+#############################################
+<FilesMatch "\.(env|sql|db|json)$">
+    Deny from all
+</FilesMatch>
+
+#############################################
+# 3. ENABLE GZIP KOMPLET
+#############################################
+<IfModule mod_deflate.c>
+AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript
+AddOutputFilterByType DEFLATE application/javascript application/json application/xml
+AddOutputFilterByType DEFLATE image/svg+xml
+Header append Vary User-Agent
+</IfModule>
+
+#############################################
+# 4. BROWSER CACHING
+#############################################
+<IfModule mod_expires.c>
+ExpiresActive On
+
+# Gambar
+ExpiresByType image/jpeg "access plus 1 month"
+ExpiresByType image/png  "access plus 1 month"
+ExpiresByType image/gif  "access plus 1 month"
+ExpiresByType image/webp "access plus 1 month"
+
+# CSS & JS
+ExpiresByType text/css "access plus 14 days"
+ExpiresByType application/javascript "access plus 14 days"
+
+# Fonts
+ExpiresByType font/woff2 "access plus 1 year"
+ExpiresByType font/woff  "access plus 1 year"
+
+# HTML tidak dicache lama
+ExpiresByType text/html "access plus 1 hour"
+</IfModule>
+
+#############################################
+# 5. KEAMANAN HEADER
+#############################################
+<IfModule mod_headers.c>
+Header always set X-Content-Type-Options "nosniff"
+Header always set X-Frame-Options "SAMEORIGIN"
+Header always set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+#############################################
+# 6. DISABLE ETAG (MAKE SERVER FASTER)
+#############################################
+FileETag None
+<IfModule mod_headers.c>
+Header unset ETag
+</IfModule>
+
+#############################################
+# 7. FIX INDEX (WebView tidak blank)
+#############################################
+<FilesMatch "^index\.php$">
+    Header set Cache-Control "public, max-age=3600, must-revalidate"
+</FilesMatch>

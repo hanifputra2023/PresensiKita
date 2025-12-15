@@ -1,0 +1,1664 @@
+<?php
+$page = 'asisten_dashboard';
+$asisten = get_asisten_login();
+
+// Jadwal hari ini (yang belum selesai)
+// Gunakan CURDATE() dan CURTIME() MySQL agar konsisten dengan timezone
+$kode_asisten = $asisten['kode_asisten'];
+
+// Jadwal sendiri - hilang tepat setelah jam_selesai
+$jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'sendiri' as tipe_jadwal, NULL as asisten_asli
+                                         FROM jadwal j 
+                                         LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                         LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                         LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                         WHERE j.tanggal = CURDATE() 
+                                         AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                         AND j.jam_selesai > CURTIME()
+                                         ORDER BY j.jam_mulai");
+
+// Jadwal sebagai pengganti (dari asisten lain yang izin)
+$jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'pengganti' as tipe_jadwal, a.nama as asisten_asli
+                                          FROM absen_asisten aa
+                                          JOIN jadwal j ON aa.jadwal_id = j.id
+                                          JOIN asisten a ON aa.kode_asisten = a.kode_asisten
+                                          LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                          LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                          WHERE aa.pengganti = '$kode_asisten'
+                                          AND aa.status IN ('izin', 'sakit')
+                                          AND j.tanggal = CURDATE()
+                                          AND j.jam_selesai > CURTIME()
+                                          ORDER BY j.jam_mulai");
+
+// Gabungkan jadwal
+$all_jadwal = [];
+while ($j = mysqli_fetch_assoc($jadwal_hari_ini)) {
+    $all_jadwal[] = $j;
+}
+while ($j = mysqli_fetch_assoc($jadwal_pengganti)) {
+    $all_jadwal[] = $j;
+}
+
+// Statistik minggu ini
+$week_start = date('Y-m-d', strtotime('monday this week'));
+$week_end = date('Y-m-d', strtotime('sunday this week'));
+
+$stat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal 
+                                                  WHERE tanggal BETWEEN '$week_start' AND '$week_end'
+                                                  AND (kode_asisten_1 = '$kode_asisten' OR kode_asisten_2 = '$kode_asisten')"));
+
+// Hitung jadwal pengganti minggu ini
+$stat_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total 
+                                                           FROM absen_asisten aa
+                                                           JOIN jadwal j ON aa.jadwal_id = j.id
+                                                           WHERE aa.pengganti = '$kode_asisten'
+                                                           AND aa.status IN ('izin', 'sakit')
+                                                           AND j.tanggal BETWEEN '$week_start' AND '$week_end'"));
+
+// Statistik kehadiran MAHASISWA bulan ini (di jadwal yang diajar asisten ini), dengan perhitungan alpha yang akurat
+$start_month = date('Y-m-01');
+$end_month = date('Y-m-t');
+$stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT 
+        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE WHEN CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    FROM jadwal j
+    JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
+    LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim
+    WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    AND j.tanggal BETWEEN '$start_month' AND '$end_month'
+"));
+
+// Total presensi mahasiswa bulan ini (di jadwal asisten)
+$total_jadwal_bulan = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT COUNT(*) as total FROM presensi_mahasiswa pm
+    JOIN jadwal j ON pm.jadwal_id = j.id
+    WHERE j.tanggal BETWEEN '$start_month' AND '$end_month'
+    AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    AND pm.status != 'belum'
+"))['total'];
+
+// Presensi terbaru yang di-scan di jadwal asisten ini
+$recent_presensi = mysqli_query($conn, "
+    SELECT pm.*, m.nama as nama_mhs, m.nim, j.tanggal, mk.nama_mk, pm.waktu_presensi
+    FROM presensi_mahasiswa pm
+    JOIN mahasiswa m ON pm.nim = m.nim
+    JOIN jadwal j ON pm.jadwal_id = j.id
+    JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+    WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    ORDER BY pm.waktu_presensi DESC
+    LIMIT 6
+");
+
+// Riwayat mengajar (5 terakhir)
+$riwayat = mysqli_query($conn, "
+    SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk,
+           (SELECT COUNT(*) FROM presensi_mahasiswa pm WHERE pm.jadwal_id = j.id AND pm.status = 'hadir') as total_hadir,
+           (SELECT COUNT(*) FROM presensi_mahasiswa pm WHERE pm.jadwal_id = j.id AND pm.status != 'belum') as total_mhs
+    FROM jadwal j
+    LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+    LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+    LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+    WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    AND j.tanggal <= CURDATE()
+    ORDER BY j.tanggal DESC, j.jam_mulai DESC
+    LIMIT 5
+");
+
+// Greeting berdasarkan waktu
+$hour = date('H');
+if ($hour < 12) {
+    $greeting = 'Selamat Pagi';
+} elseif ($hour < 15) {
+    $greeting = 'Selamat Siang';
+} elseif ($hour < 18) {
+    $greeting = 'Selamat Sore';
+} else {
+    $greeting = 'Selamat Malam';
+}
+
+$total_kehadiran = ($stat_hadir['hadir'] ?? 0) + ($stat_hadir['izin'] ?? 0) + ($stat_hadir['sakit'] ?? 0) + ($stat_hadir['alpha'] ?? 0);
+$persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $total_kehadiran) * 100) : 0;
+?>
+<?php include 'includes/header.php'; ?>
+
+<style>
+/* ===== ASISTEN DASHBOARD STYLE ===== */
+.dashboard-content {
+    padding: 24px;
+    max-width: 1600px;
+}
+
+/* Welcome Banner */
+.welcome-banner {
+    background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+    border-radius: 24px;
+    padding: 0;
+    color: white;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    min-height: 180px;
+}
+.welcome-banner::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(78, 115, 223, 0.5) 0%, transparent 70%);
+    animation: pulse-glow 4s ease-in-out infinite;
+}
+.welcome-banner::after {
+    content: '';
+    position: absolute;
+    bottom: -150px;
+    left: -100px;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(54, 185, 204, 0.3) 0%, transparent 70%);
+    animation: pulse-glow 4s ease-in-out infinite 2s;
+}
+@keyframes pulse-glow {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+.welcome-content {
+    padding: 28px 32px;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.welcome-content .greeting {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+.welcome-content h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+}
+.welcome-content .subtitle {
+    font-size: 0.95rem;
+    opacity: 0.85;
+}
+.welcome-stats {
+    padding: 28px 32px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+.stats-glass {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 20px 28px;
+    display: flex;
+    gap: 32px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+.stats-glass .stat-item {
+    text-align: center;
+}
+.stats-glass .stat-num {
+    font-size: 1.75rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+}
+.stats-glass .stat-label {
+    font-size: 0.75rem;
+    opacity: 0.85;
+    margin-top: 4px;
+}
+
+/* Alert Cards */
+.alert-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.alert-card {
+    padding: 18px 20px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-left: 4px solid;
+}
+.alert-card.warning {
+    background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%);
+    border-color: #ffaa00;
+}
+.alert-card.info {
+    background: linear-gradient(135deg, #e8f4fd 0%, #cce5ff 100%);
+    border-color: #0066cc;
+}
+.alert-card.success {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border-color: #66cc00;
+}
+.alert-card i {
+    font-size: 1.5rem;
+}
+.alert-card.warning i { color: #dda20a; }
+.alert-card.info i { color: #0066cc; }
+.alert-card.success i { color: #17a673; }
+.alert-card .alert-content h4 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    color: #5a5c69;
+}
+.alert-card .alert-content p {
+    font-size: 0.8rem;
+    margin: 2px 0 0 0;
+    color: #858796;
+}
+
+/* Stat Cards */
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 28px;
+}
+.stat-card {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    border: 1px solid #e3e6f0;
+    transition: all 0.25s ease;
+}
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+}
+.stat-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+}
+.stat-icon.blue { background: linear-gradient(135deg, #cce5ff, #b8daff); color: #0066cc; }
+.stat-icon.green { background: linear-gradient(135deg, #d4edda, #c3e6cb); color: #66cc00; }
+.stat-icon.yellow { background: linear-gradient(135deg, #fff3cd, #ffeeba); color: #ffaa00; }
+.stat-icon.cyan { background: linear-gradient(135deg, #d1ecf1, #b8e5eb); color: #00ccff; }
+
+.stat-info h3 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #5a5c69;
+    margin: 0;
+    line-height: 1;
+}
+.stat-info p {
+    color: #858796;
+    margin: 4px 0 0 0;
+    font-size: 0.8rem;
+}
+
+/* Main Grid */
+.main-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+/* Card Box */
+.card-box {
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+    border: 1px solid #e3e6f0;
+    overflow: hidden;
+}
+.card-box .card-header-custom {
+    padding: 18px 24px;
+    border-bottom: 1px solid #e3e6f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fc;
+}
+.card-box .card-header-custom h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: #5a5c69;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.card-box .card-header-custom h3 i {
+    color: #0066cc;
+}
+.card-box .card-body-custom {
+    padding: 20px 24px;
+}
+
+/* Jadwal Today */
+.jadwal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.jadwal-item {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    background: white;
+    border-radius: 16px;
+    transition: all 0.3s ease;
+    border: 1px solid #e3e6f0;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.jadwal-item:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(78, 115, 223, 0.15);
+    border-color: #0066cc;
+}
+.jadwal-item.pengganti {
+    border-left: 4px solid #ffaa00;
+}
+.jadwal-time {
+    background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+    color: white;
+    padding: 20px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 100px;
+    position: relative;
+}
+.jadwal-time::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 8px solid transparent;
+    border-left-color: #0099ff;
+}
+.jadwal-time .start-time {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.5px;
+}
+.jadwal-time .time-divider {
+    width: 20px;
+    height: 2px;
+    background: rgba(255,255,255,0.5);
+    margin: 6px 0;
+    border-radius: 2px;
+}
+.jadwal-time .end-time {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    font-weight: 500;
+}
+.jadwal-time .end {
+    font-size: 0.7rem;
+    opacity: 0.8;
+    margin-top: 2px;
+}
+.jadwal-info {
+    flex: 1;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.jadwal-info h4 {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin: 0 0 10px 0;
+    color: #2d3748;
+    letter-spacing: -0.3px;
+}
+.jadwal-info .badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.jadwal-badge {
+    font-size: 0.72rem;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+.jadwal-badge i {
+    font-size: 0.65rem;
+}
+.jadwal-badge.kelas { background: linear-gradient(135deg, #e8f0fe, #d4e4ff); color: #1a56db; }
+.jadwal-badge.lab { background: linear-gradient(135deg, #e0f7f7, #c5ecec); color: #0e7490; }
+.jadwal-badge.jenis-materi { background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #1e40af; }
+.jadwal-badge.jenis-inhall { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+.jadwal-badge.jenis-responsi { background: linear-gradient(135deg, #fee2e2, #fecaca); color: #991b1b; }
+.jadwal-badge.pengganti-badge { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
+.jadwal-info .materi {
+    font-size: 0.82rem;
+    color: #6b7280;
+    margin-bottom: 14px;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border-left: 3px solid #0066cc;
+}
+.jadwal-info .pengganti-info {
+    font-size: 0.78rem;
+    color: #d97706;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: #fffbeb;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.jadwal-info .pengganti-info i {
+    color: #f59e0b;
+}
+.jadwal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: auto;
+}
+.jadwal-actions .btn {
+    font-size: 0.78rem;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+.jadwal-actions .btn-primary {
+    background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(78, 115, 223, 0.3);
+}
+.jadwal-actions .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(78, 115, 223, 0.4);
+}
+.jadwal-actions .btn-success {
+    background: linear-gradient(135deg, #66cc00 0%, #17a673 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(28, 200, 138, 0.3);
+}
+.jadwal-actions .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(28, 200, 138, 0.4);
+}
+
+/* Ring Chart */
+.ring-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+}
+.ring-chart {
+    position: relative;
+    width: 160px;
+    height: 160px;
+}
+.ring-chart svg {
+    transform: rotate(-90deg);
+    width: 160px;
+    height: 160px;
+}
+.ring-bg {
+    fill: none;
+    stroke: #eaecf4;
+    stroke-width: 12;
+}
+.ring-progress {
+    fill: none;
+    stroke: #66cc00;
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+.ring-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.ring-text .persen {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #66cc00;
+    line-height: 1;
+}
+.ring-text .label {
+    font-size: 0.75rem;
+    color: #858796;
+}
+
+/* Presensi Stats */
+.presensi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 16px;
+}
+.presensi-item {
+    text-align: center;
+    padding: 12px 8px;
+    background: #f8f9fc;
+    border-radius: 10px;
+}
+.presensi-item .num {
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.presensi-item .lbl {
+    font-size: 0.65rem;
+    color: #858796;
+    text-transform: uppercase;
+    margin-top: 4px;
+}
+.presensi-item.hadir .num { color: #66cc00; }
+.presensi-item.izin .num { color: #0066cc; }
+.presensi-item.sakit .num { color: #ffaa00; }
+.presensi-item.alpha .num { color: #ff3333; }
+.presensi-item.belum .num { color: #f3ec90ff; }
+
+/* Activity Log */
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.activity-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px;
+    background: #f8f9fc;
+    border-radius: 10px;
+    transition: background 0.2s;
+}
+.activity-item:hover {
+    background: #eaecf4;
+}
+.activity-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: white;
+}
+.activity-avatar.hadir { background: linear-gradient(135deg, #66cc00, #17a673); }
+.activity-avatar.izin { background: linear-gradient(135deg, #0066cc, #0099ff); }
+.activity-avatar.sakit { background: linear-gradient(135deg, #ffaa00, #dda20a); }
+.activity-avatar.alpha { background: linear-gradient(135deg, #ff3333, #c0392b); }
+.activity-avatar.belum { background: linear-gradient(135deg, #f3f299ff, #f3f17dff); }
+.activity-info {
+    flex: 1;
+    min-width: 0;
+}
+.activity-info h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+    color: #5a5c69;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.activity-info p {
+    font-size: 0.75rem;
+    color: #858796;
+    margin: 2px 0 0 0;
+}
+.activity-time {
+    font-size: 0.7rem;
+    color: #858796;
+    white-space: nowrap;
+}
+
+/* Riwayat Mengajar */
+.riwayat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.riwayat-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    background: #f8f9fc;
+    border-radius: 12px;
+    transition: all 0.2s;
+}
+.riwayat-item:hover {
+    background: #eaecf4;
+}
+.riwayat-date {
+    text-align: center;
+    min-width: 55px;
+}
+.riwayat-date .day {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0066cc;
+    line-height: 1;
+}
+.riwayat-date .month {
+    font-size: 0.7rem;
+    color: #858796;
+    text-transform: uppercase;
+}
+.riwayat-info {
+    flex: 1;
+}
+.riwayat-info h4 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin: 0;
+    color: #5a5c69;
+}
+.riwayat-info .meta {
+    font-size: 0.75rem;
+    color: #858796;
+    margin-top: 3px;
+}
+.riwayat-stat {
+    text-align: right;
+}
+.riwayat-stat .count {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #66cc00;
+}
+.riwayat-stat .label {
+    font-size: 0.65rem;
+    color: #858796;
+}
+
+/* Quick Actions */
+.quick-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+}
+.quick-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: #f8f9fc;
+    border-radius: 14px;
+    text-decoration: none;
+    color: #5a5c69;
+    transition: all 0.25s ease;
+    border: 1px solid #e3e6f0;
+    position: relative;
+    overflow: hidden;
+}
+.quick-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.quick-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(78, 115, 223, 0.25);
+    color: white;
+}
+.quick-btn:hover::before {
+    opacity: 1;
+}
+.quick-btn i, .quick-btn span {
+    position: relative;
+    z-index: 1;
+}
+.quick-btn i {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: #0066cc;
+    transition: color 0.25s;
+}
+.quick-btn:hover i {
+    color: white;
+}
+.quick-btn span {
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: #858796;
+    background: linear-gradient(135deg, #f8f9fc 0%, #eaecf4 100%);
+    border-radius: 16px;
+    border: 2px dashed #d1d5db;
+}
+.empty-state i {
+    font-size: 3.5rem;
+    margin-bottom: 18px;
+    background: linear-gradient(135deg, #0066cc, #00ccff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.empty-state p {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #6b7280;
+}
+.empty-state .sub-text {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-top: 6px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 992px) {
+    .stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .quick-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 768px) {
+    .dashboard-content {
+        padding: 16px;
+    }
+    .welcome-banner {
+        grid-template-columns: 1fr;
+        min-height: auto;
+        border-radius: 16px;
+    }
+    .welcome-content {
+        padding: 20px 20px 10px;
+    }
+    .welcome-content .greeting {
+        font-size: 0.8rem;
+    }
+    .welcome-content h1 {
+        font-size: 1.4rem;
+    }
+    .welcome-content .subtitle {
+        font-size: 0.85rem;
+    }
+    .welcome-stats {
+        padding: 0 20px 20px;
+    }
+    .stats-glass {
+        width: 100%;
+        justify-content: space-around;
+        gap: 16px;
+        padding: 16px 20px;
+    }
+    .stats-glass .stat-num {
+        font-size: 1.4rem;
+    }
+    .stats-glass .stat-label {
+        font-size: 0.7rem;
+    }
+    .stat-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .stat-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+    .stat-icon {
+        width: 48px;
+        height: 48px;
+        font-size: 1.2rem;
+        border-radius: 12px;
+    }
+    .stat-info h3 {
+        font-size: 1.3rem;
+    }
+    .stat-info p {
+        font-size: 0.75rem;
+    }
+    .jadwal-item {
+        flex-direction: column;
+        border-radius: 14px;
+    }
+    .jadwal-time {
+        width: 100%;
+        flex-direction: row;
+        padding: 14px 18px;
+        gap: 10px;
+        min-width: unset;
+    }
+    .jadwal-time::after {
+        display: none;
+    }
+    .jadwal-time .time-divider {
+        width: 2px;
+        height: 16px;
+        margin: 0;
+    }
+    .jadwal-time .start-time {
+        font-size: 1.1rem;
+    }
+    .jadwal-time .end-time {
+        font-size: 0.85rem;
+    }
+    .jadwal-info {
+        padding: 16px;
+    }
+    .jadwal-info h4 {
+        font-size: 0.95rem;
+    }
+    .jadwal-actions {
+        flex-wrap: wrap;
+    }
+    .jadwal-actions .btn {
+        flex: 1;
+        justify-content: center;
+    }
+    .quick-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    .quick-btn {
+        padding: 18px 12px;
+    }
+    /* Card box responsive */
+    .card-box .card-header-custom {
+        padding: 14px 16px;
+    }
+    .card-box .card-header-custom h3 {
+        font-size: 0.9rem;
+    }
+    .card-box .card-body-custom {
+        padding: 16px;
+    }
+    /* Alert grid */
+    .alert-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .alert-card {
+        padding: 14px 16px;
+    }
+    .alert-card i {
+        font-size: 1.3rem;
+    }
+    .alert-card .alert-content h4 {
+        font-size: 0.85rem;
+    }
+    .alert-card .alert-content p {
+        font-size: 0.75rem;
+    }
+    /* Presensi grid */
+    .presensi-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
+    }
+    .presensi-item {
+        padding: 10px 6px;
+    }
+    .presensi-item .num {
+        font-size: 1.1rem;
+    }
+    .presensi-item .lbl {
+        font-size: 0.6rem;
+    }
+    /* Ring chart */
+    .ring-chart {
+        width: 140px;
+        height: 140px;
+    }
+    .ring-chart svg {
+        width: 140px;
+        height: 140px;
+    }
+    .ring-text .persen {
+        font-size: 1.6rem;
+    }
+    /* Activity */
+    .activity-item {
+        padding: 10px;
+        gap: 12px;
+    }
+    .activity-avatar {
+        width: 38px;
+        height: 38px;
+        font-size: 0.8rem;
+    }
+    .activity-info h4 {
+        font-size: 0.8rem;
+    }
+    .activity-info p {
+        font-size: 0.7rem;
+    }
+    /* Riwayat */
+    .riwayat-item {
+        padding: 12px;
+        gap: 12px;
+    }
+    .riwayat-date .day {
+        font-size: 1.1rem;
+    }
+    .riwayat-info h4 {
+        font-size: 0.8rem;
+    }
+    .riwayat-info .meta {
+        font-size: 0.7rem;
+    }
+}
+
+/* Extra Small Mobile (max-width: 576px) */
+@media (max-width: 576px) {
+    .dashboard-content {
+        padding: 12px 10px;
+    }
+    .welcome-banner {
+        border-radius: 14px;
+        margin-bottom: 16px;
+    }
+    .welcome-content {
+        padding: 16px 16px 8px;
+    }
+    .welcome-content .greeting {
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+    }
+    .welcome-content h1 {
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+    }
+    .welcome-content .subtitle {
+        font-size: 0.8rem;
+    }
+    .welcome-stats {
+        padding: 0 16px 16px;
+    }
+    .stats-glass {
+        padding: 14px 12px;
+        gap: 8px;
+        border-radius: 12px;
+    }
+    .stats-glass .stat-item {
+        flex: 1;
+    }
+    .stats-glass .stat-num {
+        font-size: 1.2rem;
+    }
+    .stats-glass .stat-label {
+        font-size: 0.65rem;
+    }
+    /* Stat grid 2 column */
+    .stat-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+    .stat-card {
+        padding: 14px 12px;
+        gap: 12px;
+        border-radius: 10px;
+    }
+    .stat-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+        border-radius: 10px;
+    }
+    .stat-info h3 {
+        font-size: 1.15rem;
+    }
+    .stat-info p {
+        font-size: 0.7rem;
+    }
+    /* Alert cards */
+    .alert-grid {
+        margin-bottom: 16px;
+    }
+    .alert-card {
+        padding: 12px 14px;
+        border-radius: 10px;
+        gap: 12px;
+    }
+    .alert-card i {
+        font-size: 1.1rem;
+    }
+    .alert-card .alert-content h4 {
+        font-size: 0.8rem;
+    }
+    .alert-card .alert-content p {
+        font-size: 0.7rem;
+    }
+    /* Card box */
+    .card-box {
+        border-radius: 12px;
+        margin-bottom: 16px;
+    }
+    .card-box .card-header-custom {
+        padding: 12px 14px;
+    }
+    .card-box .card-header-custom h3 {
+        font-size: 0.85rem;
+        gap: 8px;
+    }
+    .card-box .card-header-custom h3 i {
+        font-size: 0.9rem;
+    }
+    .card-box .card-body-custom {
+        padding: 14px;
+    }
+    /* Jadwal items */
+    .jadwal-list {
+        gap: 14px;
+    }
+    .jadwal-item {
+        border-radius: 12px;
+    }
+    .jadwal-time {
+        padding: 12px 14px;
+        gap: 8px;
+    }
+    .jadwal-time .start-time {
+        font-size: 1rem;
+    }
+    .jadwal-time .end-time {
+        font-size: 0.8rem;
+    }
+    .jadwal-time .time-divider {
+        height: 12px;
+    }
+    .jadwal-info {
+        padding: 14px;
+    }
+    .jadwal-info h4 {
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+    }
+    .jadwal-info .badges {
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+    .jadwal-badge {
+        font-size: 0.68rem;
+        padding: 4px 10px;
+    }
+    .jadwal-info .materi {
+        font-size: 0.78rem;
+        padding: 6px 10px;
+        margin-bottom: 12px;
+    }
+    .jadwal-info .pengganti-info {
+        font-size: 0.72rem;
+        padding: 6px 10px;
+    }
+    .jadwal-actions {
+        gap: 8px;
+    }
+    .jadwal-actions .btn {
+        font-size: 0.72rem;
+        padding: 8px 12px;
+        border-radius: 8px;
+    }
+    /* Quick grid */
+    .quick-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+    .quick-btn {
+        padding: 16px 10px;
+        border-radius: 10px;
+    }
+    .quick-btn i {
+        font-size: 1.3rem;
+        margin-bottom: 8px;
+    }
+    .quick-btn span {
+        font-size: 0.75rem;
+    }
+    /* Ring chart */
+    .ring-container {
+        padding: 5px 0;
+    }
+    .ring-chart {
+        width: 120px;
+        height: 120px;
+    }
+    .ring-chart svg {
+        width: 120px;
+        height: 120px;
+    }
+    .ring-bg, .ring-progress {
+        stroke-width: 10;
+    }
+    .ring-text .persen {
+        font-size: 1.4rem;
+    }
+    .ring-text .label {
+        font-size: 0.65rem;
+    }
+    /* Presensi grid 4 column */
+    .presensi-grid {
+        gap: 4px;
+        margin-top: 12px;
+    }
+    .presensi-item {
+        padding: 8px 4px;
+        border-radius: 8px;
+    }
+    .presensi-item .num {
+        font-size: 1rem;
+    }
+    .presensi-item .lbl {
+        font-size: 0.55rem;
+    }
+    /* Activity list */
+    .activity-list {
+        gap: 10px;
+    }
+    .activity-item {
+        padding: 10px;
+        gap: 10px;
+        border-radius: 8px;
+    }
+    .activity-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 0.75rem;
+        border-radius: 8px;
+    }
+    .activity-info h4 {
+        font-size: 0.78rem;
+    }
+    .activity-info p {
+        font-size: 0.68rem;
+    }
+    .activity-time {
+        font-size: 0.65rem;
+    }
+    /* Riwayat list */
+    .riwayat-list {
+        gap: 10px;
+    }
+    .riwayat-item {
+        padding: 10px;
+        gap: 10px;
+        border-radius: 10px;
+    }
+    .riwayat-date {
+        min-width: 45px;
+    }
+    .riwayat-date .day {
+        font-size: 1rem;
+    }
+    .riwayat-date .month {
+        font-size: 0.65rem;
+    }
+    .riwayat-info h4 {
+        font-size: 0.78rem;
+    }
+    .riwayat-info .meta {
+        font-size: 0.68rem;
+    }
+    .riwayat-stat .count {
+        font-size: 0.9rem;
+    }
+    .riwayat-stat .label {
+        font-size: 0.6rem;
+    }
+    /* Empty state */
+    .empty-state {
+        padding: 35px 15px;
+        border-radius: 12px;
+    }
+    .empty-state i {
+        font-size: 2.5rem;
+        margin-bottom: 14px;
+    }
+    .empty-state p {
+        font-size: 0.9rem;
+    }
+    .empty-state .sub-text {
+        font-size: 0.75rem;
+    }
+    /* Main grid gap */
+    .main-grid {
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+}
+
+/* Extra Extra Small Mobile (max-width: 400px) */
+@media (max-width: 400px) {
+    .dashboard-content {
+        padding: 10px 8px;
+    }
+    .welcome-content h1 {
+        font-size: 1.1rem;
+    }
+    .stats-glass {
+        flex-direction: row;
+        flex-wrap: nowrap;
+    }
+    .stats-glass .stat-num {
+        font-size: 1.1rem;
+    }
+    .stats-glass .stat-label {
+        font-size: 0.6rem;
+    }
+    .stat-card {
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+        padding: 12px 10px;
+    }
+    .stat-icon {
+        margin: 0 auto;
+    }
+    .stat-info h3 {
+        font-size: 1.1rem;
+    }
+    .presensi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .quick-btn {
+        padding: 14px 8px;
+    }
+    .quick-btn i {
+        font-size: 1.2rem;
+    }
+    .quick-btn span {
+        font-size: 0.7rem;
+    }
+}
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3 col-lg-2 px-0">
+            <?php include 'includes/sidebar_asisten.php'; ?>
+        </div>
+        
+        <div class="col-md-9 col-lg-10">
+            <div class="dashboard-content">
+                <?= show_alert() ?>
+                
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <div class="welcome-content">
+                        <div class="greeting"><?= $greeting ?></div>
+                        <h1><?= $asisten['nama'] ?></h1>
+                        <div class="subtitle">
+                            <i class="fas fa-flask me-1"></i> <?= $asisten['nama_mk'] ?: 'Asisten Laboratorium' ?>
+                            &nbsp;•&nbsp; <?= format_tanggal(date('Y-m-d')) ?>
+                        </div>
+                    </div>
+                    <div class="welcome-stats">
+                        <div class="stats-glass">
+                            <div class="stat-item">
+                                <span class="stat-num"><?= count($all_jadwal) ?></span>
+                                <span class="stat-label">Jadwal Hari Ini</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num"><?= $stat['total'] ?></span>
+                                <span class="stat-label">Minggu Ini</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num"><?= $persen_hadir ?>%</span>
+                                <span class="stat-label">Kehadiran</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Alert Cards -->
+                <div class="alert-grid">
+                    <?php if (count($all_jadwal) > 0): ?>
+                    <div class="alert-card info">
+                        <i class="fas fa-calendar-check"></i>
+                        <div class="alert-content">
+                            <h4>Ada <?= count($all_jadwal) ?> Jadwal Hari Ini</h4>
+                            <p>Jangan lupa generate QR untuk presensi mahasiswa</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <?php if ($stat_pengganti['total'] > 0): ?>
+                    <div class="alert-card warning">
+                        <i class="fas fa-user-friends"></i>
+                        <div class="alert-content">
+                            <h4><?= $stat_pengganti['total'] ?> Jadwal Pengganti</h4>
+                            <p>Anda menggantikan asisten lain minggu ini</p>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+                    
+                    <div class="alert-card success">
+                        <i class="fas fa-chart-line"></i>
+                        <div class="alert-content">
+                            <h4>Kehadiran Bulan Ini: <?= $persen_hadir ?>%</h4>
+                            <p>Total <?= $total_jadwal_bulan ?> jadwal mengajar</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Stat Cards -->
+                <div class="stat-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= count($all_jadwal) ?></h3>
+                            <p>Jadwal Hari Ini</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon yellow">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $stat_pengganti['total'] ?></h3>
+                            <p>Sebagai Pengganti</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-calendar-week"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $stat['total'] ?></h3>
+                            <p>Jadwal Minggu Ini</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon cyan">
+                            <i class="fas fa-clipboard-check"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $total_jadwal_bulan ?></h3>
+                            <p>Jadwal Bulan Ini</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Main Grid -->
+                <div class="main-grid">
+                    <!-- Left Column: Jadwal Hari Ini -->
+                    <div class="card-box">
+                        <div class="card-header-custom">
+                            <h3><i class="fas fa-calendar-day"></i> Jadwal Mengajar Hari Ini</h3>
+                            <a href="index.php?page=asisten_jadwal" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                        </div>
+                        <div class="card-body-custom">
+                            <?php if (count($all_jadwal) > 0): ?>
+                                <div class="jadwal-list">
+                                    <?php foreach ($all_jadwal as $j): ?>
+                                        <div class="jadwal-item <?= $j['tipe_jadwal'] == 'pengganti' ? 'pengganti' : '' ?>">
+                                            <div class="jadwal-time">
+                                                <span class="start-time"><?= format_waktu($j['jam_mulai']) ?></span>
+                                                <div class="time-divider"></div>
+                                                <span class="end-time"><?= format_waktu($j['jam_selesai']) ?></span>
+                                            </div>
+                                            <div class="jadwal-info">
+                                                <h4><?= $j['nama_mk'] ?></h4>
+                                                <div class="badges">
+                                                    <span class="jadwal-badge kelas"><i class="fas fa-users"></i> <?= $j['nama_kelas'] ?></span>
+                                                    <span class="jadwal-badge lab"><i class="fas fa-flask"></i> <?= $j['nama_lab'] ?></span>
+                                                    <span class="jadwal-badge jenis-<?= $j['jenis'] ?>"><i class="fas fa-tag"></i> <?= ucfirst($j['jenis']) ?></span>
+                                                    <?php if ($j['tipe_jadwal'] == 'pengganti'): ?>
+                                                        <span class="jadwal-badge pengganti-badge"><i class="fas fa-user-friends"></i> Pengganti</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <?php if ($j['tipe_jadwal'] == 'pengganti'): ?>
+                                                    <div class="pengganti-info">
+                                                        <i class="fas fa-info-circle me-1"></i>Menggantikan: <?= $j['asisten_asli'] ?>
+                                                    </div>
+                                                <?php endif; ?>
+                                                <?php if ($j['materi']): ?>
+                                                    <div class="materi"><?= $j['materi'] ?></div>
+                                                <?php endif; ?>
+                                                <div class="jadwal-actions">
+                                                    <a href="index.php?page=asisten_qrcode&jadwal=<?= $j['id'] ?>" class="btn btn-primary btn-sm">
+                                                        <i class="fas fa-qrcode me-1"></i>Generate QR
+                                                    </a>
+                                                    <a href="index.php?page=asisten_monitoring&jadwal=<?= $j['id'] ?>" class="btn btn-success btn-sm">
+                                                        <i class="fas fa-tv me-1"></i>Monitoring
+                                                    </a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="empty-state">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <p>Tidak ada jadwal mengajar hari ini</p>
+                                    <p class="sub-text">Nikmati waktu luang Anda!</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column -->
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Kehadiran Bulan Ini -->
+                        <div class="card-box">
+                            <div class="card-header-custom">
+                                <h3><i class="fas fa-chart-pie"></i> Kehadiran Bulan Ini</h3>
+                            </div>
+                            <div class="card-body-custom">
+                                <div class="ring-container">
+                                    <div class="ring-chart">
+                                        <svg viewBox="0 0 160 160">
+                                            <circle class="ring-bg" cx="80" cy="80" r="68"/>
+                                            <circle class="ring-progress" cx="80" cy="80" r="68" 
+                                                    stroke-dasharray="427" 
+                                                    stroke-dashoffset="<?= 427 - (427 * $persen_hadir / 100) ?>"/>
+                                        </svg>
+                                        <div class="ring-text">
+                                            <span class="persen"><?= $persen_hadir ?>%</span>
+                                            <span class="label">Hadir</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="presensi-grid">
+                                    <div class="presensi-item hadir">
+                                        <div class="num"><?= $stat_hadir['hadir'] ?? 0 ?></div>
+                                        <div class="lbl">Hadir</div>
+                                    </div>
+                                    <div class="presensi-item izin">
+                                        <div class="num"><?= $stat_hadir['izin'] ?? 0 ?></div>
+                                        <div class="lbl">Izin</div>
+                                    </div>
+                                    <div class="presensi-item sakit">
+                                        <div class="num"><?= $stat_hadir['sakit'] ?? 0 ?></div>
+                                        <div class="lbl">Sakit</div>
+                                    </div>
+                                    <div class="presensi-item alpha">
+                                        <div class="num"><?= $stat_hadir['alpha'] ?? 0 ?></div>
+                                        <div class="lbl">Alpha</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Presensi Terbaru -->
+                        <div class="card-box">
+                            <div class="card-header-custom">
+                                <h3><i class="fas fa-history"></i> Presensi Terbaru</h3>
+                            </div>
+                            <div class="card-body-custom">
+                                <?php if (mysqli_num_rows($recent_presensi) > 0): ?>
+                                    <div class="activity-list">
+                                        <?php while ($act = mysqli_fetch_assoc($recent_presensi)): ?>
+                                            <div class="activity-item">
+                                                <div class="activity-avatar <?= $act['status'] ?>">
+                                                    <?= strtoupper(substr($act['nama_mhs'], 0, 2)) ?>
+                                                </div>
+                                                <div class="activity-info">
+                                                    <h4><?= $act['nama_mhs'] ?></h4>
+                                                    <p><?= $act['nama_mk'] ?> - <?= ucfirst($act['status']) ?></p>
+                                                </div>
+                                                <div class="activity-time">
+                                                    <?= date('H:i', strtotime($act['waktu_presensi'])) ?>
+                                                </div>
+                                            </div>
+                                        <?php endwhile; ?>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="empty-state">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>Belum ada data presensi</p>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Second Row -->
+                <div class="main-grid" style="margin-bottom: 0;">
+                    <!-- Riwayat Mengajar -->
+                    <div class="card-box">
+                        <div class="card-header-custom">
+                            <h3><i class="fas fa-history"></i> Riwayat Mengajar Terakhir</h3>
+                            <a href="index.php?page=asisten_rekap" class="btn btn-sm btn-outline-primary">Lihat Rekap</a>
+                        </div>
+                        <div class="card-body-custom">
+                            <?php if (mysqli_num_rows($riwayat) > 0): ?>
+                                <div class="riwayat-list">
+                                    <?php while ($rw = mysqli_fetch_assoc($riwayat)): ?>
+                                        <div class="riwayat-item">
+                                            <div class="riwayat-date">
+                                                <span class="day"><?= date('d', strtotime($rw['tanggal'])) ?></span>
+                                                <span class="month"><?= date('M', strtotime($rw['tanggal'])) ?></span>
+                                            </div>
+                                            <div class="riwayat-info">
+                                                <h4><?= $rw['nama_mk'] ?></h4>
+                                                <div class="meta">
+                                                    <?= $rw['nama_kelas'] ?> • <?= $rw['nama_lab'] ?> • <?= format_waktu($rw['jam_mulai']) ?>
+                                                </div>
+                                            </div>
+                                            <div class="riwayat-stat">
+                                                <div class="count"><?= $rw['total_hadir'] ?>/<?= $rw['total_mhs'] ?></div>
+                                                <div class="label">Hadir</div>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="empty-state">
+                                    <i class="fas fa-calendar"></i>
+                                    <p>Belum ada riwayat mengajar</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Actions -->
+                    <div class="card-box">
+                        <div class="card-header-custom">
+                            <h3><i class="fas fa-bolt"></i> Aksi Cepat</h3>
+                        </div>
+                        <div class="card-body-custom">
+                            <div class="quick-grid">
+                                <a href="index.php?page=asisten_qrcode" class="quick-btn">
+                                    <i class="fas fa-qrcode"></i>
+                                    <span>Generate QR</span>
+                                </a>
+                                <a href="index.php?page=asisten_monitoring" class="quick-btn">
+                                    <i class="fas fa-tv"></i>
+                                    <span>Monitoring</span>
+                                </a>
+                                <a href="index.php?page=asisten_jadwal" class="quick-btn">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <span>Jadwal</span>
+                                </a>
+                                <a href="index.php?page=asisten_rekap" class="quick-btn">
+                                    <i class="fas fa-file-alt"></i>
+                                    <span>Rekap</span>
+                                </a>
+                                <a href="index.php?page=asisten_presensi_manual" class="quick-btn">
+                                    <i class="fas fa-edit"></i>
+                                    <span>Presensi Manual</span>
+                                </a>
+                                <a href="index.php?page=asisten_pengajuan_izin" class="quick-btn">
+                                    <i class="fas fa-paper-plane"></i>
+                                    <span>Ajukan Izin</span>
+                                </a>
+                                <a href="index.php?page=asisten_izin" class="quick-btn">
+                                    <i class="fas fa-clipboard-list"></i>
+                                    <span>Izin Mahasiswa</span>
+                                </a>
+                                <a href="index.php?page=logout" class="quick-btn">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    <span>Logout</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php include 'includes/footer.php'; ?>
