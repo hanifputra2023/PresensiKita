@@ -134,7 +134,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 
 /* Welcome Banner */
 .welcome-banner {
-    background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+    background: var(--banner-gradient);
     border-radius: 24px;
     padding: 0;
     color: white;
@@ -278,14 +278,14 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     margin-bottom: 28px;
 }
 .stat-card {
-    background: white;
+    background: var(--bg-card);
     border-radius: 16px;
     padding: 24px;
     display: flex;
     align-items: center;
     gap: 18px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-    border: 1px solid #e3e6f0;
+    border: 1px solid var(--border-color);
     transition: all 0.25s ease;
 }
 .stat-card:hover {
@@ -309,12 +309,12 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 .stat-info h3 {
     font-size: 1.6rem;
     font-weight: 700;
-    color: #5a5c69;
+    color: var(--text-main);
     margin: 0;
     line-height: 1;
 }
 .stat-info p {
-    color: #858796;
+    color: var(--text-muted);
     margin: 4px 0 0 0;
     font-size: 0.8rem;
 }
@@ -329,25 +329,25 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 
 /* Card Box */
 .card-box {
-    background: white;
+    background: var(--bg-card);
     border-radius: 16px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.04);
-    border: 1px solid #e3e6f0;
+    border: 1px solid var(--border-color);
     overflow: hidden;
 }
 .card-box .card-header-custom {
     padding: 18px 24px;
-    border-bottom: 1px solid #e3e6f0;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f8f9fc;
+    background: var(--header-bg);
 }
 .card-box .card-header-custom h3 {
     font-size: 1rem;
     font-weight: 600;
     margin: 0;
-    color: #5a5c69;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -370,10 +370,10 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     align-items: stretch;
     gap: 0;
     padding: 0;
-    background: white;
+    background: var(--bg-card);
     border-radius: 16px;
     transition: all 0.3s ease;
-    border: 1px solid #e3e6f0;
+    border: 1px solid var(--border-color);
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
 }
@@ -439,7 +439,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     font-size: 1.05rem;
     font-weight: 700;
     margin: 0 0 10px 0;
-    color: #2d3748;
+    color: var(--text-main);
     letter-spacing: -0.3px;
 }
 .jadwal-info .badges {
@@ -468,10 +468,10 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 .jadwal-badge.pengganti-badge { background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; }
 .jadwal-info .materi {
     font-size: 0.82rem;
-    color: #6b7280;
+    color: var(--text-muted);
     margin-bottom: 14px;
     padding: 8px 12px;
-    background: #f8fafc;
+    background: var(--bg-body);
     border-radius: 8px;
     border-left: 3px solid #0066cc;
 }
@@ -542,7 +542,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 }
 .ring-bg {
     fill: none;
-    stroke: #eaecf4;
+    stroke: var(--border-color);
     stroke-width: 12;
 }
 .ring-progress {
@@ -567,7 +567,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 }
 .ring-text .label {
     font-size: 0.75rem;
-    color: #858796;
+    color: var(--text-muted);
 }
 
 /* Presensi Stats */
@@ -580,7 +580,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 .presensi-item {
     text-align: center;
     padding: 12px 8px;
-    background: #f8f9fc;
+    background: var(--bg-body);
     border-radius: 10px;
 }
 .presensi-item .num {
@@ -590,7 +590,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 }
 .presensi-item .lbl {
     font-size: 0.65rem;
-    color: #858796;
+    color: var(--text-muted);
     text-transform: uppercase;
     margin-top: 4px;
 }
@@ -611,12 +611,12 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     align-items: center;
     gap: 14px;
     padding: 12px;
-    background: #f8f9fc;
+    background: var(--bg-body);
     border-radius: 10px;
     transition: background 0.2s;
 }
 .activity-item:hover {
-    background: #eaecf4;
+    background: var(--border-color);
 }
 .activity-avatar {
     width: 42px;
@@ -642,19 +642,19 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     font-size: 0.85rem;
     font-weight: 600;
     margin: 0;
-    color: #5a5c69;
+    color: var(--text-main);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .activity-info p {
     font-size: 0.75rem;
-    color: #858796;
+    color: var(--text-muted);
     margin: 2px 0 0 0;
 }
 .activity-time {
     font-size: 0.7rem;
-    color: #858796;
+    color: var(--text-muted);
     white-space: nowrap;
 }
 
@@ -669,12 +669,12 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     align-items: center;
     gap: 14px;
     padding: 14px;
-    background: #f8f9fc;
+    background: var(--bg-body);
     border-radius: 12px;
     transition: all 0.2s;
 }
 .riwayat-item:hover {
-    background: #eaecf4;
+    background: var(--border-color);
 }
 .riwayat-date {
     text-align: center;
@@ -688,7 +688,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 }
 .riwayat-date .month {
     font-size: 0.7rem;
-    color: #858796;
+    color: var(--text-muted);
     text-transform: uppercase;
 }
 .riwayat-info {
@@ -698,11 +698,11 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     font-size: 0.85rem;
     font-weight: 600;
     margin: 0;
-    color: #5a5c69;
+    color: var(--text-main);
 }
 .riwayat-info .meta {
     font-size: 0.75rem;
-    color: #858796;
+    color: var(--text-muted);
     margin-top: 3px;
 }
 .riwayat-stat {
@@ -715,7 +715,7 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 }
 .riwayat-stat .label {
     font-size: 0.65rem;
-    color: #858796;
+    color: var(--text-muted);
 }
 
 /* Quick Actions */
@@ -730,12 +730,12 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     align-items: center;
     justify-content: center;
     padding: 24px 16px;
-    background: #f8f9fc;
+    background: var(--bg-body);
     border-radius: 14px;
     text-decoration: none;
-    color: #5a5c69;
+    color: var(--text-main);
     transition: all 0.25s ease;
-    border: 1px solid #e3e6f0;
+    border: 1px solid var(--border-color);
     position: relative;
     overflow: hidden;
 }
@@ -781,10 +781,10 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 .empty-state {
     text-align: center;
     padding: 50px 20px;
-    color: #858796;
-    background: linear-gradient(135deg, #f8f9fc 0%, #eaecf4 100%);
+    color: var(--text-muted);
+    background: var(--bg-body);
     border-radius: 16px;
-    border: 2px dashed #d1d5db;
+    border: 2px dashed var(--border-color);
 }
 .empty-state i {
     font-size: 3.5rem;
@@ -798,12 +798,60 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     margin: 0;
     font-size: 1rem;
     font-weight: 500;
-    color: #6b7280;
+    color: var(--text-muted);
 }
 .empty-state .sub-text {
     font-size: 0.85rem;
-    color: #9ca3af;
+    color: var(--text-muted);
     margin-top: 6px;
+}
+
+/* Dark Mode Specific Overrides */
+[data-theme="dark"] .alert-card.warning {
+    background: rgba(255, 170, 0, 0.1);
+    border-color: rgba(255, 170, 0, 0.3);
+}
+[data-theme="dark"] .alert-card.info {
+    background: rgba(0, 102, 204, 0.1);
+    border-color: rgba(0, 102, 204, 0.3);
+}
+[data-theme="dark"] .alert-card.success {
+    background: rgba(102, 204, 0, 0.1);
+    border-color: rgba(102, 204, 0, 0.3);
+}
+[data-theme="dark"] .alert-card .alert-content h4 {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .stat-icon.blue { background: rgba(0, 102, 204, 0.2); color: #66b0ff; }
+[data-theme="dark"] .stat-icon.green { background: rgba(102, 204, 0, 0.2); color: #85e085; }
+[data-theme="dark"] .stat-icon.yellow { background: rgba(255, 170, 0, 0.2); color: #ffcc00; }
+[data-theme="dark"] .stat-icon.cyan { background: rgba(0, 204, 255, 0.2); color: #33d6ff; }
+
+[data-theme="dark"] .jadwal-info .materi {
+    background: rgba(255,255,255,0.05);
+    border-left-color: #66b0ff;
+    color: var(--text-muted);
+}
+[data-theme="dark"] .jadwal-info .pengganti-info {
+    background: rgba(245, 158, 11, 0.1);
+    color: #fbbf24;
+}
+[data-theme="dark"] .jadwal-info .pengganti-info i {
+    color: #fbbf24;
+}
+
+[data-theme="dark"] .presensi-item,
+[data-theme="dark"] .activity-item,
+[data-theme="dark"] .riwayat-item {
+    background: rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .activity-item:hover,
+[data-theme="dark"] .riwayat-item:hover {
+    background: rgba(255,255,255,0.1);
+}
+[data-theme="dark"] .quick-btn:hover {
+    background: var(--primary-color);
 }
 
 /* Responsive */

@@ -238,6 +238,11 @@ $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
         background: var(--banner-gradient);
         color: #fff;
     }
+    /* Dark Mode Fixes */
+    [data-theme="dark"] .btn-warning,
+    [data-theme="dark"] .btn-info {
+        color: #212529 !important;
+    }
 </style>
 
 <div class="container-fluid">
@@ -313,7 +318,7 @@ $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
                                         <p class="text-muted mb-2"><i class="fas fa-phone-alt me-2"></i><?= htmlspecialchars($m['no_hp']) ?: 'N/A' ?></p>
                                         
                                         <div class="mt-auto action-buttons">
-                                            <button class="btn btn-sm btn-warning" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
+                                            <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="hapusMhs(<?= $m['id'] ?>)">

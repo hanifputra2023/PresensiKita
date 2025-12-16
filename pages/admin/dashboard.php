@@ -956,6 +956,46 @@ if ($hour < 12) {
         padding: 12px 0;
     }
 }
+
+/* Dark Mode Dashboard Fixes */
+[data-theme="dark"] .welcome-banner {
+    background: var(--banner-gradient);
+}
+[data-theme="dark"] .alert-card.warning {
+    background: rgba(255, 170, 0, 0.1);
+    border-color: rgba(255, 170, 0, 0.3);
+}
+[data-theme="dark"] .alert-card.info {
+    background: rgba(0, 102, 204, 0.1);
+    border-color: rgba(0, 102, 204, 0.3);
+}
+[data-theme="dark"] .alert-card.success {
+    background: rgba(102, 204, 0, 0.1);
+    border-color: rgba(102, 204, 0, 0.3);
+}
+[data-theme="dark"] .alert-card .alert-content h4 {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .stat-icon.blue { background: rgba(0, 102, 204, 0.2); color: #66b0ff; }
+[data-theme="dark"] .stat-icon.green { background: rgba(102, 204, 0, 0.2); color: #85e085; }
+[data-theme="dark"] .stat-icon.yellow { background: rgba(255, 170, 0, 0.2); color: #ffcc00; }
+[data-theme="dark"] .stat-icon.cyan { background: rgba(0, 204, 255, 0.2); color: #33d6ff; }
+[data-theme="dark"] .stat-icon.purple { background: rgba(111, 66, 193, 0.2); color: #a685e0; }
+
+[data-theme="dark"] .jadwal-item:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .jadwal-badge {
+    background-color: rgba(255,255,255,0.1);
+    color: var(--text-main);
+}
+[data-theme="dark"] .presensi-item {
+    background-color: rgba(255,255,255,0.05);
+}
+[data-theme="dark"] .top-rank.normal {
+    background-color: rgba(255,255,255,0.1);
+}
 </style>
 
 <div class="container-fluid">

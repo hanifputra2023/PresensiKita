@@ -54,7 +54,7 @@
             --banner-gradient: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
             --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
             --sidebar-bg: linear-gradient(180deg, #1a1c23 10%, #111827 100%);
-            --sidebar-brand-bg: #1a1c23;
+            --sidebar-brand-bg: #727272ff;
         }
         
         body {
@@ -319,6 +319,12 @@
             background-color: rgba(255, 255, 255, 0.08);
             color: var(--text-main);
         }
+        
+        /* Mobile Header Dark Mode */
+        [data-theme="dark"] .mobile-header {
+            background: var(--sidebar-brand-bg) !important;
+            border-bottom: 1px solid var(--border-color);
+        }
 
         /* Theme Toggle Button Style */
         .theme-toggle-btn {
@@ -365,10 +371,10 @@
             .table-mobile-cards tr {
                 display: block;
                 margin-bottom: 1rem;
-                border: 1px solid #e3e6f0;
+                border: 1px solid var(--border-color);
                 border-radius: 10px;
                 padding: 0.75rem;
-                background: #fff;
+                background: var(--bg-card);
                 box-shadow: 0 0.1rem 0.5rem rgba(0,0,0,0.08);
             }
             
@@ -378,7 +384,7 @@
                 align-items: flex-start;
                 padding: 0.5rem 0;
                 border: none;
-                border-bottom: 1px solid #f0f0f0;
+                border-bottom: 1px solid var(--border-color);
             }
             
             .table-mobile-cards td:last-child {
@@ -388,7 +394,7 @@
             .table-mobile-cards td::before {
                 content: attr(data-label);
                 font-weight: bold;
-                color: #5a5c69;
+                color: var(--text-muted);
                 margin-right: 1rem;
                 flex-shrink: 0;
                 max-width: 40%;

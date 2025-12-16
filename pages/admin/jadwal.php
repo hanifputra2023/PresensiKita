@@ -342,6 +342,18 @@ if ($lab_list_query) {
     color: var(--text-main) !important;
     border-color: var(--border-color) !important;
 }
+
+/* Mobile Card Content Fixes for Dark Mode */
+[data-theme="dark"] .card h6 {
+    color: var(--text-main);
+}
+[data-theme="dark"] .card .small,
+[data-theme="dark"] .card small {
+    color: var(--text-muted);
+}
+[data-theme="dark"] .btn-warning.text-dark {
+    color: #212529 !important;
+}
 </style>
 
 <div class="container-fluid">

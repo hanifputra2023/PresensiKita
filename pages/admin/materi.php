@@ -132,7 +132,45 @@ if (isset($_GET['status'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
-[data-theme="dark"] .card.bg-light { background-color: var(--bg-card) !important; border-color: var(--border-color) !important; }
+/* Dark Mode Fixes for Materi Page */
+[data-theme="dark"] .card.bg-light { 
+    background-color: var(--bg-card) !important; 
+    border-color: var(--border-color) !important;
+    color: var(--text-main) !important;
+}
+[data-theme="dark"] .card.bg-light .card-title,
+[data-theme="dark"] .card.bg-light .card-text,
+[data-theme="dark"] .card.bg-light strong {
+    color: var(--text-main) !important;
+}
+
+[data-theme="dark"] .btn-light {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+[data-theme="dark"] .btn-light:hover {
+    background-color: var(--border-color);
+    color: var(--text-main);
+}
+
+/* Form & Table Fixes */
+[data-theme="dark"] .form-label,
+[data-theme="dark"] .form-check-label { color: var(--text-main); }
+[data-theme="dark"] .form-text { color: var(--text-muted); }
+[data-theme="dark"] .table { color: var(--text-main); }
+
+/* Alert Fixes */
+[data-theme="dark"] .alert-danger {
+    background-color: rgba(220, 53, 69, 0.2);
+    color: #ea868f;
+    border-color: rgba(220, 53, 69, 0.3);
+}
+[data-theme="dark"] .alert-success {
+    background-color: rgba(25, 135, 84, 0.2);
+    color: #75b798;
+    border-color: rgba(25, 135, 84, 0.3);
+}
 </style>
 
 <div class="container-fluid">
