@@ -840,6 +840,45 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 [data-theme="dark"] .jadwal-info .pengganti-info i {
     color: #fbbf24;
 }
+/* Dark Mode Badges in Jadwal Info */
+[data-theme="dark"] .jadwal-badge.kelas { background: rgba(26, 86, 219, 0.2); color: #93c5fd; }
+[data-theme="dark"] .jadwal-badge.lab { background: rgba(14, 116, 144, 0.2); color: #67e8f9; }
+[data-theme="dark"] .jadwal-badge.jenis-materi { background: rgba(30, 64, 175, 0.2); color: #93c5fd; }
+[data-theme="dark"] .jadwal-badge.jenis-inhall { background: rgba(146, 64, 14, 0.2); color: #fcd34d; }
+[data-theme="dark"] .jadwal-badge.jenis-responsi { background: rgba(153, 27, 27, 0.2); color: #fca5a5; }
+[data-theme="dark"] .jadwal-badge.pengganti-badge { background: rgba(146, 64, 14, 0.2); color: #fcd34d; }
+
+/* Dark Mode Jadwal Time */
+[data-theme="dark"] .jadwal-time {
+    background: rgba(0, 102, 204, 0.2);
+    color: #66b0ff;
+}
+[data-theme="dark"] .jadwal-time::after {
+    border-left-color: rgba(0, 102, 204, 0.2);
+}
+[data-theme="dark"] .jadwal-time .time-divider {
+    background: rgba(102, 176, 255, 0.3);
+}
+
+/* Dark Mode Buttons in Dashboard */
+[data-theme="dark"] .jadwal-actions .btn-primary {
+    background: linear-gradient(135deg, #3a8fd9 0%, #2c7bc0 100%);
+    box-shadow: none;
+    color: #fff !important;
+}
+[data-theme="dark"] .jadwal-actions .btn-success {
+    background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+    box-shadow: none;
+    color: #fff !important;
+}
+[data-theme="dark"] .btn-outline-primary {
+    color: #66b0ff;
+    border-color: #66b0ff;
+}
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: #66b0ff;
+    color: #212529;
+}
 
 [data-theme="dark"] .presensi-item,
 [data-theme="dark"] .activity-item,

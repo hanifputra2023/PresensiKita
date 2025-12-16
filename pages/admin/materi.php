@@ -181,9 +181,7 @@ if (isset($_GET['status'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="mb-4">
-                    <a href="index.php?page=admin_jadwal" class="btn btn-sm btn-light"><i class="fas fa-arrow-left me-2"></i>Kembali ke Jadwal</a>
-                </div>
+                
 
                 <div class="card bg-light border-primary mb-4">
                     <div class="card-body">

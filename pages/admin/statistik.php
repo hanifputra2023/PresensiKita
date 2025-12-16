@@ -693,6 +693,11 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 [data-theme="dark"] .stat-tab:hover {
     background-color: rgba(255,255,255,0.1);
 }
+
+[data-theme="dark"] .modal-header {
+    background: linear-gradient(135deg, #1a2a6c, #2c5364) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+}
 </style>
 
 <div class="container-fluid">
@@ -1018,6 +1023,42 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     </div>
 </div>
 
+<style>
+/* Styles for Detail Mahasiswa (general) */
+.detail-table { width: 100%; margin-bottom: 0; }
+.detail-table th, .detail-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+.detail-table th { width: 30%; font-weight: 600; color: var(--text-main); }
+.detail-table td { color: var(--text-muted); }
+.detail-table tbody tr:last-child th,
+.detail-table tbody tr:last-child td { border-bottom: none; }
+
+/* Dark Mode Specific Styles for Detail Modal */
+[data-theme="dark"] #detailModal .modal-body {
+    color: var(--text-muted);
+}
+[data-theme="dark"] #detailModal table {
+    color: var(--text-muted);
+}
+[data-theme="dark"] #detailModal table td,
+[data-theme="dark"] #detailModal table th {
+    color: var(--text-muted) !important;
+    border-color: var(--border-color) !important;
+}
+[data-theme="dark"] #detailModal table th {
+    color: var(--text-main) !important;
+}
+[data-theme="dark"] #detailModal table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="dark"] #detailModal table tbody tr:hover td,
+[data-theme="dark"] #detailModal table tbody tr:hover th {
+    color: var(--text-main) !important;
+}
+[data-theme="dark"] #detailModal .detail-jadwal {
+    color: var(--text-main) !important;
+}
+</style>
+
 <?php include 'includes/footer.php'; ?>
 
 <script>
@@ -1032,7 +1073,7 @@ function showDetailMahasiswa(status, kode_kelas = '', kode_mk = '', kode_lab = '
     if (kode_lab) queryString += `&lab=${kode_lab}`;
     
     // Fetch detail data
-    fetch(`/presensi_kampus/api/get_detail_statistik.php?${queryString}`)
+    fetch(`api/get_detail_statistik.php?${queryString}`)
         .then(response => response.text())
         .then(data => {
             document.getElementById('modalContent').innerHTML = data;

@@ -172,6 +172,95 @@ while ($j = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $j; }
     }
 }
 
+/* Dark Mode Fixes */
+[data-theme="dark"] .list-group-item {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    color: var(--text-main);
+}
+[data-theme="dark"] .list-group-item-action:hover {
+    background-color: rgba(255,255,255,0.05);
+    color: var(--text-main);
+}
+[data-theme="dark"] .list-group-item.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+}
+[data-theme="dark"] .list-group-item.active small {
+    color: rgba(255,255,255,0.8);
+}
+[data-theme="dark"] .btn-warning, 
+[data-theme="dark"] .btn-info {
+    color: #212529 !important;
+}
+[data-theme="dark"] .btn-warning { background-color: #ffc107; border-color: #ffc107; }
+[data-theme="dark"] .btn-info { background-color: #0dcaf0; border-color: #0dcaf0; }
+[data-theme="dark"] .btn-warning:hover { background-color: #ffb300; border-color: #ffb300; }
+[data-theme="dark"] .btn-info:hover { background-color: #0bacd9; border-color: #0bacd9; }
+
+[data-theme="dark"] .alert-info {
+    background-color: rgba(13, 202, 240, 0.15);
+    border-color: rgba(13, 202, 240, 0.3);
+    color: #6edff6;
+}
+[data-theme="dark"] .alert-info .text-muted {
+    color: rgba(255,255,255,0.6) !important;
+}
+/* Fix QR Container Background in Dark Mode */
+[data-theme="dark"] .qr-container {
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+    color: var(--text-main);
+}
+/* Fix Dark Button Visibility in Dark Mode */
+[data-theme="dark"] .btn-dark {
+    background-color: #4a5568;
+    border-color: #4a5568;
+    color: #fff;
+}
+[data-theme="dark"] .btn-dark:hover {
+    background-color: #3e4a5c;
+    border-color: #3e4a5c;
+}
+/* Fix Other Buttons in Dark Mode */
+[data-theme="dark"] .btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+}
+[data-theme="dark"] .btn-secondary:hover {
+    background-color: #5c636a;
+    border-color: #5c636a;
+}
+[data-theme="dark"] .btn-primary {
+    background-color: #3a8fd9;
+    border-color: #3a8fd9;
+    color: #fff !important;
+}
+[data-theme="dark"] .btn-primary:hover {
+    background-color: #2c7bc0;
+    border-color: #2c7bc0;
+}
+[data-theme="dark"] .btn-outline-primary {
+    color: #66b0ff;
+    border-color: #66b0ff;
+}
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: #66b0ff;
+    color: #212529;
+}
+[data-theme="dark"] .btn-success {
+    background-color: #2ecc71;
+    border-color: #2ecc71;
+    color: #fff !important;
+}
+[data-theme="dark"] .btn-success:hover {
+    background-color: #27ae60;
+    border-color: #27ae60;
+}
+
 </style>
 
 <div class="container-fluid qr-page">

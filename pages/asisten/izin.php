@@ -546,6 +546,52 @@ $where_jenis = $filter_status ? "AND pi.materi_diulang = '$filter_status'" : "";
         padding: 6px 10px;
     }
 }
+
+/* ==================== DARK MODE SUPPORT ==================== */
+[data-theme="dark"] .izin-page .nav-pills .nav-link {
+    color: #66b0ff;
+}
+[data-theme="dark"] .izin-page .nav-pills .nav-link.active {
+    background-color: #3a8fd9;
+    color: #fff;
+}
+[data-theme="dark"] .izin-page .nav-pills .nav-link:hover:not(.active) {
+    background-color: rgba(255,255,255,0.1);
+}
+
+/* Mobile Cards Dark Mode */
+[data-theme="dark"] .izin-page .mobile-cards .card-header.bg-light {
+    background-color: rgba(255,255,255,0.1) !important;
+    color: var(--text-main);
+    border-bottom: 1px solid var(--border-color);
+}
+[data-theme="dark"] .izin-page .mobile-cards .card {
+    background-color: var(--bg-card);
+    border-color: var(--border-color) !important;
+}
+
+/* Modal & Alerts Dark Mode */
+[data-theme="dark"] .alert-light {
+    background-color: rgba(255,255,255,0.05);
+    color: var(--text-main);
+    border-color: var(--border-color);
+}
+[data-theme="dark"] .btn-outline-info {
+    color: #33d6ff;
+    border-color: #33d6ff;
+}
+[data-theme="dark"] .btn-outline-info:hover {
+    background-color: #33d6ff;
+    color: #212529;
+}
+[data-theme="dark"] .btn-outline-primary {
+    color: #66b0ff;
+    border-color: #66b0ff;
+}
+[data-theme="dark"] .btn-outline-primary:hover {
+    background-color: #66b0ff;
+    color: #212529;
+}
 </style>
 
 <?php

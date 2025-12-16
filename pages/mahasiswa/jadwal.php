@@ -29,6 +29,7 @@ $jadwal = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as p
                                         JOIN jadwal jx ON pi.jadwal_asli_id = jx.id
                                         WHERE pi.nim = '$nim' 
                                         AND pi.status IN ('terdaftar', 'hadir')
+                                        AND pi.status_approval = 'approved'
                                         AND jx.kode_mk = j.kode_mk
                                     )
                                 )

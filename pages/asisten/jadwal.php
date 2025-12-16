@@ -64,6 +64,20 @@ $jadwal = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* Dark Mode Button Fixes */
+[data-theme="dark"] .btn-warning, 
+[data-theme="dark"] .btn-info {
+    color: #212529 !important;
+}
+/* Dark Mode Table Highlight Fix */
+[data-theme="dark"] .table-primary {
+    --bs-table-bg: rgba(0, 102, 204, 0.2);
+    --bs-table-color: var(--text-main);
+    border-color: rgba(0, 102, 204, 0.3);
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">

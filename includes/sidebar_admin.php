@@ -1,9 +1,11 @@
 <!-- Sidebar Admin -->
 <div class="sidebar d-flex flex-column p-3">
     <a href="index.php?page=admin_dashboard" class="sidebar-brand d-flex align-items-center justify-content-center mb-3">
-    <img src="includes/logo-AU.png" alt="Logo" 
-         style="height: 45px; width: auto; object-fit: contain;">
-</a>
+        <img src="includes/logo-AU.png" alt="Logo Light" class="logo-light" 
+             style="height: 45px; width: auto; object-fit: contain;">
+        <img src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo Dark" class="logo-dark" 
+             style="height: 45px; width: auto; object-fit: contain;">
+    </a>
 
 
     <ul class="nav nav-pills flex-column mb-auto">

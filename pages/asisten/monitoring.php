@@ -37,23 +37,24 @@ if ($jadwal_aktif) {
     $kode_mk = $jadwal_aktif['kode_mk'];
     
     // Untuk INHALL: hanya tampilkan mahasiswa yang terdaftar di penggantian_inhall
+    // FIX: Query diubah untuk hanya menampilkan mahasiswa yang pengajuan izin/sakitnya disetujui (approved)
+    // dan terdaftar untuk jadwal inhall ini.
     if ($jenis_jadwal == 'inhall') {
-        $total_mhs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(DISTINCT pi.nim) as total 
-                                                               FROM penggantian_inhall pi
-                                                               JOIN jadwal j ON pi.jadwal_asli_id = j.id
-                                                               JOIN mahasiswa m ON pi.nim = m.nim
-                                                               WHERE j.kode_mk = '$kode_mk' AND m.kode_kelas = '$kelas'
-                                                               AND pi.status IN ('terdaftar', 'hadir')"))['total'];
+        $total_mhs_query = "SELECT COUNT(pi.id) as total 
+                            FROM penggantian_inhall pi
+                            WHERE pi.jadwal_inhall_id = '$jadwal_id'
+                            AND pi.status_approval = 'approved'";
+        $total_mhs = mysqli_fetch_assoc(mysqli_query($conn, $total_mhs_query))['total'];
         
-        // List presensi untuk INHALL - hanya mahasiswa yang terdaftar
-        $presensi_list = mysqli_query($conn, "SELECT DISTINCT m.nim, m.nama, p.status, p.waktu_presensi, p.metode
-                                               FROM penggantian_inhall pi
-                                               JOIN jadwal jx ON pi.jadwal_asli_id = jx.id
-                                               JOIN mahasiswa m ON pi.nim = m.nim
-                                               LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
-                                               WHERE jx.kode_mk = '$kode_mk' AND m.kode_kelas = '$kelas'
-                                               AND pi.status IN ('terdaftar', 'hadir')
-                                               ORDER BY p.waktu_presensi DESC, m.nama");
+        // List presensi untuk INHALL - hanya mahasiswa yang pengajuannya disetujui untuk jadwal inhall ini
+        $presensi_list_query = "SELECT m.nim, m.nama, p.status, p.waktu_presensi, p.metode
+                                FROM penggantian_inhall pi
+                                JOIN mahasiswa m ON pi.nim = m.nim
+                                LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
+                                WHERE pi.jadwal_inhall_id = '$jadwal_id'
+                                AND pi.status_approval = 'approved'
+                                ORDER BY p.waktu_presensi DESC, m.nama";
+        $presensi_list = mysqli_query($conn, $presensi_list_query);
     } else {
         // Untuk MATERI dan UJIKOM: semua mahasiswa di kelas
         $total_mhs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = '$kelas'"))['total'];
@@ -95,6 +96,51 @@ while ($row = mysqli_fetch_assoc($jadwal_reguler)) { $jadwal_list[] = $row; }
 while ($row = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $row; }
 ?>
 <?php include 'includes/header.php'; ?>
+
+<style>
+/* Dark Mode Fixes for Monitoring */
+[data-theme="dark"] .card.border-primary {
+    border-color: #66b0ff !important;
+}
+[data-theme="dark"] .card.border-primary:hover {
+    background-color: rgba(102, 176, 255, 0.1);
+}
+[data-theme="dark"] .btn-outline-primary {
+    color: #66b0ff;
+    border-color: #66b0ff;
+}
+[data-theme="dark"] .btn-outline-primary:hover {
+    color: #212529;
+    background-color: #66b0ff;
+}
+/* Mobile Card Borders */
+[data-theme="dark"] .card.border-success { border-color: #2ecc71 !important; }
+[data-theme="dark"] .card.border-warning { border-color: #ffc107 !important; }
+
+/* Fix Nested Cards & Text Visibility */
+[data-theme="dark"] .card .card {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+}
+[data-theme="dark"] .card-body {
+    color: var(--text-main);
+}
+
+/* Fix Primary Button & Badges */
+[data-theme="dark"] .btn-primary {
+    background-color: #3a8fd9;
+    border-color: #3a8fd9;
+    color: #fff !important;
+}
+[data-theme="dark"] .btn-primary:hover {
+    background-color: #2c7bc0;
+    border-color: #2c7bc0;
+}
+[data-theme="dark"] .badge.bg-warning,
+[data-theme="dark"] .badge.bg-info {
+    color: #212529 !important;
+}
+</style>
 
 <div class="container-fluid">
     <div class="row">

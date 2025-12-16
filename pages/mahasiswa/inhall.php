@@ -10,6 +10,7 @@ $perlu_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal, j.m
                                       JOIN jadwal j ON pi.jadwal_asli_id = j.id
                                       LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                       WHERE pi.nim = '$nim' AND pi.status = 'terdaftar'
+                                      AND pi.status_approval = 'approved'
                                       ORDER BY j.tanggal");
 
 // Ambil kode_mk yang perlu diinhall

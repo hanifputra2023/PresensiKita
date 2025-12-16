@@ -319,19 +319,6 @@ if ($lab_list_query) {
     border: 1px solid var(--border-color);
 }
 
-/* Fix for Date/Time inputs in dark mode */
-[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
-[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    cursor: pointer;
-    opacity: 0.8;
-}
-
-[data-theme="dark"] select option {
-    background-color: var(--bg-card);
-    color: var(--text-main);
-}
-
 /* Dark Mode Table Fixes */
 [data-theme="dark"] .table {
     color: var(--text-main);

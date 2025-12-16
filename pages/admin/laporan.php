@@ -39,11 +39,11 @@ $rekap = mysqli_query($conn, "SELECT m.nim, m.nama, k.nama_kelas,
                                COUNT(CASE WHEN j.jenis != 'inhall' THEN j.id END) as total_pertemuan,
                                (SELECT COUNT(*) FROM penggantian_inhall pi 
                                 JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id 
-                                WHERE pi.nim = m.nim AND pi.status = 'terdaftar'
+                                WHERE pi.nim = m.nim AND pi.status = 'terdaftar' AND pi.status_approval = 'approved'
                                 AND DATE_FORMAT(jpi.tanggal, '%Y-%m') = '$filter_bulan') as perlu_inhall,
                                (SELECT COUNT(*) FROM penggantian_inhall pi 
                                 JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id 
-                                WHERE pi.nim = m.nim AND pi.status = 'hadir'
+                                WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved'
                                 AND DATE_FORMAT(jpi.tanggal, '%Y-%m') = '$filter_bulan') as sudah_inhall
                                FROM mahasiswa m 
                                LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas

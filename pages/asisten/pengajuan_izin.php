@@ -128,6 +128,25 @@ $riwayat_izin = mysqli_query($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* Dark Mode Fixes */
+[data-theme="dark"] .bg-warning {
+    background-color: #ffc107 !important;
+    color: #212529 !important;
+}
+[data-theme="dark"] .modal-header.bg-warning .btn-close {
+    filter: none;
+}
+[data-theme="dark"] .modal-header.bg-warning .modal-title {
+    color: #212529 !important;
+}
+[data-theme="dark"] .card-header.bg-primary {
+    background-color: rgba(0, 102, 204, 0.2) !important;
+    color: #66b0ff !important;
+    border-bottom: 1px solid rgba(0, 102, 204, 0.3);
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">

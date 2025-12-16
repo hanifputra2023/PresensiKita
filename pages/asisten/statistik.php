@@ -37,10 +37,10 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN kelas k ON j.kode_kelas = k.kode_kelas
-            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
             GROUP BY k.kode_kelas, k.nama_kelas
@@ -63,10 +63,10 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
             GROUP BY mk.kode_mk, mk.nama_mk
@@ -89,10 +89,10 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN lab l ON j.kode_lab = l.kode_lab
-            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
             GROUP BY l.kode_lab, l.nama_lab
@@ -140,10 +140,10 @@ $stat_per_kelas = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN kelas k ON j.kode_kelas = k.kode_kelas
-    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas
     GROUP BY k.kode_kelas, k.nama_kelas
@@ -157,10 +157,10 @@ $stat_per_mk = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas
     GROUP BY mk.kode_mk, mk.nama_mk
@@ -174,10 +174,10 @@ $stat_per_lab = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN lab l ON j.kode_lab = l.kode_lab
-    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas
     GROUP BY l.kode_lab, l.nama_lab
@@ -189,9 +189,9 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
-    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas"));
 
@@ -209,7 +209,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 
 /* Header Banner */
 .page-header-banner {
-    background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+    background: var(--banner-gradient);
     border-radius: 20px;
     padding: 24px 28px;
     color: white;
@@ -272,16 +272,16 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 
 /* Filter Card */
 .filter-card {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px;
     padding: 20px;
     margin-bottom: 24px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid #e3e6f0;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
 }
 .filter-card .filter-title {
     font-weight: 600;
-    color: #5a5c69;
+    color: var(--text-main);
     margin-bottom: 16px;
     display: flex;
     align-items: center;
@@ -299,14 +299,14 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     margin-bottom: 24px;
 }
 .summary-card {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px;
     padding: 20px;
     display: flex;
     align-items: center;
     gap: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid #e3e6f0;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
@@ -348,12 +348,12 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .summary-info h3 {
     font-size: 1.8rem;
     font-weight: 700;
-    color: #5a5c69;
+    color: var(--text-main);
     margin: 0;
     line-height: 1;
 }
 .summary-info p {
-    color: #858796;
+    color: var(--text-muted);
     margin: 6px 0 0 0;
     font-size: 0.85rem;
     font-weight: 500;
@@ -364,18 +364,18 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     display: flex;
     gap: 8px;
     margin-bottom: 20px;
-    background: #fff;
+    background: var(--bg-card);
     padding: 8px;
     border-radius: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    border: 1px solid #e3e6f0;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
     flex-wrap: wrap;
 }
 .stat-tab {
     padding: 12px 24px;
     border-radius: 10px;
     text-decoration: none;
-    color: #5a5c69;
+    color: var(--text-main);
     font-weight: 500;
     display: flex;
     align-items: center;
@@ -386,7 +386,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     min-width: 120px;
 }
 .stat-tab:hover {
-    background: #f8f9fc;
+    background: var(--bg-body);
     color: #0066cc;
 }
 .stat-tab.active {
@@ -400,16 +400,16 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 
 /* Data Card */
 .data-card {
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 16px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid #e3e6f0;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
     overflow: hidden;
 }
 .data-card-header {
     padding: 18px 24px;
-    background: linear-gradient(135deg, #f8f9fc 0%, #eaecf4 100%);
-    border-bottom: 1px solid #e3e6f0;
+    background: var(--bg-body);
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -419,7 +419,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .data-card-header h5 {
     margin: 0;
     font-weight: 600;
-    color: #5a5c69;
+    color: var(--text-main);
     display: flex;
     align-items: center;
     gap: 10px;
@@ -442,23 +442,23 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     margin: 0;
 }
 .stat-table thead th {
-    background: #f8f9fc;
+    background: var(--bg-body);
     padding: 14px 16px;
     font-weight: 600;
-    color: #5a5c69;
+    color: var(--text-main);
     font-size: 0.8rem;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 2px solid #e3e6f0;
+    border-bottom: 2px solid var(--border-color);
     white-space: nowrap;
 }
 .stat-table tbody td {
     padding: 14px 16px;
     vertical-align: middle;
-    border-bottom: 1px solid #e3e6f0;
+    border-bottom: 1px solid var(--border-color);
 }
 .stat-table tbody tr:hover {
-    background: #f8f9fc;
+    background: var(--bg-body);
 }
 .stat-table tbody tr:last-child td {
     border-bottom: none;
@@ -488,6 +488,10 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .stat-badge.sakit { background: #d1ecf1; color: #0c5460; }
 .stat-badge.alpha { background: #f8d7da; color: #721c24; }
 
+[data-theme="dark"] .stat-badge.hadir { background: rgba(40, 167, 69, 0.2); color: #75b798; }
+[data-theme="dark"] .stat-badge.izin { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
+[data-theme="dark"] .stat-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #6edff6; }
+[data-theme="dark"] .stat-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
 /* Percentage Badge */
 .persen-badge {
     display: inline-flex;
@@ -506,15 +510,15 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .empty-state {
     text-align: center;
     padding: 60px 20px;
-    color: #858796;
+    color: var(--text-muted);
 }
 .empty-state i {
     font-size: 4rem;
-    color: #d1d3e2;
+    color: var(--border-color);
     margin-bottom: 16px;
 }
 .empty-state h5 {
-    color: #5a5c69;
+    color: var(--text-main);
     margin-bottom: 8px;
 }
 .empty-state p {
@@ -524,11 +528,11 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 /* Cell Name */
 .cell-name {
     font-weight: 600;
-    color: #5a5c69;
+    color: var(--text-main);
 }
 .cell-code {
     font-size: 0.75rem;
-    color: #858796;
+    color: var(--text-muted);
     margin-top: 2px;
 }
 
@@ -540,8 +544,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     min-width: 32px;
     height: 26px;
     padding: 0 8px;
-    background: #eaecf4;
-    color: #5a5c69;
+    background: var(--bg-body);
+    color: var(--text-main);
     border-radius: 6px;
     font-weight: 600;
     font-size: 0.8rem;
@@ -727,6 +731,93 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
+}
+
+/* ==================== DARK MODE SUPPORT ==================== */
+[data-theme="dark"] .page-header-banner {
+    background: var(--banner-gradient);
+}
+[data-theme="dark"] .page-header-banner .btn-print,
+[data-theme="dark"] .page-header-banner .btn-success {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+}
+[data-theme="dark"] .page-header-banner .btn-print:hover,
+[data-theme="dark"] .page-header-banner .btn-success:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+[data-theme="dark"] .filter-card,
+[data-theme="dark"] .summary-card,
+[data-theme="dark"] .stat-tabs,
+[data-theme="dark"] .data-card {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .filter-card .filter-title,
+[data-theme="dark"] .data-card-header h5,
+[data-theme="dark"] .summary-info h3,
+[data-theme="dark"] .cell-name {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .filter-card .filter-title i,
+[data-theme="dark"] .data-card-header h5 i {
+    color: #66b0ff;
+}
+
+[data-theme="dark"] .summary-icon {
+    background: rgba(255,255,255,0.1) !important;
+}
+[data-theme="dark"] .summary-icon.green { color: #85e085; }
+[data-theme="dark"] .summary-icon.yellow { color: #ffcc00; }
+[data-theme="dark"] .summary-icon.red { color: #ff8080; }
+[data-theme="dark"] .summary-icon.blue { color: #66b0ff; }
+
+[data-theme="dark"] .stat-tab {
+    color: var(--text-main);
+}
+[data-theme="dark"] .stat-tab:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: #66b0ff;
+}
+[data-theme="dark"] .stat-tab.active {
+    background: linear-gradient(135deg, #3a8fd9 0%, #2c7bc0 100%);
+    color: #fff;
+}
+
+[data-theme="dark"] .data-card-header {
+    background: var(--bg-body);
+    border-color: var(--border-color);
+}
+[data-theme="dark"] .data-card-header .period-badge {
+    background: linear-gradient(135deg, #3a8fd9 0%, #2c7bc0 100%);
+}
+
+[data-theme="dark"] .stat-badge.hadir { background: rgba(40, 167, 69, 0.2); color: #75b798; }
+[data-theme="dark"] .stat-badge.izin { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
+[data-theme="dark"] .stat-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #6edff6; }
+[data-theme="dark"] .stat-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+
+[data-theme="dark"] .persen-badge.high { background: rgba(40, 167, 69, 0.2); color: #75b798; }
+[data-theme="dark"] .persen-badge.medium { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
+[data-theme="dark"] .persen-badge.low { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+
+[data-theme="dark"] .count-badge {
+    background-color: rgba(255,255,255,0.1);
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .empty-state i {
+    color: var(--border-color);
+}
+
+[data-theme="dark"] .modal-header {
+    background: linear-gradient(135deg, #1a2a6c, #2c5364) !important;
+    border-bottom: 1px solid var(--border-color) !important;
 }
 </style>
 
@@ -1018,7 +1109,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header" style="background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%); border: none;">
-                <h5 class="modal-title" id="modalTitle" style="color: #fff; font-weight: 600;">
+                <h5 class="modal-title" id="modalTitle" style="color: #fff; font-weight: 600 !important;">
                     <i class="fas fa-users me-2"></i>Detail Mahasiswa
                 </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -1035,6 +1126,16 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     </div>
 </div>
 
+<style>
+/* Styles for Detail Mahasiswa (general) */
+.detail-table { width: 100%; margin-bottom: 0; }
+.detail-table th, .detail-table td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-color); }
+.detail-table th { width: 30%; font-weight: 600; color: var(--text-main); }
+.detail-table td { color: var(--text-muted); }
+.detail-table tbody tr:last-child th,
+.detail-table tbody tr:last-child td { border-bottom: none; }
+
+</style>
 <?php include 'includes/footer.php'; ?>
 
 <script>
@@ -1049,7 +1150,7 @@ function showDetailMahasiswa(status, kode_kelas = '', kode_mk = '', kode_lab = '
     if (kode_lab) queryString += `&lab=${kode_lab}`;
     
     // Fetch detail data dari API asisten (filtered by asisten yang login)
-    fetch(`/presensi_kampus/api/get_detail_statistik_asisten.php?${queryString}`)
+    fetch(`api/get_detail_statistik_asisten.php?${queryString}`)
         .then(response => response.text())
         .then(data => {
             document.getElementById('modalContent').innerHTML = data;

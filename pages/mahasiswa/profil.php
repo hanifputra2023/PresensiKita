@@ -869,12 +869,153 @@ $avatar_color = get_avatar_color($nim);
             font-size: 2rem;
         }
     }
+
+    /* Dark Mode Support */
+    [data-theme="dark"] .profile-container {
+        background: var(--bg-body);
+    }
+    
+    [data-theme="dark"] .profile-card {
+        background: var(--bg-card);
+        border-color: var(--border-color);
+        box-shadow: none;
+    }
+    
+    [data-theme="dark"] .profile-header {
+        background: var(--banner-gradient);
+    }
+    
+    [data-theme="dark"] .info-badge {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.2);
+        color: #e2e8f0;
+    }
+    
+    [data-theme="dark"] .info-item {
+        background: var(--bg-body);
+        border-color: var(--border-color);
+    }
+    
+    [data-theme="dark"] .info-item:hover {
+        border-color: #66b0ff;
+        background: rgba(255,255,255,0.05);
+    }
+    
+    [data-theme="dark"] .info-icon {
+        background: rgba(0, 102, 204, 0.2);
+        color: #66b0ff;
+    }
+    
+    [data-theme="dark"] .form-control-custom {
+        background: var(--bg-input);
+        border-color: var(--border-color);
+        color: var(--text-main);
+    }
+    
+    [data-theme="dark"] .form-control-custom:focus {
+        border-color: #66b0ff;
+    }
+    
+    [data-theme="dark"] .form-control-custom[readonly] {
+        background: rgba(255,255,255,0.05) !important;
+        color: var(--text-muted);
+    }
+    
+    [data-theme="dark"] .nav-tabs-custom {
+        border-bottom-color: var(--border-color);
+    }
+    
+    [data-theme="dark"] .nav-tabs-custom .nav-link {
+        background: rgba(255,255,255,0.05);
+        color: var(--text-muted);
+    }
+    
+    [data-theme="dark"] .nav-tabs-custom .nav-link:hover {
+        background: rgba(255,255,255,0.1);
+        color: #66b0ff;
+    }
+    
+    [data-theme="dark"] .nav-tabs-custom .nav-link.active {
+        background: var(--bg-card);
+        color: #66b0ff;
+        border-bottom-color: #66b0ff;
+    }
+    
+    [data-theme="dark"] .stat-card {
+        background: var(--bg-card);
+        border-color: var(--border-color);
+    }
+    
+    /* Stat Icons Dark Mode - Matching Dashboard Style */
+    [data-theme="dark"] .stat-icon-primary { background: rgba(0, 102, 204, 0.2); color: #66b0ff; }
+    [data-theme="dark"] .stat-icon-success { background: rgba(102, 204, 0, 0.2); color: #85e085; }
+    [data-theme="dark"] .stat-icon-warning { background: rgba(255, 170, 0, 0.2); color: #ffcc00; }
+    [data-theme="dark"] .stat-icon-info { background: rgba(111, 66, 193, 0.2); color: #a685e0; }
+    [data-theme="dark"] .stat-icon-danger { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+    
+    /* Text Colors Dark Mode */
+    [data-theme="dark"] .text-primary { color: #66b0ff !important; }
+    [data-theme="dark"] .text-success { color: #85e085 !important; }
+    [data-theme="dark"] .text-warning { color: #ffcc00 !important; }
+    [data-theme="dark"] .text-info { color: #a685e0 !important; }
+    [data-theme="dark"] .text-danger { color: #ea868f !important; }
+    
+    [data-theme="dark"] .progress-custom {
+        background: rgba(255,255,255,0.1);
+    }
+    
+    [data-theme="dark"] .modal-foto-custom .modal-content {
+        background: var(--bg-card);
+    }
+    
+    [data-theme="dark"] .modal-foto-custom .modal-body {
+        background: var(--bg-body);
+        color: var(--text-main);
+    }
+    
+    [data-theme="dark"] .modal-foto-custom .modal-footer {
+        background: var(--bg-card);
+        border-top-color: var(--border-color);
+    }
+    
+    [data-theme="dark"] .input-file-custom .file-label {
+        background: var(--bg-input);
+        border-color: #66b0ff;
+        color: #66b0ff;
+    }
+    
+    [data-theme="dark"] .input-file-custom:hover .file-label {
+        background: rgba(102, 176, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .btn-modal-secondary {
+        background: var(--bg-input);
+        border-color: var(--border-color);
+        color: var(--text-muted);
+    }
+    
+    [data-theme="dark"] .btn-modal-secondary:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: #66b0ff;
+        color: #66b0ff;
+    }
+    
+    [data-theme="dark"] .alert-info {
+        background-color: rgba(13, 202, 240, 0.15);
+        border-color: rgba(13, 202, 240, 0.3);
+        color: #6edff6;
+    }
+    
+    [data-theme="dark"] .preview-container {
+        background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+        border-color: var(--bg-card);
+    }
 </style>
 
 <div class="profile-container">
     <div class="container-fluid">
         <div class="row">
-            <div class="col-md-3 col-lg-2 px-0" style="background: #1a202c;">
+            <div class="col-md-3 col-lg-2 px-0">
                 <?php include 'includes/sidebar_mahasiswa.php'; ?>
             </div>
             

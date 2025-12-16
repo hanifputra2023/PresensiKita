@@ -730,6 +730,90 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
         padding: 5px 10px;
     }
 }
+
+/* Dark Mode Fixes */
+[data-theme="dark"] .welcome-banner {
+    background: var(--banner-gradient);
+}
+[data-theme="dark"] .jadwal-aktif-alert {
+    background: rgba(40, 167, 69, 0.15);
+    border-color: rgba(40, 167, 69, 0.3);
+    border-left-color: #2ecc71;
+}
+[data-theme="dark"] .jadwal-aktif-alert .jadwal-info h4,
+[data-theme="dark"] .jadwal-aktif-alert .jadwal-info p,
+[data-theme="dark"] .jadwal-aktif-alert .jadwal-info .meta {
+    color: var(--text-main);
+}
+[data-theme="dark"] .jadwal-aktif-alert .pulse-icon {
+    background: rgba(40, 167, 69, 0.2);
+    color: #2ecc71;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .stat-icon.hadir { background: rgba(40, 167, 69, 0.2); color: #2ecc71; }
+[data-theme="dark"] .stat-icon.izin { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+[data-theme="dark"] .stat-icon.sakit { background: rgba(23, 162, 184, 0.2); color: #17a2b8; }
+[data-theme="dark"] .stat-icon.alpha { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+
+[data-theme="dark"] .jadwal-item:hover {
+    background-color: rgba(255,255,255,0.05);
+    border-color: #66b0ff;
+}
+[data-theme="dark"] .jadwal-item.today {
+    background: linear-gradient(to right, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
+    border-left-color: #2ecc71;
+}
+[data-theme="dark"] .jadwal-time {
+    background: rgba(0, 102, 204, 0.3);
+    color: #66b0ff;
+}
+
+[data-theme="dark"] .jadwal-badge.materi { background: rgba(13, 110, 253, 0.2); color: #6ea8fe; }
+[data-theme="dark"] .jadwal-badge.inhall { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
+[data-theme="dark"] .jadwal-badge.praresponsi { background: rgba(13, 202, 240, 0.2); color: #6edff6; }
+[data-theme="dark"] .jadwal-badge.responsi { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+[data-theme="dark"] .jadwal-badge.ujikom { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+
+[data-theme="dark"] .status-badge.hadir { background: rgba(40, 167, 69, 0.2); color: #2ecc71; }
+[data-theme="dark"] .status-badge.izin { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+[data-theme="dark"] .status-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #17a2b8; }
+[data-theme="dark"] .status-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+[data-theme="dark"] .status-badge.belum { background: rgba(255, 255, 255, 0.1); color: #a0aec0; }
+[data-theme="dark"] .status-badge.menunggu { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+
+[data-theme="dark"] .quick-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+[data-theme="dark"] .quick-btn.scan i { color: #2ecc71; }
+[data-theme="dark"] .quick-btn.riwayat i { color: #66b0ff; }
+[data-theme="dark"] .quick-btn.jadwal i { color: #33d6ff; }
+[data-theme="dark"] .quick-btn.izin i { color: #ffc107; }
+[data-theme="dark"] .quick-btn:hover {
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    border-color: transparent;
+    color: #ffffff;
+}
+[data-theme="dark"] .quick-btn:hover i {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .card-box {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+[data-theme="dark"] .card-header-custom {
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom-color: var(--border-color);
+}
+[data-theme="dark"] .card-header-custom h3 {
+    color: var(--text-main);
+}
+[data-theme="dark"] .card-body-custom {
+    color: var(--text-main);
+}
 </style>
 
 <div class="container-fluid">
