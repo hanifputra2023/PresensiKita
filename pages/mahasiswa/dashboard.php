@@ -10,6 +10,10 @@ $now_time = date('H:i:s');
 $toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
 $toleransi_sesudah = TOLERANSI_SESUDAH; // menit setelah jam_selesai
 
+// OPTIMISASI: Hitung batas waktu di PHP agar query SQL bisa menggunakan index (SARGable)
+// Jadwal aktif jika: Jam Mulai <= (Sekarang + Toleransi)
+$waktu_batas_masuk = date('H:i:s', strtotime("+$toleransi_sebelum minutes"));
+
 // Jadwal aktif = sudah masuk waktu mulai (dengan toleransi sebelum) DAN belum lewat jam_selesai (TANPA toleransi)
 // Langsung hilang begitu jam_selesai tercapai
 // Inhall hanya ditampilkan untuk mahasiswa yang terdaftar di penggantian_inhall
@@ -21,9 +25,9 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                         LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = '$nim'
                                         LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
-                                        WHERE j.tanggal = CURDATE() AND j.kode_kelas = '$kelas'
-                                        AND SUBTIME(j.jam_mulai, SEC_TO_TIME($toleransi_sebelum * 60)) <= CURTIME()
-                                        AND j.jam_selesai > CURTIME()
+                                        WHERE j.tanggal = '$today' AND j.kode_kelas = '$kelas'
+                                        AND j.jam_mulai <= '$waktu_batas_masuk'
+                                        AND j.jam_selesai > '$now_time'
                                         AND (
                                             j.jenis != 'inhall'
                                             OR EXISTS (
@@ -39,22 +43,19 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
 
 // Statistik presensi kumulatif (tidak hitung jadwal mendatang), dengan perhitungan alpha yang akurat
 // EXCLUDE jadwal inhall dari statistik (inhall bersifat opsional)
-$stat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT 
-                                                 SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-                                                 SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-                                                 SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-                                                 SUM(CASE 
-                                                    WHEN j.jenis != 'inhall' 
-                                                         AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
-                                                         AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) 
-                                                    THEN 1 ELSE 0 END) as alpha,
-                                                 SUM(CASE 
-                                                    WHEN (j.jenis != 'inhall' AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()) 
-                                                         OR p.status IS NOT NULL 
-                                                    THEN 1 ELSE 0 END) as total
-                                                 FROM jadwal j
-                                                 LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
-                                                 WHERE j.kode_kelas = '$kelas'"));
+$stat = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT 
+        SUM(CASE WHEN pm.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN pm.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN pm.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE WHEN pm.status = 'alpha' THEN 1 ELSE 0 END) as alpha,
+        COUNT(pm.id) as total
+    FROM presensi_mahasiswa pm
+    JOIN jadwal j ON pm.jadwal_id = j.id
+    WHERE pm.nim = '$nim'
+    AND j.jenis != 'inhall'
+    AND pm.status != 'belum'
+"));
 
 // Jadwal terdekat (5 jadwal mendatang) - termasuk jadwal HARI INI yang belum aktif
 // PERBAIKAN: Tampilkan jadwal hari ini yang jam_mulai-nya masih akan datang (belum masuk waktu aktif)
@@ -70,10 +71,10 @@ $jadwal_terdekat = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                          LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                          WHERE j.kode_kelas = '$kelas'
                                          AND (
-                                             j.tanggal > CURDATE()
+                                             j.tanggal > '$today'
                                              OR (
-                                                 j.tanggal = CURDATE() 
-                                                 AND SUBTIME(j.jam_mulai, SEC_TO_TIME($toleransi_sebelum * 60)) > CURTIME()
+                                                 j.tanggal = '$today' 
+                                                 AND j.jam_mulai > '$waktu_batas_masuk'
                                              )
                                          )
                                          AND (
@@ -105,6 +106,16 @@ if ($hour < 12) {
     $greeting_icon = "moon";
 }
 
+// Quotes Motivasi Random (Fitur Premium)
+$quotes = [
+    "Masa depan adalah milik mereka yang menyiapkan hari ini.",
+    "Jangan berhenti saat lelah, berhentilah saat selesai.",
+    "Pendidikan adalah tiket ke masa depan. Hari esok dimiliki oleh orang-orang yang mempersiapkan dirinya pada hari ini.",
+    "Setiap ahli dulunya adalah seorang pemula.",
+    "Fokus pada progres, bukan kesempurnaan."
+];
+$daily_quote = $quotes[array_rand($quotes)];
+
 // Hitung persentase kehadiran
 $total = $stat['total'] ?: 1;
 $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
@@ -131,6 +142,17 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     grid-template-columns: 1fr auto;
     min-height: 160px;
 }
+/* OPTIMISASI: Matikan animasi berat di mobile */
+@media (max-width: 768px) {
+    .welcome-banner::before, .welcome-banner::after {
+        display: none;
+        animation: none;
+    }
+    .stats-glass {
+        backdrop-filter: none !important;
+        background: rgba(255,255,255,0.2);
+    }
+}
 .welcome-banner::before {
     content: '';
     position: absolute;
@@ -138,7 +160,7 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     right: -100px;
     width: 350px;
     height: 350px;
-    background: radial-gradient(circle, rgba(78, 115, 223, 0.4) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
     animation: float 6s ease-in-out infinite;
 }
 .welcome-banner::after {
@@ -148,7 +170,7 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     left: -80px;
     width: 280px;
     height: 280px;
-    background: radial-gradient(circle, rgba(28, 200, 138, 0.25) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
     animation: float 6s ease-in-out infinite 3s;
 }
 @keyframes float {
@@ -174,6 +196,14 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     font-weight: 700;
     margin: 0 0 8px 0;
     text-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.welcome-content .quote {
+    font-size: 0.9rem;
+    font-style: italic;
+    opacity: 0.9;
+    margin-bottom: 12px;
+    max-width: 600px;
+    font-weight: 300;
 }
 .welcome-content .info-badges {
     display: flex;
@@ -243,6 +273,11 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     font-size: 1.4rem;
     animation: pulse 2s infinite;
     flex-shrink: 0;
+}
+@media (max-width: 768px) {
+    .jadwal-aktif-alert .pulse-icon {
+        animation: none;
+    }
 }
 @keyframes pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(28, 200, 138, 0.4); }
@@ -829,8 +864,8 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
                 <!-- Welcome Banner -->
                 <div class="welcome-banner">
                     <div class="welcome-content">
-                        <div class="greeting"><i class="fas fa-<?= $greeting_icon ?> me-2"></i><?= $greeting ?>,</div>
-                        <h1><?= $mahasiswa['nama'] ?></h1>
+                        <h1 class="mb-2"><i class="fas fa-<?= $greeting_icon ?> me-2"></i><?= $greeting ?>, <?= $mahasiswa['nama'] ?></h1>
+                        <div class="quote">"<?= $daily_quote ?>"</div>
                         <div class="info-badges">
                             <span class="info-badge"><i class="fas fa-id-card me-1"></i><?= $mahasiswa['nim'] ?></span>
                             <span class="info-badge"><i class="fas fa-users me-1"></i>Kelas <?= $mahasiswa['nama_kelas'] ?></span>
@@ -1045,6 +1080,15 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
                                     <p>Tidak ada jadwal mendatang</p>
                                 </div>
                             <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php include 'includes/footer.php'; ?>
                         </div>
                     </div>
                 </div>

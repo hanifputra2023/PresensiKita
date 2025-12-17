@@ -87,7 +87,7 @@ while ($row = mysqli_fetch_assoc($result)) {
 }
 
 .detail-mahasiswa-table thead th {
-    background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+    background: var(--banner-gradient, linear-gradient(135deg, #0066cc 0%, #0099ff 100%));
     color: #fff;
     font-weight: 600;
     padding: 12px 16px;
@@ -218,6 +218,55 @@ while ($row = mysqli_fetch_assoc($result)) {
     color: #2d3748;
     margin-bottom: 8px;
 }
+
+/* Dark Mode Support */
+[data-theme="dark"] .detail-mahasiswa-table tbody tr {
+    border-bottom-color: var(--border-color, #334155);
+}
+
+[data-theme="dark"] .detail-mahasiswa-table tbody tr:hover {
+    background-color: transparent;
+}
+
+[data-theme="dark"] .detail-mahasiswa-table .nim-code {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #66b0ff;
+}
+
+[data-theme="dark"] .detail-mahasiswa-table .nama-mhs {
+    color: var(--text-main, #f1f5f9);
+}
+
+[data-theme="dark"] .detail-mahasiswa-table .kelas-badge {
+    background-color: rgba(0, 102, 204, 0.2);
+    color: #66b0ff;
+}
+
+[data-theme="dark"] .detail-jadwal {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-left-color: #66b0ff;
+}
+
+[data-theme="dark"] .detail-jadwal .tanggal-jadwal,
+[data-theme="dark"] .detail-jadwal .matakuliah-jadwal,
+[data-theme="dark"] .empty-state h5 {
+    color: var(--text-main, #f1f5f9);
+}
+
+[data-theme="dark"] .detail-jadwal .waktu-jadwal,
+[data-theme="dark"] .empty-state {
+    color: var(--text-muted, #94a3b8);
+}
+
+[data-theme="dark"] .empty-state i {
+    color: var(--border-color, #334155);
+}
+
+[data-theme="dark"] .status-badge.hadir { background: rgba(40, 167, 69, 0.2); color: #75b798; }
+[data-theme="dark"] .status-badge.izin { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
+[data-theme="dark"] .status-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #6edff6; }
+[data-theme="dark"] .status-badge.belum { background: rgba(255, 255, 255, 0.1); color: #a0aec0; }
+[data-theme="dark"] .status-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
@@ -359,6 +408,15 @@ while ($row = mysqli_fetch_assoc($result)) {
     
     .empty-state i {
         font-size: 2.5rem;
+    }
+
+    /* Dark Mode Mobile Fixes */
+    [data-theme="dark"] .detail-mahasiswa-table tbody tr {
+        background: var(--bg-card, #1e293b);
+        border-color: var(--border-color, #334155);
+    }
+    [data-theme="dark"] .detail-mahasiswa-table tbody tr:hover {
+        background: var(--bg-card, #1e293b);
     }
 }
 </style>

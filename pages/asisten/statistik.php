@@ -19,11 +19,16 @@ if (isset($_GET['export'])) {
     // BOM untuk Excel agar UTF-8 terbaca dengan benar
     echo chr(0xEF) . chr(0xBB) . chr(0xBF);
 
+    // Hitung range tanggal untuk optimasi query
+    $start_date = $filter_bulan_exp . '-01';
+    $end_date = date('Y-m-t', strtotime($start_date));
+
     // Common WHERE clause for all export queries
     $base_where_exp = "
-        WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan_exp'
-        AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+        AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
         AND j.jenis != 'inhall'
+        AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
         $where_asisten_exp
         $where_exp
     ";
@@ -37,10 +42,10 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN kelas k ON j.kode_kelas = k.kode_kelas
-            LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
             GROUP BY k.kode_kelas, k.nama_kelas
@@ -63,10 +68,10 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-            LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
             GROUP BY mk.kode_mk, mk.nama_mk
@@ -89,10 +94,10 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN lab l ON j.kode_lab = l.kode_lab
-            LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
             GROUP BY l.kode_lab, l.nama_lab
@@ -124,11 +129,16 @@ $jadwal_diajar = mysqli_query($conn, "SELECT DISTINCT j.kode_kelas, k.nama_kelas
                                        JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                        WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
 
+// Hitung range tanggal untuk optimasi query
+$start_date = $filter_bulan . '-01';
+$end_date = date('Y-m-t', strtotime($start_date));
+
 // Common WHERE clause for all statistics queries
 $base_where = "
-    WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
-    AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+    WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+    AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
     AND j.jenis != 'inhall'
+    AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
     $where_asisten
 ";
 
@@ -140,10 +150,10 @@ $stat_per_kelas = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN kelas k ON j.kode_kelas = k.kode_kelas
-    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas
     GROUP BY k.kode_kelas, k.nama_kelas
@@ -157,10 +167,10 @@ $stat_per_mk = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas
     GROUP BY mk.kode_mk, mk.nama_mk
@@ -174,10 +184,10 @@ $stat_per_lab = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN lab l ON j.kode_lab = l.kode_lab
-    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas
     GROUP BY l.kode_lab, l.nama_lab
@@ -189,9 +199,9 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN m.nim IS NOT NULL AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
-    LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+    JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where $where_kelas"));
 

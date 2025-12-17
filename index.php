@@ -1,4 +1,20 @@
-<link rel="icon" type="image/svg+xml" href="includes/08.12.2025_08.44.59_REC.png">
+<link rel="icon" type="image/png" href="includes/icon.png">
+<link rel="manifest" href="manifest.json?v=2">
+<meta name="theme-color" content="#0066cc">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<script>
+// Registrasi Service Worker untuk PWA
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('service-worker.js').then(function(registration) {
+      console.log('PWA ServiceWorker registered');
+    }, function(err) {
+      console.log('PWA ServiceWorker failed: ', err);
+    });
+  });
+}
+</script>
 <?php
 require_once 'includes/fungsi.php';
 
@@ -10,13 +26,15 @@ $public_pages = ['login', 'logout'];
 
 // Cek Remember Me cookie - auto login
 if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && isset($_COOKIE['remember_user'])) {
-    $token = mysqli_real_escape_string($conn, $_COOKIE['remember_token']);
-    $user_id = (int)$_COOKIE['remember_user'];
+    $token = $_COOKIE['remember_token'];
+    $user_id = $_COOKIE['remember_user'];
     
-    $query = mysqli_query($conn, "SELECT * FROM users WHERE id = '$user_id' AND remember_token = '$token' AND token_expires > NOW()");
+    $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE id = ? AND remember_token = ? AND token_expires > NOW()");
+    mysqli_stmt_bind_param($stmt, "is", $user_id, $token);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
     
-    if (mysqli_num_rows($query) == 1) {
-        $user = mysqli_fetch_assoc($query);
+    if ($user = mysqli_fetch_assoc($result)) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
@@ -40,9 +58,83 @@ if (!in_array($page, $public_pages)) {
         exit;
     }
     
-    // Auto set alpha untuk jadwal yang sudah selesai
-    // Jalankan setiap kali halaman dimuat (langsung tanpa cache)
-    auto_set_alpha();
+    // [OPTIMASI] Fungsi auto_set_alpha() dinonaktifkan dari sini karena membebani setiap page load.
+    // Fungsi ini sebaiknya dijalankan sebagai cron job (tugas terjadwal) di server
+    // agar berjalan di background tanpa memperlambat user.
+    // Contoh: membuat file `cron_jobs/set_alpha.php` lalu menjalankannya setiap 5 menit.
+    // auto_set_alpha();
+}
+
+// [FITUR BARU] Script Notifikasi Presensi (Web Notification API)
+// Hanya dijalankan jika user login dan bukan sedang mengakses halaman API
+if (isset($_SESSION['user_id']) && strpos($page, 'api_') !== 0) {
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 1. Cek dukungan browser
+    if (!("Notification" in window)) {
+        console.log("Browser ini tidak mendukung notifikasi desktop.");
+        return;
+    }
+
+    // 2. Minta izin jika belum diberikan
+    // [FIX MOBILE] Browser mobile memblokir requestPermission otomatis. Harus via interaksi user (klik).
+    if (Notification.permission === "default") {
+        const btn = document.createElement('button');
+        btn.innerHTML = '🔔 Aktifkan Notifikasi';
+        btn.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 9999; padding: 12px 20px; background: #4e73df; color: white; border: none; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; font-weight: bold; font-family: sans-serif;';
+        
+        btn.onclick = function() {
+            Notification.requestPermission().then(function (permission) {
+                if (permission === "granted") {
+                    new Notification("Sistem Presensi", {
+                        body: "Notifikasi aktif! Anda akan diingatkan jadwal presensi.",
+                        icon: "includes/08.12.2025_08.44.59_REC.png"
+                    });
+                    btn.remove();
+                    checkNotifications(); // Langsung cek jadwal setelah izin diberikan
+                }
+            });
+        };
+        document.body.appendChild(btn);
+    }
+
+    // 3. Fungsi cek notifikasi ke server
+    function checkNotifications() {
+        if (Notification.permission === "granted") {
+            fetch('index.php?page=api_check_notif')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success' && data.notifications && data.notifications.length > 0) {
+                        data.notifications.forEach(notif => {
+                            const n = new Notification(notif.title, {
+                                body: notif.body,
+                                icon: "includes/08.12.2025_08.44.59_REC.png",
+                                tag: notif.id // Mencegah notifikasi duplikat
+                            });
+                            n.onclick = function() { window.focus(); window.location.href = notif.url; };
+                        });
+                    }
+                })
+                .catch(err => console.error('Gagal cek notifikasi:', err));
+        }
+    }
+
+    // Jalankan pengecekan setiap 1 menit (60000 ms)
+    setInterval(checkNotifications, 60000);
+    
+    // [OPTIMASI] Cek instan saat tab/browser dibuka kembali
+    document.addEventListener("visibilitychange", function() {
+        if (document.visibilityState === 'visible') {
+            checkNotifications();
+        }
+    });
+    
+    // Cek sekali saat halaman dimuat
+    setTimeout(checkNotifications, 5000);
+});
+</script>
+<?php
 }
 
 // Routing berdasarkan page
@@ -197,6 +289,9 @@ switch ($page) {
         break;
     case 'api_generate_qr':
         include 'api/generate_qr.php';
+        break;
+    case 'api_check_notif':
+        include 'api/check_notif.php';
         break;
     
     default:

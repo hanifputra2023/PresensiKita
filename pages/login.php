@@ -29,8 +29,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (mysqli_num_rows($query) == 1) {
         $user = mysqli_fetch_assoc($query);
         
-        // Cek password (untuk demo, password plain text. Production harus pakai password_hash)
-        if ($password == $user['password'] || password_verify($password, $user['password'])) {
+        // Cek password (Mendukung plain text untuk legacy/demo & hash untuk keamanan)
+        if (($password === $user['password']) || password_verify($password, $user['password'])) {
             // Regenerate session ID untuk keamanan
             session_regenerate_id(true);
             
@@ -81,6 +81,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?= APP_NAME ?></title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Apply theme immediately to prevent flash
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        }
+    </script>
     <style>
         /* Loading Screen Styles */
         .loading-screen {
@@ -200,6 +207,37 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-top: 10px;
         }
 
+        /* Theme Variables */
+        :root {
+            --bg-overlay: rgba(0, 20, 60, 0.35);
+            --container-bg: rgba(255, 255, 255, 0.88);
+            --login-bg: rgba(255, 255, 255, 0.95);
+            --text-main: #333;
+            --text-muted: #666;
+            --input-bg: #f8fbff;
+            --input-border: #e1e8ff;
+            --input-text: #333;
+            --border-color: rgba(255, 255, 255, 0.3);
+            --welcome-bg: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+            --btn-bg: linear-gradient(to right, #0066cc 0%, #0099ff 100%);
+            --btn-shadow: 0 5px 15px rgba(78, 115, 223, 0.3);
+        }
+
+        [data-theme="dark"] {
+            --bg-overlay: rgba(0, 0, 0, 0.75);
+            --container-bg: rgba(30, 41, 59, 0.85);
+            --login-bg: rgba(30, 41, 59, 0.95);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --input-bg: #1e293b;
+            --input-border: #475569;
+            --input-text: #f1f5f9;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --welcome-bg: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
+            --btn-bg: linear-gradient(to right, #3a8fd9 0%, #2c7bc0 100%);
+            --btn-shadow: 0 5px 15px rgba(58, 143, 217, 0.3);
+        }
+
         @keyframes rotate {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -239,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 20, 60, 0.35);
+            background: var(--bg-overlay);
             z-index: 0;
             pointer-events: none;
         }
@@ -249,7 +287,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             width: 100%;
             max-width: 950px;
             min-height: 550px;
-            background: rgba(255, 255, 255, 0.88);
+            background: var(--container-bg);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border-radius: 20px;
@@ -276,13 +314,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
             flex-direction: column;
             justify-content: center;
-            background: rgba(255, 255, 255, 0.95);
-            border-right: 1px solid rgba(255, 255, 255, 0.3);
+            background: var(--login-bg);
+            border-right: 1px solid var(--border-color);
         }
         
         .welcome-side {
             flex: 1;
             background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+            background: var(--welcome-bg);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
             color: white;
@@ -339,11 +378,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         h1 {
             font-size: 32px;
             margin-bottom: 10px;
-            color: #333;
+            color: var(--text-main);
         }
         
         .subtitle {
-            color: #666;
+            color: var(--text-muted);
             margin-bottom: 40px;
         }
         
@@ -355,7 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #444;
+            color: var(--text-main);
             font-weight: 500;
         }
         
@@ -375,18 +414,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         input {
             width: 100%;
             padding: 15px 15px 15px 45px;
-            border: 2px solid #e1e8ff;
+            border: 2px solid var(--input-border);
             border-radius: 10px;
             font-size: 16px;
             transition: all 0.3s;
-            background-color: #f8fbff;
+            background-color: var(--input-bg);
+            color: var(--input-text);
         }
         
         input:focus {
             outline: none;
             border-color: #0066cc;
             box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.2);
-            background-color: white;
+            background-color: var(--input-bg);
         }
         
         .alert {
@@ -411,6 +451,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             width: 100%;
             padding: 16px;
             background: linear-gradient(to right, #0066cc 0%, #0099ff 100%);
+            background: var(--btn-bg);
             color: white;
             border: none;
             border-radius: 10px;
@@ -419,6 +460,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             cursor: pointer;
             transition: all 0.3s;
             box-shadow: 0 5px 15px rgba(78, 115, 223, 0.3);
+            box-shadow: var(--btn-shadow);
         }
         
         .login-btn:hover {
@@ -436,6 +478,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transform: none;
         }
         
+        .theme-toggle-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            cursor: pointer;
+            z-index: 10;
+        }
+
         .demo-info {
             margin-top: 30px;
             padding: 15px;
@@ -538,6 +592,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             z-index: 2;
         }
         
+        /* Logo Toggle */
+        .logo-light { display: block; }
+        .logo-dark { display: none; }
+        [data-theme="dark"] .logo-light { display: none; }
+        [data-theme="dark"] .logo-dark { display: block; }
+
         @media (max-width: 900px) {
             body {
                 background-attachment: scroll;
@@ -554,7 +614,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 order: -1;
                 padding: 40px 30px;
                 border-right: none;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+                border-bottom: 1px solid var(--border-color);
             }
             
             .login-side {
@@ -626,7 +686,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <div class="logo-frame"></div>
             <div class="logo-image">
                 <!-- Logo Universitas AKPRIND - diganti dengan Logo-AU.png -->
-                <img src="includes/logo-AU.png" alt="Logo Universitas AKPRIND" style="width: 100%; height: 100%; object-fit: contain;">
+                <img src="includes/logo-AU.png" alt="Logo <?= defined('APP_NAME') ? APP_NAME : 'Aplikasi' ?>" style="width: 100%; height: 100%; object-fit: contain;">
             </div>
         </div>
         
@@ -646,6 +706,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
     <!-- Main Login Container -->
     <div class="container" id="loginContainer">
+        <button class="theme-toggle-btn" id="themeToggle" title="Ganti Tema">
+            <i class="fas fa-moon"></i>
+        </button>
         <div class="login-side">
             
             
@@ -697,8 +760,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             <!-- Logo di welcome side - juga diganti dengan Logo-AU.png -->
             <img src="includes/logo-AU.png" 
-     alt="Logo" 
-     style="height: 60px; width: auto; margin-bottom: 20px;">
+                 alt="Logo <?= defined('APP_NAME') ? APP_NAME : 'Aplikasi' ?>" 
+                 class="logo-light"
+                 style="height: 60px; width: auto; margin-bottom: 20px;">
+            <img src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" 
+                 alt="Logo <?= defined('APP_NAME') ? APP_NAME : 'Aplikasi' ?>" 
+                 class="logo-dark"
+                 style="height: 60px; width: auto; margin-bottom: 20px;">
             <h2 class="welcome-title">Selamat Datang!</h2>
             <p class="welcome-text">
                 Sistem Presensi Lab Kampus untuk memudahkan pengelolaan kehadiran praktikum mahasiswa.
@@ -779,6 +847,30 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             // Mulai proses loading setelah sedikit delay
             setTimeout(updateProgress, 300);
+
+            // Theme Toggle Logic
+            const themeToggleBtn = document.getElementById('themeToggle');
+            const root = document.documentElement;
+            const icon = themeToggleBtn.querySelector('i');
+
+            function updateIcon() {
+                if (root.getAttribute('data-theme') === 'dark') {
+                    icon.classList.remove('fa-moon');
+                    icon.classList.add('fa-sun');
+                } else {
+                    icon.classList.remove('fa-sun');
+                    icon.classList.add('fa-moon');
+                }
+            }
+            updateIcon();
+
+            themeToggleBtn.addEventListener('click', () => {
+                const currentTheme = root.getAttribute('data-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                root.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateIcon();
+            });
         });
 
         // Form submission handling dengan loading

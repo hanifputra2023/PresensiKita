@@ -94,6 +94,31 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 1 as is_pengg
 $jadwal_list = [];
 while ($row = mysqli_fetch_assoc($jadwal_reguler)) { $jadwal_list[] = $row; }
 while ($row = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $row; }
+
+// AJAX Handler untuk refresh tabel presensi (Real-time & Ringan)
+if (isset($_GET['ajax_refresh']) && $jadwal_id) {
+    $no = 1;
+    if (mysqli_num_rows($presensi_list) > 0) {
+        while ($p = mysqli_fetch_assoc($presensi_list)) {
+            echo '<tr>';
+            echo '<td>' . $no++ . '</td>';
+            echo '<td>' . $p['nim'] . '</td>';
+            echo '<td>' . $p['nama'] . '</td>';
+            echo '<td>';
+            if ($p['status'] && $p['status'] != 'belum') {
+                $bg_class = $p['status'] == 'hadir' ? 'success' : ($p['status'] == 'izin' ? 'warning' : ($p['status'] == 'sakit' ? 'info' : 'danger'));
+                echo '<span class="badge badge-' . $p['status'] . ' bg-' . $bg_class . '">' . ucfirst($p['status']) . '</span>';
+            } else {
+                echo '<span class="badge bg-secondary">Belum Presensi</span>';
+            }
+            echo '</td>';
+            echo '<td>' . ($p['waktu_presensi'] ? date('H:i:s', strtotime($p['waktu_presensi'])) : '-') . '</td>';
+            echo '<td>' . ($p['metode'] ? ucfirst($p['metode']) : '-') . '</td>';
+            echo '</tr>';
+        }
+    }
+    exit; // Stop eksekusi agar tidak me-load header/footer
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -295,10 +320,15 @@ while ($row = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $row; }
                     </div>
                     
                     <script>
-                        // Auto refresh setiap 10 detik
-                        setTimeout(function() {
-                            location.reload();
-                        }, 10000);
+                        // Auto refresh menggunakan AJAX setiap 5 detik (Real-time & Ringan)
+                        // Hanya memperbarui isi tabel, tidak reload seluruh halaman
+                        setInterval(function() {
+                            fetch('index.php?page=asisten_monitoring&jadwal=<?= $jadwal_id ?>&ajax_refresh=1')
+                                .then(response => response.text())
+                                .then(html => {
+                                    if(html.trim()) document.querySelector('table tbody').innerHTML = html;
+                                });
+                        }, 5000);
                     </script>
                 <?php endif; ?>
             </div>

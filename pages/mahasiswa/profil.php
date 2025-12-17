@@ -61,7 +61,13 @@ if (isset($_POST['upload_foto'])) {
         } else {
             $ext = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION);
             $new_filename = 'mhs_' . $nim . '_' . time() . '.' . $ext;
-            $upload_path = 'uploads/profil/' . $new_filename;
+            
+            // Pastikan folder uploads/profil ada
+            $upload_dir = 'uploads/profil/';
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            $upload_path = $upload_dir . $new_filename;
             
             if ($foto_profil && file_exists($foto_profil)) {
                 unlink($foto_profil);

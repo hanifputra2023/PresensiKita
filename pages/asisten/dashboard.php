@@ -64,12 +64,13 @@ $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
         SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
         SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
         SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-        SUM(CASE WHEN CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        SUM(CASE WHEN (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim
     WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
     AND j.tanggal BETWEEN '$start_month' AND '$end_month'
+    AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
 "));
 
 // Total presensi mahasiswa bulan ini (di jadwal asisten)
@@ -144,6 +145,17 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
     display: grid;
     grid-template-columns: 1fr auto;
     min-height: 180px;
+}
+/* OPTIMISASI: Matikan animasi berat di mobile */
+@media (max-width: 768px) {
+    .welcome-banner::before, .welcome-banner::after {
+        display: none;
+        animation: none;
+    }
+    .stats-glass {
+        backdrop-filter: none !important;
+        background: rgba(255,255,255,0.2);
+    }
 }
 .welcome-banner::before {
     content: '';

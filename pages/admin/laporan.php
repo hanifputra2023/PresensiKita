@@ -12,6 +12,10 @@ if ($filter_kelas) $where_mhs[] = "m.kode_kelas = '$filter_kelas'";
 if ($filter_mk) $where_jadwal = "AND j.kode_mk = '$filter_mk'";
 $where_mhs_sql = implode(" AND ", $where_mhs);
 
+// Hitung range tanggal untuk optimasi query
+$start_date = $filter_bulan . '-01';
+$end_date = date('Y-m-t', strtotime($start_date));
+
 // Pagination
 $per_page = 20;
 $current_page = get_current_page();
@@ -34,21 +38,21 @@ $rekap = mysqli_query($conn, "SELECT m.nim, m.nama, k.nama_kelas,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 ELSE 0 END) as alpha,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() THEN 1 ELSE 0 END) as belum,
-                               COUNT(CASE WHEN j.jenis != 'inhall' THEN j.id END) as total_pertemuan,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as alpha,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as belum,
+                               COUNT(CASE WHEN j.jenis != 'inhall' AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN j.id END) as total_pertemuan,
                                (SELECT COUNT(*) FROM penggantian_inhall pi 
                                 JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id 
                                 WHERE pi.nim = m.nim AND pi.status = 'terdaftar' AND pi.status_approval = 'approved'
-                                AND DATE_FORMAT(jpi.tanggal, '%Y-%m') = '$filter_bulan') as perlu_inhall,
+                                AND jpi.tanggal BETWEEN '$start_date' AND '$end_date') as perlu_inhall,
                                (SELECT COUNT(*) FROM penggantian_inhall pi 
                                 JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id 
                                 WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved'
-                                AND DATE_FORMAT(jpi.tanggal, '%Y-%m') = '$filter_bulan') as sudah_inhall
+                                AND jpi.tanggal BETWEEN '$start_date' AND '$end_date') as sudah_inhall
                                FROM mahasiswa m 
                                LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
                                LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
-                                   AND DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
+                                   AND j.tanggal BETWEEN '$start_date' AND '$end_date'
                                    $where_jadwal
                                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                                WHERE $where_mhs_sql

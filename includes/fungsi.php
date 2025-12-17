@@ -23,28 +23,39 @@ function cek_role($role_yang_diizinkan) {
 function get_user_login() {
     global $conn;
     $user_id = $_SESSION['user_id'];
-    $query = mysqli_query($conn, "SELECT * FROM users WHERE id = '$user_id'");
-    return mysqli_fetch_assoc($query);
+    $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    return mysqli_fetch_assoc($result);
 }
 
 // Fungsi untuk mendapatkan data mahasiswa yang login
 function get_mahasiswa_login() {
     global $conn;
     $user_id = $_SESSION['user_id'];
-    $query = mysqli_query($conn, "SELECT m.*, k.nama_kelas FROM mahasiswa m 
-                                  JOIN kelas k ON m.kode_kelas = k.kode_kelas 
-                                  WHERE m.user_id = '$user_id'");
-    return mysqli_fetch_assoc($query);
+    $stmt = mysqli_prepare($conn, "SELECT m.*, k.nama_kelas 
+                                   FROM mahasiswa m 
+                                   JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   WHERE m.user_id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    return mysqli_fetch_assoc($result);
 }
 
 // Fungsi untuk mendapatkan data asisten yang login
 function get_asisten_login() {
     global $conn;
     $user_id = $_SESSION['user_id'];
-    $query = mysqli_query($conn, "SELECT a.*, mk.nama_mk FROM asisten a 
-                                  LEFT JOIN mata_kuliah mk ON a.kode_mk = mk.kode_mk 
-                                  WHERE a.user_id = '$user_id'");
-    return mysqli_fetch_assoc($query);
+    $stmt = mysqli_prepare($conn, "SELECT a.*, mk.nama_mk 
+                                   FROM asisten a 
+                                   LEFT JOIN mata_kuliah mk ON a.kode_mk = mk.kode_mk 
+                                   WHERE a.user_id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    return mysqli_fetch_assoc($result);
 }
 
 // Fungsi escape input
@@ -126,6 +137,47 @@ function show_alert() {
                 </div>";
     }
     return '';
+}
+
+// ============ FUNGSI HELPER TAMBAHAN ============
+
+// Fungsi untuk mengecek menu aktif (untuk sidebar)
+function is_active($check_page) {
+    global $page;
+    if (is_array($check_page)) {
+        return in_array($page, $check_page) ? 'active' : '';
+    }
+    return $page == $check_page ? 'active' : '';
+}
+
+// Fungsi sapaan berdasarkan waktu
+function sapaan_waktu() {
+    $jam = date('H');
+    if ($jam >= 5 && $jam < 11) return "Selamat Pagi";
+    if ($jam >= 11 && $jam < 15) return "Selamat Siang";
+    if ($jam >= 15 && $jam < 18) return "Selamat Sore";
+    return "Selamat Malam";
+}
+
+// Fungsi Generate CSRF Token (Keamanan)
+function generate_csrf_token() {
+    if (empty($_SESSION['csrf_token'])) {
+        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+    }
+    return $_SESSION['csrf_token'];
+}
+
+// Fungsi Input Hidden CSRF (Helper View)
+function csrf_field() {
+    return '<input type="hidden" name="csrf_token" value="' . generate_csrf_token() . '">';
+}
+
+// Fungsi Validasi CSRF Token
+function validate_csrf_token() {
+    if (!isset($_POST['csrf_token']) || !isset($_SESSION['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
+        http_response_code(403);
+        die('CSRF Token Validation Failed. Harap refresh halaman.');
+    }
 }
 
 /**
@@ -277,7 +329,7 @@ function auto_set_alpha_jadwal_lewat() {
                   pm.verified_by_system = 1
               WHERE pm.status = 'belum'
               AND j.jenis != 'inhall'
-              AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+              AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
               AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
     
     mysqli_query($conn, $query);
@@ -289,7 +341,7 @@ function auto_set_alpha_jadwal_lewat() {
     $jadwal_lewat = mysqli_query($conn, "SELECT j.id, j.kode_kelas, j.tanggal, j.jam_selesai
                                           FROM jadwal j 
                                           WHERE j.jenis != 'inhall'
-                                          AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+                                          AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
                                           AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                                           AND j.tanggal <= CURDATE()");
     
@@ -500,7 +552,7 @@ function auto_set_alpha() {
               WHERE pm.status = 'belum'
               AND j.jenis != 'inhall'
               AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-              AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()";
+              AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))";
     
     mysqli_query($conn, $query);
     $updated = mysqli_affected_rows($conn);
@@ -512,7 +564,7 @@ function auto_set_alpha() {
                      WHERE j.jenis != 'inhall'
                      AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                      AND j.tanggal <= CURDATE()
-                     AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()";
+                     AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))";
     
     $jadwal_selesai = mysqli_query($conn, $query_jadwal);
     

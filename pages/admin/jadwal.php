@@ -123,9 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $lab_count = count($labs);
                 $tanggal = strtotime($tanggal_mulai);
                     
-                while (date('w', $tanggal) != $hari) {
-                    $tanggal = strtotime('+1 day', $tanggal);
-                }
+                // while (date('w', $tanggal) != $hari) {
+                //     $tanggal = strtotime('+1 day', $tanggal);
+                // }
                 
                 $materi_list = [ 'Pertemuan 1 - Pengenalan', 'Pertemuan 2 - Dasar', 'Pertemuan 3 - Lanjutan I', 'Pertemuan 4 - Lanjutan II', 'Pertemuan 5 - Praktik I', 'Pertemuan 6 - Praktik II', 'Pertemuan 7 - Praktik III', 'Pertemuan 8 - Review', 'Praresponsi', 'Inhall', 'Responsi' ];
                 
@@ -646,6 +646,16 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+    
+    const inputTanggalMulai = document.querySelector('#modalGenerate input[name="tanggal_mulai"]');
+    const selectHari = document.querySelector('#modalGenerate select[name="hari"]');
+    if (inputTanggalMulai && selectHari) {
+        inputTanggalMulai.addEventListener('change', function() {
+            const d = new Date(this.value);
+            const day = d.getDay();
+            if (day >= 1 && day <= 6) selectHari.value = day;
+        });
+    }
 });
 </script>
 

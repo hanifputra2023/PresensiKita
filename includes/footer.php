@@ -1,7 +1,3 @@
-    <!-- Global Theme Toggle Button -->
-    <button class="theme-toggle-btn" id="themeToggle" title="Ganti Tema">
-        <i class="fas fa-moon"></i>
-    </button>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
@@ -14,24 +10,45 @@
 
     <script>
         // Global Theme Toggle Logic
-        const toggleBtn = document.getElementById('themeToggle');
         const root = document.documentElement;
-        const icon = toggleBtn.querySelector('i');
-
-        // Set initial icon based on current theme
-        if (root.getAttribute('data-theme') === 'dark') {
-            icon.classList.replace('fa-moon', 'fa-sun');
+        
+        function updateThemeIcons(theme) {
+            document.querySelectorAll('.theme-toggle').forEach(btn => {
+                const icon = btn.querySelector('i');
+                const text = btn.querySelector('span');
+                
+                if (theme === 'dark') {
+                    if (icon) {
+                        icon.classList.remove('fa-moon');
+                        icon.classList.add('fa-sun');
+                    }
+                    if (text) text.textContent = 'Mode Terang';
+                } else {
+                    if (icon) {
+                        icon.classList.remove('fa-sun');
+                        icon.classList.add('fa-moon');
+                    }
+                    if (text) text.textContent = 'Mode Gelap';
+                }
+            });
         }
 
-        toggleBtn.addEventListener('click', () => {
+        // Initial State
+        if (root.getAttribute('data-theme') === 'dark') {
+            updateThemeIcons('dark');
+        }
+
+        document.querySelectorAll('.theme-toggle').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
             const currentTheme = root.getAttribute('data-theme');
             const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
             
             root.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             
-            icon.classList.toggle('fa-moon');
-            icon.classList.toggle('fa-sun');
+            updateThemeIcons(newTheme);
+            });
         });
     </script>
 </body>

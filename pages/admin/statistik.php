@@ -13,6 +13,10 @@ $where_kelas = $filter_kelas ? "AND j.kode_kelas = '$filter_kelas'" : '';
 $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
 $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 
+// Hitung range tanggal untuk optimasi query (menggantikan DATE_FORMAT)
+$start_date = $filter_bulan . '-01';
+$end_date = date('Y-m-t', strtotime($start_date));
+
 // ============ STATISTIK (QUERIES REBUILT FOR ACCURACY) ============
 // Basis perhitungan adalah setiap mahasiswa yang terdaftar di setiap jadwal yang sudah lewat
 // Ini memastikan 'alpha' dihitung dengan benar dari pasangan (mahasiswa, jadwal) yang tidak memiliki rekor presensi.
@@ -30,9 +34,10 @@ FROM jadwal j
 JOIN kelas k ON j.kode_kelas = k.kode_kelas
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
-  AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
+  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab
 GROUP BY k.kode_kelas, k.nama_kelas
 ORDER BY k.nama_kelas");
@@ -50,9 +55,10 @@ FROM jadwal j
 JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
-  AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
+  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab
 GROUP BY mk.kode_mk, mk.nama_mk
 ORDER BY mk.nama_mk");
@@ -70,9 +76,10 @@ FROM jadwal j
 JOIN lab l ON j.kode_lab = l.kode_lab
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
-  AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
+  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab
 GROUP BY l.kode_lab, l.nama_lab
 ORDER BY l.nama_lab");
@@ -87,9 +94,10 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
 FROM jadwal j
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
-  AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
+  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab"));
 
 $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
@@ -102,6 +110,9 @@ function get_detail_mahasiswa($conn, $status, $filter_kelas = '', $filter_mk = '
     $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
     $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 
+    $start_date = $filter_bulan . '-01';
+    $end_date = date('Y-m-t', strtotime($start_date));
+
     // Base query starts from jadwal and mahasiswa to correctly identify all attendance events
     $base_from = "
         FROM jadwal j
@@ -113,9 +124,10 @@ function get_detail_mahasiswa($conn, $status, $filter_kelas = '', $filter_mk = '
 
     // For this detail view, we only care about past schedules where status is determined
     $base_where = "
-        WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
-          AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW()
+        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+          AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
           AND j.jenis != 'inhall'
+          AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
           $where_kelas $where_mk $where_lab
     ";
 

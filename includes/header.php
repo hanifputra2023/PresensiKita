@@ -41,20 +41,20 @@
         }
 
         [data-theme="dark"] {
-            --bg-body: #1a1c23;
-            --bg-card: #24262d;
-            --bg-input: #2d3748;
-            --text-main: #e2e8f0;
-            --text-muted: #a0aec0;
-            --border-color: #2d3748;
-            --topbar-bg: #24262d;
-            --header-bg: #2d3748;
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --bg-input: #334155;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+            --topbar-bg: #1e293b;
+            --header-bg: #1e293b;
             
             /* Component Variables (Dark) */
             --banner-gradient: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
             --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-            --sidebar-bg: linear-gradient(180deg, #1a1c23 10%, #111827 100%);
-            --sidebar-brand-bg: linear-gradient(180deg, #1a1c23 10%, #111827 100%);
+            --sidebar-bg: linear-gradient(180deg, #0f172a 10%, #1e293b 100%);
+            --sidebar-brand-bg: linear-gradient(180deg, #0f172a 10%, #1e293b 100%);
             --bs-body-color: var(--text-main);
             --bs-body-bg: var(--bg-body);
         }
@@ -504,30 +504,6 @@
             border-bottom: 1px solid var(--border-color);
         }
 
-        /* Theme Toggle Button Style */
-        .theme-toggle-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 9999;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            border: none;
-            background: linear-gradient(135deg, #0066cc, #0099ff);
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: transform 0.3s;
-        }
-        .theme-toggle-btn:hover {
-            transform: scale(1.1);
-        }
-        
         /* ============ MOBILE RESPONSIVE STYLES ============ */
         
         /* Responsive Tables */
@@ -974,9 +950,14 @@
         <i class="fas fa-bars"></i>
     </button>
     <span class="brand"><?= APP_NAME ?></span>
-    <a href="index.php?page=logout" class="btn-toggle" title="Logout">
-        <i class="fas fa-sign-out-alt"></i>
-    </a>
+    <div class="d-flex align-items-center">
+        <button class="btn-toggle me-3 theme-toggle" title="Ganti Tema">
+            <i class="fas fa-moon"></i>
+        </button>
+        <a href="index.php?page=logout" class="btn-toggle" title="Logout">
+            <i class="fas fa-sign-out-alt"></i>
+        </a>
+    </div>
 </div>
 
 <script>

@@ -64,6 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if (in_array($ext, $allowed) && $_FILES['bukti']['size'] <= 5 * 1024 * 1024) { // Max 5MB
                 $new_filename = 'bukti_' . $nim . '_' . time() . '.' . $ext;
+                
+                // Pastikan folder uploads ada
+                if (!is_dir('uploads')) {
+                    mkdir('uploads', 0777, true);
+                }
                 $upload_path = 'uploads/' . $new_filename;
                 
                 if (move_uploaded_file($_FILES['bukti']['tmp_name'], $upload_path)) {
