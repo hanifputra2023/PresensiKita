@@ -20,7 +20,13 @@ $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
 $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 
 // Determine status condition
-if ($status == 'belum') {
+if ($status == 'alpha') {
+    // Alpha: Jadwal sudah lewat, mahasiswa sudah terdaftar, dan tidak ada status hadir/izin/sakit
+    $status_condition = "j.id IS NOT NULL 
+                         AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
+                         AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
+                         AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit'))";
+} elseif ($status == 'belum') {
     $status_condition = "(p.status IS NULL OR p.status = 'belum')";
 } else {
     $status_condition = "p.status = '$status'";
@@ -67,13 +73,24 @@ while ($row = mysqli_fetch_assoc($result)) {
     
     // Only add jadwal if exists
     if ($row['tanggal']) {
+        // Tentukan status: jika kosong dan jadwal sudah lewat = alpha, jika belum lewat = belum
+        $status_final = $row['status'];
+        if (empty($status_final)) {
+            $waktu_selesai = strtotime($row['tanggal'] . ' ' . $row['jam_selesai']);
+            if (time() > $waktu_selesai) {
+                $status_final = 'alpha';
+            } else {
+                $status_final = 'belum';
+            }
+        }
+
         $mahasiswa_list[$row['nim']]['jadwal'][] = [
             'tanggal' => format_tanggal($row['tanggal']),
             'waktu' => format_waktu($row['jam_mulai']) . ' - ' . format_waktu($row['jam_selesai']),
             'mata_kuliah' => $row['nama_mk'],
             'lab' => $row['nama_lab'],
             'materi' => $row['materi'],
-            'status' => $row['status'] ?: 'belum'
+            'status' => $status_final
         ];
     }
 }

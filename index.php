@@ -1,5 +1,5 @@
 <link rel="icon" type="image/png" href="includes/icon.png">
-<link rel="manifest" href="manifest.json?v=2">
+<link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0066cc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -62,7 +62,7 @@ if (!in_array($page, $public_pages)) {
     // Fungsi ini sebaiknya dijalankan sebagai cron job (tugas terjadwal) di server
     // agar berjalan di background tanpa memperlambat user.
     // Contoh: membuat file `cron_jobs/set_alpha.php` lalu menjalankannya setiap 5 menit.
-    // auto_set_alpha();
+    auto_set_alpha();
 }
 
 // [FITUR BARU] Script Notifikasi Presensi (Web Notification API)

@@ -45,16 +45,22 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
 // EXCLUDE jadwal inhall dari statistik (inhall bersifat opsional)
 $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT 
-        SUM(CASE WHEN pm.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-        SUM(CASE WHEN pm.status = 'izin' THEN 1 ELSE 0 END) as izin,
-        SUM(CASE WHEN pm.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-        SUM(CASE WHEN pm.status = 'alpha' THEN 1 ELSE 0 END) as alpha,
-        COUNT(pm.id) as total
-    FROM presensi_mahasiswa pm
-    JOIN jadwal j ON pm.jadwal_id = j.id
-    WHERE pm.nim = '$nim'
+        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE 
+            WHEN p.status = 'alpha' THEN 1
+            WHEN (p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+            ELSE 0 
+        END) as alpha,
+        COUNT(j.id) as total
+    FROM jadwal j
+    LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
+    JOIN mahasiswa m ON m.nim = '$nim'
+    WHERE j.kode_kelas = '$kelas'
     AND j.jenis != 'inhall'
-    AND pm.status != 'belum'
+    AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
+    AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW())
 "));
 
 // Jadwal terdekat (5 jadwal mendatang) - termasuk jadwal HARI INI yang belum aktif
@@ -849,6 +855,41 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 [data-theme="dark"] .card-body-custom {
     color: var(--text-main);
 }
+
+/* Presensi Stats inside Card */
+.presensi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 20px;
+}
+.presensi-item {
+    text-align: center;
+    padding: 10px 4px;
+    background: var(--bg-body);
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+.presensi-item .num {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.presensi-item .lbl {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.presensi-item.hadir .num { color: #66cc00; }
+.presensi-item.izin .num { color: #0066cc; }
+.presensi-item.sakit .num { color: #ffaa00; }
+.presensi-item.alpha .num { color: #ff3333; }
+
+[data-theme="dark"] .presensi-item {
+    background: rgba(255,255,255,0.05);
+    border-color: var(--border-color);
+}
 </style>
 
 <div class="container-fluid">
@@ -982,6 +1023,24 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
                                             <span class="persen" style="color: <?= $persen >= 75 ? '#66cc00' : ($persen >= 50 ? '#ffaa00' : '#ff3333') ?>"><?= $persen ?>%</span>
                                             <span class="label">Kehadiran</span>
                                         </div>
+                                    </div>
+                                </div>
+                                <div class="presensi-grid">
+                                    <div class="presensi-item hadir">
+                                        <div class="num"><?= $stat['hadir'] ?: 0 ?></div>
+                                        <div class="lbl">Hadir</div>
+                                    </div>
+                                    <div class="presensi-item izin">
+                                        <div class="num"><?= $stat['izin'] ?: 0 ?></div>
+                                        <div class="lbl">Izin</div>
+                                    </div>
+                                    <div class="presensi-item sakit">
+                                        <div class="num"><?= $stat['sakit'] ?: 0 ?></div>
+                                        <div class="lbl">Sakit</div>
+                                    </div>
+                                    <div class="presensi-item alpha">
+                                        <div class="num"><?= $stat['alpha'] ?: 0 ?></div>
+                                        <div class="lbl">Alpha</div>
                                     </div>
                                 </div>
                                 <p class="text-center text-muted small mt-3 mb-0">

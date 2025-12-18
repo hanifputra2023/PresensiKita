@@ -1,6 +1,121 @@
 <?php
 $page = 'admin_statistik';
 
+// Export Excel (CSV format)
+if (isset($_GET['export'])) {
+    // Hentikan dan bersihkan output buffer yang mungkin sudah terisi oleh index.php
+    if (ob_get_length()) ob_end_clean();
+    
+    $filter_bulan_exp = isset($_GET['bulan']) ? escape($_GET['bulan']) : date('Y-m');
+    $filter_kelas_exp = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
+    $filter_mk_exp = isset($_GET['mk']) ? escape($_GET['mk']) : '';
+    $filter_lab_exp = isset($_GET['lab']) ? escape($_GET['lab']) : '';
+    $view_exp = isset($_GET['view']) ? escape($_GET['view']) : 'kelas';
+
+    $where_kelas_exp = $filter_kelas_exp ? "AND j.kode_kelas = '$filter_kelas_exp'" : '';
+    $where_mk_exp = $filter_mk_exp ? "AND j.kode_mk = '$filter_mk_exp'" : '';
+    $where_lab_exp = $filter_lab_exp ? "AND j.kode_lab = '$filter_lab_exp'" : '';
+
+    $filename = 'statistik_presensi_admin_' . $view_exp . '_' . date('Y-m-d_His') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=' . $filename);
+
+    // BOM untuk Excel agar UTF-8 terbaca dengan benar
+    echo chr(0xEF) . chr(0xBB) . chr(0xBF);
+
+    // Hitung range tanggal
+    $start_date = $filter_bulan_exp . '-01';
+    $end_date = date('Y-m-t', strtotime($start_date));
+
+    // Common WHERE clause
+    $base_where_exp = "
+        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+        AND j.jenis != 'inhall'
+        AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
+        $where_kelas_exp $where_mk_exp $where_lab_exp
+    ";
+
+    if ($view_exp == 'kelas') {
+        echo "No;Kelas;Jumlah Mahasiswa;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
+        $stat_per_kelas_exp = mysqli_query($conn, "SELECT
+            k.kode_kelas, k.nama_kelas,
+            COUNT(DISTINCT m.nim) as jumlah_mhs,
+            COUNT(DISTINCT j.id) as total_jadwal,
+            SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+            SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+            SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            FROM jadwal j
+            JOIN kelas k ON j.kode_kelas = k.kode_kelas
+            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+            $base_where_exp
+            GROUP BY k.kode_kelas, k.nama_kelas
+            ORDER BY k.nama_kelas");
+
+        $no = 1;
+        while ($row = mysqli_fetch_assoc($stat_per_kelas_exp)) {
+            $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
+            $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
+            echo "$no;{$row['nama_kelas']};{$row['jumlah_mhs']};{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
+            $no++;
+        }
+
+    } elseif ($view_exp == 'mk') {
+        echo "No;Mata Kuliah;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
+        $stat_per_mk_exp = mysqli_query($conn, "SELECT
+            mk.kode_mk, mk.nama_mk,
+            COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
+            COUNT(DISTINCT j.id) as total_jadwal,
+            SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+            SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+            SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            FROM jadwal j
+            JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+            $base_where_exp
+            GROUP BY mk.kode_mk, mk.nama_mk
+            ORDER BY mk.nama_mk");
+        
+        $no = 1;
+        while ($row = mysqli_fetch_assoc($stat_per_mk_exp)) {
+            $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
+            $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
+            echo "$no;{$row['nama_mk']};{$row['jumlah_kelas']};{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
+            $no++;
+        }
+
+    } else { // lab
+        echo "No;Lab;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
+        $stat_per_lab_exp = mysqli_query($conn, "SELECT
+            l.kode_lab, l.nama_lab,
+            COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
+            COUNT(DISTINCT j.id) as total_jadwal,
+            SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+            SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+            SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            FROM jadwal j
+            JOIN lab l ON j.kode_lab = l.kode_lab
+            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+            LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+            $base_where_exp
+            GROUP BY l.kode_lab, l.nama_lab
+            ORDER BY l.nama_lab");
+
+        $no = 1;
+        while ($row = mysqli_fetch_assoc($stat_per_lab_exp)) {
+            $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
+            $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
+            echo "$no;{$row['nama_lab']};{$row['jumlah_kelas']};{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
+            $no++;
+        }
+    }
+    exit;
+}
+
 // Filter
 $filter_bulan = isset($_GET['bulan']) ? escape($_GET['bulan']) : date('Y-m');
 $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
@@ -29,13 +144,12 @@ $stat_per_kelas = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
 FROM jadwal j
 JOIN kelas k ON j.kode_kelas = k.kode_kelas
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
 WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
   AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab
@@ -50,13 +164,12 @@ $stat_per_mk = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
 FROM jadwal j
 JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
 WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
   AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab
@@ -71,13 +184,12 @@ $stat_per_lab = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
 FROM jadwal j
 JOIN lab l ON j.kode_lab = l.kode_lab
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
 WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
   AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab
@@ -90,12 +202,11 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit') THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
 FROM jadwal j
 JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
 WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
   AND j.jenis != 'inhall'
   AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab"));
@@ -125,7 +236,6 @@ function get_detail_mahasiswa($conn, $status, $filter_kelas = '', $filter_mk = '
     // For this detail view, we only care about past schedules where status is determined
     $base_where = "
         WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-          AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
           AND j.jenis != 'inhall'
           AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
           $where_kelas $where_mk $where_lab
@@ -133,7 +243,7 @@ function get_detail_mahasiswa($conn, $status, $filter_kelas = '', $filter_mk = '
 
     // Dynamic condition based on the requested status
     if ($status == 'alpha') {
-        $status_condition = "AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit'))";
+        $status_condition = "AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit'))";
     } else {
         $status_condition = "AND p.status = '$status'";
     }
@@ -635,56 +745,75 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     }
 }
 
-/* Print Styles */
-@media print {
-    .sidebar, .no-print, .filter-card, .stat-tabs { 
-        display: none !important; 
-    }
-    .col-md-9, .col-lg-10 { 
-        width: 100% !important; 
-        margin: 0 !important; 
-        padding: 0 !important;
-    }
-    .statistik-content {
-        padding: 0;
-    }
-    .page-header-banner {
-        background: #0066cc !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-        margin-bottom: 20px;
-    }
-    .summary-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-    .summary-card {
-        box-shadow: none;
-        border: 1px solid #ddd;
-        flex-direction: row;
-    }
-    .data-card {
-        box-shadow: none;
-        border: 1px solid #ddd;
-    }
-    .stat-table thead th {
-        background: #f0f0f0 !important;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
+/* Print Only Style */
+.print-only {
+    display: none;
 }
 
-/* Dark Mode Specific Styles for Statistik */
+
+
+
+
 [data-theme="dark"] .page-header-banner {
     background: var(--banner-gradient);
 }
+[data-theme="dark"] .page-header-banner .btn-print {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+    color: #fff;
+}
+[data-theme="dark"] .page-header-banner .btn-print:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+[data-theme="dark"] .filter-card,
+[data-theme="dark"] .summary-card,
+[data-theme="dark"] .stat-tabs,
+[data-theme="dark"] .data-card {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+    box-shadow: none;
+}
+
+[data-theme="dark"] .filter-card .filter-title,
+[data-theme="dark"] .data-card-header h5,
+[data-theme="dark"] .summary-info h3,
+[data-theme="dark"] .cell-name {
+    color: var(--text-main);
+}
+
+[data-theme="dark"] .filter-card .filter-title i,
+[data-theme="dark"] .data-card-header h5 i {
+    color: #66b0ff;
+}
+
 [data-theme="dark"] .summary-icon {
     background: rgba(255,255,255,0.1) !important;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
 }
-[data-theme="dark"] .summary-icon.green { color: #66cc00; }
-[data-theme="dark"] .summary-icon.yellow { color: #ffaa00; }
-[data-theme="dark"] .summary-icon.red { color: #ff3333; }
-[data-theme="dark"] .summary-icon.blue { color: #0066cc; }
+[data-theme="dark"] .summary-icon.green { color: #85e085; }
+[data-theme="dark"] .summary-icon.yellow { color: #ffcc00; }
+[data-theme="dark"] .summary-icon.red { color: #ff8080; }
+[data-theme="dark"] .summary-icon.blue { color: #66b0ff; }
+
+[data-theme="dark"] .stat-tab {
+    color: var(--text-main);
+}
+[data-theme="dark"] .stat-tab:hover {
+    background-color: rgba(255,255,255,0.1);
+    color: #66b0ff;
+}
+[data-theme="dark"] .stat-tab.active {
+    background: linear-gradient(135deg, #3a8fd9 0%, #2c7bc0 100%);
+    color: #fff;
+}
+
+[data-theme="dark"] .data-card-header {
+    background: var(--bg-body);
+    border-color: var(--border-color);
+}
+[data-theme="dark"] .data-card-header .period-badge {
+    background: linear-gradient(135deg, #3a8fd9 0%, #2c7bc0 100%);
+}
 
 [data-theme="dark"] .stat-badge.hadir { background: rgba(40, 167, 69, 0.2); color: #75b798; }
 [data-theme="dark"] .stat-badge.izin { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
@@ -699,17 +828,40 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     background-color: rgba(255,255,255,0.1);
     color: var(--text-main);
 }
-[data-theme="dark"] .stat-table tbody tr:hover {
-    background-color: rgba(255,255,255,0.05);
-}
-[data-theme="dark"] .stat-tab:hover {
-    background-color: rgba(255,255,255,0.1);
+
+[data-theme="dark"] .empty-state i {
+    color: var(--border-color);
 }
 
 [data-theme="dark"] .modal-header {
     background: linear-gradient(135deg, #1a2a6c, #2c5364) !important;
     border-bottom: 1px solid var(--border-color) !important;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </style>
 
 <div class="container-fluid">
@@ -728,9 +880,14 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                             <h4><i class="fas fa-chart-pie me-2"></i>Statistik Presensi</h4>
                             <p class="subtitle">Analisis data kehadiran per kelas, mata kuliah, dan lab</p>
                         </div>
-                        <button class="btn btn-print" onclick="window.print()">
-                            <i class="fas fa-print me-2"></i>Cetak Laporan
-                        </button>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="index.php?page=admin_statistik&export=1&view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" class="btn btn-success">
+                                <i class="fas fa-file-excel me-2"></i>Export Excel
+                            </a>
+                            <button class="btn btn-danger" onclick="exportPDF()">
+                                <i class="fas fa-file-pdf me-2"></i>Export PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
@@ -1012,6 +1169,135 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
         </div>
     </div>
 </div>
+
+<!-- Print Only Content for PDF -->
+<div class="print-only">
+    <div class="text-center mb-4">
+        <h3>Laporan Statistik Presensi (Admin)</h3>
+        <p class="mb-1">Periode: <?= date('F Y', strtotime($filter_bulan . '-01')) ?></p>
+        <p>Kategori: <?= ucfirst($view) ?></p>
+    </div>
+    <table class="table table-bordered table-striped">
+        <thead>
+            <tr>
+                <th style="width: 5%" class="text-center">No</th>
+                <?php if ($view == 'kelas'): ?>
+                    <th style="width: 25%">Kelas</th>
+                    <th style="width: 10%" class="text-center">Mhs</th>
+                <?php elseif ($view == 'mk'): ?>
+                    <th style="width: 25%">Mata Kuliah</th>
+                    <th style="width: 10%" class="text-center">Kelas</th>
+                <?php else: ?>
+                    <th style="width: 25%">Lab</th>
+                    <th style="width: 10%" class="text-center">Kelas</th>
+                <?php endif; ?>
+                <th style="width: 10%" class="text-center">Jadwal</th>
+                <th style="width: 8%" class="text-center">Hadir</th>
+                <th style="width: 8%" class="text-center">Izin</th>
+                <th style="width: 8%" class="text-center">Sakit</th>
+                <th style="width: 8%" class="text-center">Alpha</th>
+                <th style="width: 8%" class="text-center">Total</th>
+                <th style="width: 10%" class="text-center">%</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            $no = 1;
+            $result_set = null;
+            
+            if ($view == 'kelas') $result_set = $stat_per_kelas;
+            elseif ($view == 'mk') $result_set = $stat_per_mk;
+            elseif ($view == 'lab') $result_set = $stat_per_lab;
+            
+            if ($result_set && mysqli_num_rows($result_set) > 0) {
+                mysqli_data_seek($result_set, 0); // Reset pointer agar bisa di-loop ulang
+                while ($row = mysqli_fetch_assoc($result_set)) {
+                    $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
+                    $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
+                    
+                    $name = '';
+                    $count_val = 0;
+                    
+                    if ($view == 'kelas') {
+                        $name = $row['nama_kelas'];
+                        $count_val = $row['jumlah_mhs'];
+                    } elseif ($view == 'mk') {
+                        $name = $row['nama_mk'];
+                        $count_val = $row['jumlah_kelas'];
+                    } else {
+                        $name = $row['nama_lab'];
+                        $count_val = $row['jumlah_kelas'];
+                    }
+            ?>
+                <tr>
+                    <td class="text-center"><?= $no++ ?></td>
+                    <td><?= $name ?></td>
+                    <td class="text-center"><?= $count_val ?></td>
+                    <td class="text-center"><?= $row['total_jadwal'] ?></td>
+                    <td class="text-center"><?= $row['hadir'] ?></td>
+                    <td class="text-center"><?= $row['izin'] ?></td>
+                    <td class="text-center"><?= $row['sakit'] ?></td>
+                    <td class="text-center"><?= $row['alpha'] ?></td>
+                    <td class="text-center"><?= $total ?></td>
+                    <td class="text-center"><?= $persen ?>%</td>
+                </tr>
+            <?php 
+                }
+            } else {
+                echo '<tr><td colspan="10" class="text-center">Tidak ada data</td></tr>';
+            }
+            ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Library html2pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function exportPDF() {
+    const originalElement = document.querySelector('.print-only');
+    const elementToPrint = originalElement.cloneNode(true);
+    
+    elementToPrint.classList.remove('print-only');
+    elementToPrint.style.display = 'block';
+    elementToPrint.style.backgroundColor = '#ffffff';
+    elementToPrint.style.color = '#000000';
+    elementToPrint.style.padding = '20px';
+    
+    elementToPrint.querySelectorAll('*').forEach(el => {
+        el.style.color = '#000000';
+    });
+    
+    const tableHeader = elementToPrint.querySelector('thead');
+    if (tableHeader) {
+        tableHeader.style.backgroundColor = '#0066cc';
+        tableHeader.querySelectorAll('th').forEach(th => {
+            th.style.color = '#ffffff';
+        });
+    }
+    
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-10000px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '1100px';
+    wrapper.appendChild(elementToPrint);
+    
+    document.body.appendChild(wrapper);
+    
+    const opt = {
+        margin:       10,
+        filename:     'statistik_presensi_admin_<?= date("Y-m-d_His") ?>.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' }
+    };
+
+    html2pdf().set(opt).from(elementToPrint).save().then(function() {
+        document.body.removeChild(wrapper);
+    });
+}
+</script>
 
 <!-- Modal Detail Mahasiswa -->
 <div class="modal fade" id="detailModal" tabindex="-1">

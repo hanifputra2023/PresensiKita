@@ -37,6 +37,60 @@ $jadwal = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as p
 
 // Ambil tanggal daftar mahasiswa
 $tanggal_daftar = $mahasiswa['tanggal_daftar'];
+
+// Export Excel
+if (isset($_GET['export']) && $_GET['export'] == 'excel') {
+    if (ob_get_length()) ob_end_clean();
+    
+    $filename = 'jadwal_praktikum_' . $nim . '_' . date('Y-m-d_His') . '.xls';
+    header("Content-Type: application/vnd.ms-excel");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+    
+    echo '<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <style>
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #000000; padding: 5px; }
+        </style>
+    </head>
+    <body>
+        <table>
+            <thead>
+                <tr>
+                    <th>Pertemuan</th>
+                    <th>Tanggal</th>
+                    <th>Waktu</th>
+                    <th>Lab</th>
+                    <th>Mata Kuliah</th>
+                    <th>Materi</th>
+                    <th>Asisten</th>
+                    <th>Jenis</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+    while ($row = mysqli_fetch_assoc($jadwal)) {
+        $asisten = $row['asisten1_nama'] ?: '-';
+        if ($row['asisten2_nama']) $asisten .= ', ' . $row['asisten2_nama'];
+        $status = $row['presensi_status'] ? ucfirst($row['presensi_status']) : 'Belum';
+        
+        echo '<tr>
+            <td style="text-align:center;">' . $row['pertemuan_ke'] . '</td>
+            <td>' . format_tanggal($row['tanggal']) . '</td>
+            <td>' . format_waktu($row['jam_mulai']) . ' - ' . format_waktu($row['jam_selesai']) . '</td>
+            <td>' . $row['nama_lab'] . '</td>
+            <td>' . $row['nama_mk'] . '</td>
+            <td>' . $row['materi'] . '</td>
+            <td>' . $asisten . '</td>
+            <td>' . ucfirst($row['jenis']) . '</td>
+            <td>' . $status . '</td>
+        </tr>';
+    }
+    echo '</tbody></table></body></html>';
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -48,7 +102,17 @@ $tanggal_daftar = $mahasiswa['tanggal_daftar'];
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-calendar-alt me-2"></i>Jadwal Praktikum - <?= $mahasiswa['nama_kelas'] ?></h4>
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2">
+                    <h4 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Jadwal Praktikum - <?= $mahasiswa['nama_kelas'] ?></h4>
+                    <div class="d-grid d-md-flex gap-2 justify-content-md-end">
+                        <a href="index.php?page=mahasiswa_jadwal&export=excel" class="btn btn-success">
+                            <i class="fas fa-file-excel me-1"></i>Excel
+                        </a>
+                        <button onclick="exportPDF()" class="btn btn-danger">
+                            <i class="fas fa-file-pdf me-1"></i>PDF
+                        </button>
+                    </div>
+                </div>
                 
                 <div class="card">
                     <div class="card-body">
@@ -332,6 +396,67 @@ $tanggal_daftar = $mahasiswa['tanggal_daftar'];
         </div>
     </div>
 </div>
+
+<!-- Print Only Content for PDF -->
+<div class="print-only" style="display: none;">
+    <div class="text-center mb-4" style="color: #000000;">
+        <h3 style="color: #000000;">Jadwal Praktikum</h3>
+        <p class="mb-1" style="color: #000000;">Nama: <?= $mahasiswa['nama'] ?> (<?= $mahasiswa['nim'] ?>)</p>
+        <p style="color: #000000;">Kelas: <?= $mahasiswa['nama_kelas'] ?></p>
+    </div>
+    <table class="table table-bordered" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+            <tr style="background-color: #000000; color: #ffffff;">
+                <th style="border: 1px solid #000; padding: 6px; text-align: center; color: #ffffff;">P</th>
+                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Tanggal</th>
+                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Waktu</th>
+                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Mata Kuliah</th>
+                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Lab</th>
+                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Materi</th>
+                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php 
+            mysqli_data_seek($jadwal, 0);
+            while ($j = mysqli_fetch_assoc($jadwal)): 
+                $status_pdf = $j['presensi_status'] ? ucfirst($j['presensi_status']) : 'Belum';
+            ?>
+            <tr>
+                <td style="border: 1px solid #000; padding: 6px; text-align: center; color: #000000;"><?= $j['pertemuan_ke'] ?></td>
+                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= format_tanggal($j['tanggal']) ?></td>
+                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></td>
+                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $j['nama_mk'] ?></td>
+                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $j['nama_lab'] ?></td>
+                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $j['materi'] ?></td>
+                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $status_pdf ?></td>
+            </tr>
+            <?php endwhile; ?>
+        </tbody>
+    </table>
+</div>
+
+<!-- Library html2pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script>
+function exportPDF() {
+    const element = document.querySelector('.print-only');
+    element.style.display = 'block'; // Show for capture
+    
+    const opt = {
+        margin: 10,
+        filename: 'jadwal_praktikum_<?= $nim ?>.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 3, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak: { mode: ['css', 'legacy'] }
+    };
+
+    html2pdf().set(opt).from(element).save().then(function() {
+        element.style.display = 'none'; // Hide after capture
+    });
+}
+</script>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {

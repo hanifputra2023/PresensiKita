@@ -24,23 +24,39 @@ $kelas = $data['nama_kelas'] ?? $data['kode_kelas'];
 $prodi = $data['prodi'];
 $no_hp = $data['no_hp'];
 $tanggal_daftar = $data['tanggal_daftar'];
+$kode_kelas = $data['kode_kelas'];
 
 $query_presensi = "SELECT 
-    COUNT(*) as total_jadwal,
+    COUNT(j.id) as total_jadwal,
     SUM(CASE WHEN pm.status = 'hadir' THEN 1 ELSE 0 END) as total_hadir,
     SUM(CASE WHEN pm.status = 'izin' THEN 1 ELSE 0 END) as total_izin,
     SUM(CASE WHEN pm.status = 'sakit' THEN 1 ELSE 0 END) as total_sakit,
-    SUM(CASE WHEN pm.status = 'alpha' THEN 1 ELSE 0 END) as total_alpha,
-    SUM(CASE WHEN pm.status IS NULL OR pm.status = 'belum' THEN 1 ELSE 0 END) as total_belum
-    FROM presensi_mahasiswa pm
-    LEFT JOIN jadwal j ON pm.jadwal_id = j.id
-    WHERE pm.nim = '$nim'";
+    SUM(CASE 
+        WHEN pm.status = 'alpha' THEN 1
+        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+        ELSE 0 
+    END) as total_alpha,
+    SUM(CASE 
+        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() THEN 1 
+        ELSE 0 
+    END) as total_belum,
+    SUM(CASE 
+        WHEN CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() OR pm.status IN ('hadir', 'izin', 'sakit', 'alpha') THEN 1 
+        ELSE 0 
+    END) as total_completed
+    FROM jadwal j
+    LEFT JOIN presensi_mahasiswa pm ON j.id = pm.jadwal_id AND pm.nim = '$nim'
+    JOIN mahasiswa m ON m.nim = '$nim'
+    WHERE j.kode_kelas = '$kode_kelas'
+    AND j.jenis != 'inhall'
+    AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)";
 $stat_result = mysqli_query($conn, $query_presensi);
 $stat_data = mysqli_fetch_assoc($stat_result);
 
+$total_completed = $stat_data['total_completed'] ?? 0;
 $persentase_kehadiran = 0;
-if ($stat_data['total_jadwal'] > 0) {
-    $persentase_kehadiran = round(($stat_data['total_hadir'] / $stat_data['total_jadwal']) * 100);
+if ($total_completed > 0) {
+    $persentase_kehadiran = round(($stat_data['total_hadir'] / $total_completed) * 100);
 }
 
 $foto_profil = $data['foto'] ?? null;
@@ -1159,7 +1175,7 @@ $avatar_color = get_avatar_color($nim);
                                     </div>
                                     
                                     <div class="d-flex justify-content-between mt-3">
-                                        <small class="text-muted">Hadir: <?= $stat_data['total_hadir'] ?? 0 ?>/<?= $stat_data['total_jadwal'] ?></small>
+                                        <small class="text-muted">Hadir: <?= $stat_data['total_hadir'] ?? 0 ?>/<?= $total_completed ?></small>
                                     </div>
                                 </div>
                             </div>
