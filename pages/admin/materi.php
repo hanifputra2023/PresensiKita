@@ -249,7 +249,7 @@ if (isset($_GET['status'])) {
                         <h6 class="mb-0"><i class="fas fa-list me-2"></i>Daftar Materi</h6>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
+                        <div class="table-responsive d-none d-md-block">
                             <table class="table table-hover">
                                 <thead>
                                     <tr>
@@ -299,6 +299,45 @@ if (isset($_GET['status'])) {
                                     <?php endif; ?>
                                 </tbody>
                             </table>
+                        </div>
+                        
+                        <!-- Mobile View (Cards) -->
+                        <div class="d-md-none">
+                            <?php 
+                            if (mysqli_num_rows($materi_list_q) > 0):
+                                mysqli_data_seek($materi_list_q, 0);
+                                while($m = mysqli_fetch_assoc($materi_list_q)): 
+                            ?>
+                                <div class="card mb-3 border">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="card-title mb-0 fw-bold text-primary"><?= htmlspecialchars($m['judul_materi']) ?></h6>
+                                            <small class="text-muted" style="font-size: 0.75rem;"><?= date('d/m/y H:i', strtotime($m['tgl_upload'])) ?></small>
+                                        </div>
+                                        <div class="mb-3 small">
+                                            <?php if (!empty($m['path_file'])): ?>
+                                                <a href="<?= $m['path_file'] ?>" target="_blank" class="text-decoration-none text-dark">
+                                                    <i class="fas fa-file-alt me-2 text-danger"></i><?= htmlspecialchars($m['nama_file']) ?>
+                                                </a>
+                                            <?php else: ?>
+                                                <div class="text-muted fst-italic"><?= nl2br(htmlspecialchars($m['deskripsi'])) ?></div>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                            <small class="text-muted"><i class="fas fa-user me-1"></i><?= htmlspecialchars($m['uploader_name']) ?></small>
+                                            <div class="btn-group btn-group-sm">
+                                                <?php if (!empty($m['path_file'])): ?>
+                                                <a href="<?= $m['path_file'] ?>" class="btn btn-success" download title="Download"><i class="fas fa-download"></i></a>
+                                                <?php endif; ?>
+                                                <a href="index.php?page=admin_materi&jadwal=<?= $jadwal_id ?>&hapus=<?= $m['id_materi'] ?>" class="btn btn-danger" onclick="return confirm('Apakah Anda yakin ingin menghapus materi ini?')" title="Hapus"><i class="fas fa-trash"></i></a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endwhile; ?>
+                            <?php else: ?>
+                                <div class="text-center text-muted py-3 small">Belum ada materi yang ditambahkan.</div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

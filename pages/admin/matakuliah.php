@@ -39,12 +39,72 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $per_page = 9;
 $current_page = get_current_page();
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM mata_kuliah");
+// Search
+$search = isset($_GET['search']) ? escape($_GET['search']) : '';
+$where_sql = '';
+if ($search) {
+    $where_sql = "WHERE nama_mk LIKE '%$search%' OR kode_mk LIKE '%$search%'";
+}
+
+$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM mata_kuliah $where_sql");
 $total_data = mysqli_fetch_assoc($count_query)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-$matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk LIMIT $offset, $per_page");
+$matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah $where_sql ORDER BY kode_mk LIMIT $offset, $per_page");
+
+// Handle AJAX Search
+if (isset($_GET['ajax_search'])) {
+    ?>
+    <div class="row">
+        <?php if (mysqli_num_rows($matkul) > 0): ?>
+            <?php while ($m = mysqli_fetch_assoc($matkul)): ?>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 matakuliah-card">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <span class="badge bg-primary mb-2"><?= htmlspecialchars($m['kode_mk']) ?></span>
+                                    <h5 class="card-title mb-1"><?= htmlspecialchars($m['nama_mk']) ?></h5>
+                                    <span class="badge bg-info mb-2"><?= htmlspecialchars($m['kode_mk']) ?></span>
+                                </div>
+                                <span class="badge bg-primary">
+                                    <?= htmlspecialchars($m['sks']) ?> SKS
+                                </span>
+                            </div>
+                            <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i>Semester <?= htmlspecialchars($m['semester']) ?></p>
+                            
+                            <div class="mt-auto action-buttons">
+                                <button class="btn btn-sm btn-warning" onclick="editMK('<?= htmlspecialchars($m['kode_mk'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['nama_mk'], ENT_QUOTES) ?>', '<?= $m['sks'] ?>', '<?= $m['semester'] ?>')">
+                                    <i class="fas fa-edit me-1"></i>Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="hapusMK('<?= htmlspecialchars($m['kode_mk'], ENT_QUOTES) ?>')">
+                                    <i class="fas fa-trash me-1"></i>Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Data mata kuliah tidak ditemukan.
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($total_data > 0): ?>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+        <?= render_pagination_info($current_page, $per_page, $total_data) ?>
+        <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_matakuliah', ['search' => $search]) ?>
+    </div>
+    <?php endif; ?>
+    <?php
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -113,6 +173,24 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk LIMIT 
                 
                 <?= show_alert() ?>
                 
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <form method="GET" class="row g-3">
+                            <input type="hidden" name="page" value="admin_matakuliah">
+                            <div class="col-12 col-md">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari mata kuliah atau kode..." value="<?= htmlspecialchars($search) ?>">
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-auto">
+                                <button type="submit" class="btn btn-primary w-100 px-4"><i class="fas fa-search me-2"></i>Cari</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="matkulContainer">
                 <div class="row">
                     <?php if (mysqli_num_rows($matkul) > 0): ?>
                         <?php while ($m = mysqli_fetch_assoc($matkul)): ?>
@@ -121,6 +199,7 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk LIMIT 
                                     <div class="card-body d-flex flex-column">
                                         <div class="d-flex justify-content-between align-items-start mb-3">
                                             <div>
+                                                <span class="badge bg-primary mb-2"><?= htmlspecialchars($m['kode_mk']) ?></span>
                                                 <h5 class="card-title mb-1"><?= htmlspecialchars($m['nama_mk']) ?></h5>
                                                 <span class="badge bg-info mb-2"><?= htmlspecialchars($m['kode_mk']) ?></span>
                                             </div>
@@ -146,7 +225,7 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk LIMIT 
                         <div class="col-12">
                             <div class="alert alert-info text-center">
                                 <i class="fas fa-info-circle me-2"></i>
-                                Belum ada data mata kuliah. Silakan tambahkan data baru.
+                                Data mata kuliah tidak ditemukan.
                             </div>
                         </div>
                     <?php endif; ?>
@@ -156,9 +235,10 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk LIMIT 
                 <?php if ($total_data > 0): ?>
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
                     <?= render_pagination_info($current_page, $per_page, $total_data) ?>
-                    <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_matakuliah', []) ?>
+                    <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_matakuliah', ['search' => $search]) ?>
                 </div>
                 <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -261,6 +341,23 @@ function hapusMK(kode) {
         document.getElementById('formHapus').submit();
     }
 }
+
+// Live Search
+let searchTimeout = null;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const searchValue = this.value;
+    const container = document.getElementById('matkulContainer');
+    
+    searchTimeout = setTimeout(function() {
+        fetch(`index.php?page=admin_matakuliah&ajax_search=1&search=${encodeURIComponent(searchValue)}`)
+            .then(response => response.text())
+            .then(html => {
+                container.innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }, 300);
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>

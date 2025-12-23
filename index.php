@@ -293,6 +293,9 @@ switch ($page) {
     case 'api_check_notif':
         include 'api/check_notif.php';
         break;
+    case 'api_update_presensi_admin':
+        include 'api/update_presensi_admin.php';
+        break;
     
     default:
         // Redirect berdasarkan role

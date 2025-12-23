@@ -105,6 +105,21 @@ if ($jadwal_id) {
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* Sticky Header Table */
+.table-responsive.sticky-header {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+.table-responsive.sticky-header thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--header-bg) !important;
+    box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -169,7 +184,7 @@ if ($jadwal_id) {
                                 </div>
                                 <div class="card-body p-2 p-md-3">
                                     <!-- Desktop Table -->
-                                    <div class="table-responsive d-none d-lg-block">
+                                    <div class="table-responsive d-none d-lg-block sticky-header">
                                         <table class="table table-hover">
                                             <thead>
                                                 <tr>

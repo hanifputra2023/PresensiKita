@@ -25,6 +25,27 @@ function cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $kode_lab, $ex
     return false;
 }
 
+// [BARU] Fungsi untuk cek konflik jadwal asisten
+function cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $kode_asisten, $exclude_id = null) {
+    if (empty($kode_asisten)) return false; // Jika tidak ada asisten, tidak perlu cek
+
+    $exclude_sql = $exclude_id ? "AND j.id != '$exclude_id'" : "";
+
+    $query = "SELECT j.*, k.nama_kelas, mk.nama_mk 
+              FROM jadwal j 
+              LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+              LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+              WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten') 
+              AND j.tanggal = '$tanggal' 
+              AND j.jam_mulai < '$jam_selesai' 
+              AND j.jam_selesai > '$jam_mulai'
+              $exclude_sql
+              LIMIT 1";
+
+    $result = mysqli_query($conn, $query);
+    return ($result && mysqli_num_rows($result) > 0) ? mysqli_fetch_assoc($result) : false;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $aksi = $_POST['aksi'];
     
@@ -41,10 +62,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $asisten1 = escape($_POST['kode_asisten_1']) ?: null;
         $asisten2 = escape($_POST['kode_asisten_2']) ?: null;
         
-        $konflik = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab);
+        $konflik_lab = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab);
+        $konflik_asisten1 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten1);
+        $konflik_asisten2 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten2);
         
-        if ($konflik) {
-            set_alert('danger', 'Konflik jadwal! Lab <strong>' . htmlspecialchars($konflik['nama_lab']) . '</strong> sudah digunakan oleh kelas <strong>' . htmlspecialchars($konflik['nama_kelas']) . '</strong> pada tanggal ' . format_tanggal($konflik['tanggal']) . ' pukul ' . $konflik['jam_mulai'] . ' - ' . $konflik['jam_selesai']);
+        if ($konflik_lab) {
+            set_alert('danger', 'Konflik jadwal! Lab <strong>' . htmlspecialchars($konflik_lab['nama_lab']) . '</strong> sudah digunakan oleh kelas <strong>' . htmlspecialchars($konflik_lab['nama_kelas']) . '</strong> pada waktu yang sama.');
+        } elseif ($konflik_asisten1) {
+            set_alert('danger', 'Konflik jadwal! Asisten 1 (<strong>' . htmlspecialchars($asisten1) . '</strong>) sudah mengajar kelas <strong>' . htmlspecialchars($konflik_asisten1['nama_kelas']) . '</strong> pada waktu yang sama.');
+        } elseif ($konflik_asisten2) {
+            set_alert('danger', 'Konflik jadwal! Asisten 2 (<strong>' . htmlspecialchars($asisten2) . '</strong>) sudah mengajar kelas <strong>' . htmlspecialchars($konflik_asisten2['nama_kelas']) . '</strong> pada waktu yang sama.');
+        } elseif ($asisten1 && $asisten1 === $asisten2) {
+            set_alert('danger', 'Asisten 1 dan Asisten 2 tidak boleh orang yang sama.');
         } else {
             $lab_sql = $lab ? "'$lab'" : "NULL";
             $ast1_sql = $asisten1 ? "'$asisten1'" : "NULL";
@@ -68,10 +97,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $asisten1 = escape($_POST['kode_asisten_1']) ?: null;
         $asisten2 = escape($_POST['kode_asisten_2']) ?: null;
         
-        $konflik = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab, $id);
+        $konflik_lab = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab, $id);
+        $konflik_asisten1 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten1, $id);
+        $konflik_asisten2 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten2, $id);
         
-        if ($konflik) {
-            set_alert('danger', 'Konflik jadwal! Lab <strong>' . htmlspecialchars($konflik['nama_lab']) . '</strong> sudah digunakan oleh kelas <strong>' . htmlspecialchars($konflik['nama_kelas']) . '</strong> pada tanggal ' . format_tanggal($konflik['tanggal']) . ' pukul ' . $konflik['jam_mulai'] . ' - ' . $konflik['jam_selesai']);
+        if ($konflik_lab) {
+            set_alert('danger', 'Konflik jadwal! Lab <strong>' . htmlspecialchars($konflik_lab['nama_lab']) . '</strong> sudah digunakan oleh kelas <strong>' . htmlspecialchars($konflik_lab['nama_kelas']) . '</strong> pada waktu yang sama.');
+        } elseif ($konflik_asisten1) {
+            set_alert('danger', 'Konflik jadwal! Asisten 1 (<strong>' . htmlspecialchars($asisten1) . '</strong>) sudah mengajar kelas <strong>' . htmlspecialchars($konflik_asisten1['nama_kelas']) . '</strong> pada waktu yang sama.');
+        } elseif ($konflik_asisten2) {
+            set_alert('danger', 'Konflik jadwal! Asisten 2 (<strong>' . htmlspecialchars($asisten2) . '</strong>) sudah mengajar kelas <strong>' . htmlspecialchars($konflik_asisten2['nama_kelas']) . '</strong> pada waktu yang sama.');
+        } elseif ($asisten1 && $asisten1 === $asisten2) {
+            set_alert('danger', 'Asisten 1 dan Asisten 2 tidak boleh orang yang sama.');
         } else {
             $lab_sql = $lab ? "'$lab'" : "NULL";
             $ast1_sql = $asisten1 ? "'$asisten1'" : "NULL";
@@ -122,10 +159,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $ast2_sql = $asisten2 ? "'$asisten2'" : "NULL";
                 $lab_count = count($labs);
                 $tanggal = strtotime($tanggal_mulai);
-                    
-                // while (date('w', $tanggal) != $hari) {
-                //     $tanggal = strtotime('+1 day', $tanggal);
-                // }
+                
+                // [FIX] Cari tanggal pertama yang sesuai dengan hari yang dipilih
+                while (date('w', $tanggal) != $hari) {
+                    $tanggal = strtotime('+1 day', $tanggal);
+                }
                 
                 $materi_list = [ 'Pertemuan 1 - Pengenalan', 'Pertemuan 2 - Dasar', 'Pertemuan 3 - Lanjutan I', 'Pertemuan 4 - Lanjutan II', 'Pertemuan 5 - Praktik I', 'Pertemuan 6 - Praktik II', 'Pertemuan 7 - Praktik III', 'Pertemuan 8 - Review', 'Praresponsi', 'Inhall', 'Responsi' ];
                 
@@ -138,16 +176,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $pertemuan_ke = ($i <= 9) ? $i : ($is_inhall ? 9 : 10);
                     $current_jam_mulai = $jam_mulai;
                     $current_jam_selesai = $jam_selesai;
-                
-                    if (!$is_inhall) {
-                        $tgl_str = date('Y-m-d', $temp_tanggal);
+
+                    // [FIX] Logika penentuan waktu dan tanggal untuk Inhall dan pertemuan biasa
+                    if ($is_inhall) {
+                        // Logika Inhall: bergantung pada jadwal Praresponsi (indeks array ke-8)
+                        if (isset($jadwal_temp[8])) {
+                            $praresponsi_schedule = $jadwal_temp[8];
+                            $tgl_str = $praresponsi_schedule['tanggal'];
+                            $praresponsi_end_time = strtotime($praresponsi_schedule['jam_selesai']);
+                            $duration = $praresponsi_end_time - strtotime($praresponsi_schedule['jam_mulai']);
+                            $current_jam_mulai = date('H:i:s', $praresponsi_end_time);
+                            $current_jam_selesai = date('H:i:s', $praresponsi_end_time + $duration);
+                        } else {
+                            // Jika jadwal Praresponsi tidak ada (karena konflik), lewati pembuatan Inhall
+                            $konflik_list[] = "Inhall (P9) - Gagal dibuat karena jadwal Praresponsi (P9) tidak dapat di-generate.";
+                            continue; // Lanjut ke iterasi berikutnya (Responsi)
+                        }
                     } else {
-                        $tgl_str = $jadwal_temp[8]['tanggal'];
-                        $praresponsi_schedule = $jadwal_temp[8];
-                        $praresponsi_end_time = strtotime($praresponsi_schedule['jam_selesai']);
-                        $duration = $praresponsi_end_time - strtotime($praresponsi_schedule['jam_mulai']);
-                        $current_jam_mulai = date('H:i:s', $praresponsi_end_time);
-                        $current_jam_selesai = date('H:i:s', $praresponsi_end_time + $duration);
+                        // Logika pertemuan biasa
+                        $tgl_str = date('Y-m-d', $temp_tanggal);
                     }
                 
                     $kode_lab = null;
@@ -156,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     if ($is_inhall) {
                         // Untuk INHALL, lab harus sama dengan PRARESPONSI.
                         // Praresponsi adalah jadwal ke-9 yang di-generate (indeks array 8).
-                        if (isset($jadwal_temp[8]) && $jadwal_temp[8]['kode_lab']) {
+                        if (isset($jadwal_temp[8]) && !empty($jadwal_temp[8]['kode_lab'])) {
                             $kode_lab = $jadwal_temp[8]['kode_lab'];
 
                             // Tetap cek konflik waktu, seandainya ada jadwal kelas lain yang masuk di antara praresponsi dan inhall
@@ -165,9 +212,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Lab " . htmlspecialchars($konflik_db['nama_lab']) . " (mengikuti Praresponsi) bentrok dengan jadwal kelas " . htmlspecialchars($konflik_db['nama_kelas']);
                                 continue;
                             }
+                            $konflik_ast1 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten1);
+                            $konflik_ast2 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten2);
+                            if ($konflik_ast1) {
+                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 1 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast1['nama_kelas']);
+                                continue;
+                            } elseif ($konflik_ast2) {
+                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 2 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast2['nama_kelas']);
+                                continue;
+                            }
                         } else {
-                            // Ini seharusnya tidak terjadi jika alur normal, tapi sebagai pengaman
-                            $konflik_list[] = "$p_label - Gagal menemukan jadwal Praresponsi / lab Praresponsi tidak diset. Tidak dapat menyamakan lab.";
+                            // Ini terjadi jika jadwal Praresponsi tidak ada, sudah ditangani di atas, tapi sebagai pengaman tambahan.
+                            $konflik_list[] = "$p_label - Gagal menemukan lab dari jadwal Praresponsi.";
                             continue;
                         }
                     } else {
@@ -181,6 +237,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 // Cek konflik dengan jadwal lain yang sudah ada di database
                                 $konflik_db = cekKonflikLab($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $lab_coba);
                                 if (!$konflik_db) {
+                                    // [FIX] Cek konflik asisten juga
+                                    $konflik_ast1 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten1);
+                                    $konflik_ast2 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten2);
+                                    if ($konflik_ast1) {
+                                        $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 1 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast1['nama_kelas']);
+                                        continue 2; // Coba lab berikutnya
+                                    } elseif ($konflik_ast2) {
+                                        $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 2 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast2['nama_kelas']);
+                                        continue 2; // Coba lab berikutnya
+                                    }
                                     $kode_lab = $lab_coba;
                                     $lab_ditemukan = true;
                                     break;
@@ -437,24 +503,20 @@ if ($lab_list_query) {
                                 <div class="d-lg-none mb-3">
                                     <?php foreach ($jadwal_list as $j): ?>
                                         <div class="card mb-2 border"><div class="card-body p-3">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div class="flex-grow-1">
-                                                    <div class="d-flex align-items-center gap-2 mb-2">
-                                                        <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span><small class="text-muted"><?= format_tanggal($j['tanggal']) ?></small>
-                                                    </div>
-                                                    <h6 class="mb-1"><?= htmlspecialchars($j['nama_mk']) ?></h6>
-                                                    <div class="small text-muted mb-1"><?= htmlspecialchars($j['materi']) ?></div>
-                                                    <div class="small">
-                                                        <i class="fas fa-clock me-1 text-primary"></i><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?><br>
-                                                        <i class="fas fa-map-marker-alt me-1 text-danger"></i><?= htmlspecialchars($j['nama_lab'] ?: '-') ?><br>
-                                                        <i class="fas fa-user me-1 text-success"></i><?= htmlspecialchars($j['asisten1_nama'] ?: '-') ?><?= $j['asisten2_nama'] ? ', ' . htmlspecialchars($j['asisten2_nama']) : '' ?>
-                                                    </div>
-                                                </div>
-                                                <div class="d-flex flex-column gap-2">
-                                                    <a href="index.php?page=admin_materi&jadwal=<?= $j['id'] ?>" class="btn btn-sm btn-info text-white"><i class="fas fa-book"></i></a>
-                                                    <button class="btn btn-sm btn-warning text-dark" onclick='editJadwal(<?= json_encode($j) ?>)'><i class="fas fa-edit"></i></button>
-                                                    <button class="btn btn-sm btn-danger" onclick="hapusJadwal(<?= $j['id'] ?>)"><i class="fas fa-trash"></i></button>
-                                                </div>
+                                            <div class="d-flex align-items-center gap-2 mb-2">
+                                                <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span><small class="text-muted"><?= format_tanggal($j['tanggal']) ?></small>
+                                            </div>
+                                            <h6 class="mb-1"><?= htmlspecialchars($j['nama_mk']) ?></h6>
+                                            <div class="small text-muted mb-2"><?= htmlspecialchars($j['materi']) ?></div>
+                                            <div class="small mb-3">
+                                                <div class="mb-1"><i class="fas fa-clock me-2 text-primary" style="width:16px"></i><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></div>
+                                                <div class="mb-1"><i class="fas fa-map-marker-alt me-2 text-danger" style="width:16px"></i><?= htmlspecialchars($j['nama_lab'] ?: '-') ?></div>
+                                                <div><i class="fas fa-user me-2 text-success" style="width:16px"></i><?= htmlspecialchars($j['asisten1_nama'] ?: '-') ?><?= $j['asisten2_nama'] ? ', ' . htmlspecialchars($j['asisten2_nama']) : '' ?></div>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <a href="index.php?page=admin_materi&jadwal=<?= $j['id'] ?>" class="btn btn-sm btn-info text-white flex-fill"><i class="fas fa-book me-1"></i> Materi</a>
+                                                <button class="btn btn-sm btn-warning text-dark flex-fill" onclick='editJadwal(<?= json_encode($j) ?>)'><i class="fas fa-edit me-1"></i> Edit</button>
+                                                <button class="btn btn-sm btn-danger flex-fill" onclick="hapusJadwal(<?= $j['id'] ?>)"><i class="fas fa-trash me-1"></i> Hapus</button>
                                             </div>
                                         </div></div>
                                     <?php endforeach; ?>

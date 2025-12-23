@@ -73,7 +73,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $per_page = 9;
 $current_page = get_current_page();
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM lab");
+// Search
+$search = isset($_GET['search']) ? escape($_GET['search']) : '';
+$where_sql = '';
+if ($search) {
+    $where_sql = "WHERE l.nama_lab LIKE '%$search%' OR l.kode_lab LIKE '%$search%' OR l.lokasi LIKE '%$search%'";
+}
+
+$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM lab l $where_sql");
 $total_data = mysqli_fetch_assoc($count_query)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
@@ -87,10 +94,68 @@ $labs_query = "
     FROM lab l 
     LEFT JOIN lab_matakuliah lm ON l.id = lm.id_lab
     LEFT JOIN mata_kuliah mk ON lm.kode_mk = mk.kode_mk
+    $where_sql
     GROUP BY l.id
     ORDER BY l.kode_lab 
     LIMIT $offset, $per_page";
 $labs = mysqli_query($conn, $labs_query);
+
+// Handle AJAX Search
+if (isset($_GET['ajax_search'])) {
+    ?>
+    <div class="row">
+        <?php if (mysqli_num_rows($labs) > 0): ?>
+            <?php while ($l = mysqli_fetch_assoc($labs)): ?>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 lab-card">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <span class="badge bg-primary mb-2"><?= htmlspecialchars($l['kode_lab']) ?></span>
+                                    <h5 class="card-title mb-1"><?= htmlspecialchars($l['nama_lab']) ?></h5>
+                                </div>
+                                <span class="badge <?= $l['status'] == 'active' ? 'bg-success' : 'bg-warning' ?> text-capitalize">
+                                    <?= htmlspecialchars($l['status']) ?>
+                                </span>
+                            </div>
+                            <p class="text-muted mb-2"><i class="fas fa-map-marker-alt me-2"></i><?= htmlspecialchars($l['lokasi']) ?></p>
+                            <p class="text-muted mb-2"><i class="fas fa-users me-2"></i>Kapasitas: <?= htmlspecialchars($l['kapasitas']) ?> orang</p>
+                            <p class="text-muted mb-2"><i class="fas fa-book me-2"></i><?= htmlspecialchars($l['daftar_mata_kuliah'] ?: 'Belum diset') ?></p>
+                            
+                            <div class="mt-auto action-buttons">
+                                <?php
+                                $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk']));
+                                ?>
+                                <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
+                                    <i class="fas fa-edit me-1"></i>Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="hapusLab(<?= $l['id'] ?>)">
+                                    <i class="fas fa-trash me-1"></i>Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Data laboratorium tidak ditemukan.
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+    
+    <?php if ($total_data > 0): ?>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+        <?= render_pagination_info($current_page, $per_page, $total_data) ?>
+        <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_lab', ['search' => $search]) ?>
+    </div>
+    <?php endif; ?>
+    <?php
+    exit;
+}
 
 $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 ?>
@@ -159,6 +224,24 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                 
                 <?= show_alert() ?>
                 
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <form method="GET" class="row g-3">
+                            <input type="hidden" name="page" value="admin_lab">
+                            <div class="col-12 col-md">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari nama lab, kode, atau lokasi..." value="<?= htmlspecialchars($search) ?>">
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-auto">
+                                <button type="submit" class="btn btn-primary w-100 px-4"><i class="fas fa-search me-2"></i>Cari</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div id="labContainer">
                 <div class="row">
                     <?php if (mysqli_num_rows($labs) > 0): ?>
                         <?php while ($l = mysqli_fetch_assoc($labs)): ?>
@@ -207,9 +290,10 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                 <?php if ($total_data > 0): ?>
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
                     <?= render_pagination_info($current_page, $per_page, $total_data) ?>
-                    <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_lab', []) ?>
+                    <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_lab', ['search' => $search]) ?>
                 </div>
                 <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -371,6 +455,23 @@ function hapusLab(id) {
         document.getElementById('formHapus').submit();
     }
 }
+
+// Live Search
+let searchTimeout = null;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const searchValue = this.value;
+    const container = document.getElementById('labContainer');
+    
+    searchTimeout = setTimeout(function() {
+        fetch(`index.php?page=admin_lab&ajax_search=1&search=${encodeURIComponent(searchValue)}`)
+            .then(response => response.text())
+            .then(html => {
+                container.innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }, 300);
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>

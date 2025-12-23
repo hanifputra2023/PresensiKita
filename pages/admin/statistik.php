@@ -1,200 +1,145 @@
 <?php
 $page = 'admin_statistik';
 
-// Export Excel (CSV format)
-if (isset($_GET['export'])) {
-    // Hentikan dan bersihkan output buffer yang mungkin sudah terisi oleh index.php
-    if (ob_get_length()) ob_end_clean();
-    
-    $filter_bulan_exp = isset($_GET['bulan']) ? escape($_GET['bulan']) : date('Y-m');
-    $filter_kelas_exp = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
-    $filter_mk_exp = isset($_GET['mk']) ? escape($_GET['mk']) : '';
-    $filter_lab_exp = isset($_GET['lab']) ? escape($_GET['lab']) : '';
-    $view_exp = isset($_GET['view']) ? escape($_GET['view']) : 'kelas';
-
-    $where_kelas_exp = $filter_kelas_exp ? "AND j.kode_kelas = '$filter_kelas_exp'" : '';
-    $where_mk_exp = $filter_mk_exp ? "AND j.kode_mk = '$filter_mk_exp'" : '';
-    $where_lab_exp = $filter_lab_exp ? "AND j.kode_lab = '$filter_lab_exp'" : '';
-
-    $filename = 'statistik_presensi_admin_' . $view_exp . '_' . date('Y-m-d_His') . '.csv';
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename=' . $filename);
-
-    // BOM untuk Excel agar UTF-8 terbaca dengan benar
-    echo chr(0xEF) . chr(0xBB) . chr(0xBF);
-
-    // Hitung range tanggal
-    $start_date = $filter_bulan_exp . '-01';
-    $end_date = date('Y-m-t', strtotime($start_date));
-
-    // Common WHERE clause
-    $base_where_exp = "
-        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-        AND j.jenis != 'inhall'
-        AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-        $where_kelas_exp $where_mk_exp $where_lab_exp
-    ";
-
-    if ($view_exp == 'kelas') {
-        echo "No;Kelas;Jumlah Mahasiswa;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
-        $stat_per_kelas_exp = mysqli_query($conn, "SELECT
-            k.kode_kelas, k.nama_kelas,
-            COUNT(DISTINCT m.nim) as jumlah_mhs,
-            COUNT(DISTINCT j.id) as total_jadwal,
-            SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-            SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-            SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
-            FROM jadwal j
-            JOIN kelas k ON j.kode_kelas = k.kode_kelas
-            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
-            LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-            $base_where_exp
-            GROUP BY k.kode_kelas, k.nama_kelas
-            ORDER BY k.nama_kelas");
-
-        $no = 1;
-        while ($row = mysqli_fetch_assoc($stat_per_kelas_exp)) {
-            $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
-            $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
-            echo "$no;{$row['nama_kelas']};{$row['jumlah_mhs']};{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
-            $no++;
-        }
-
-    } elseif ($view_exp == 'mk') {
-        echo "No;Mata Kuliah;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
-        $stat_per_mk_exp = mysqli_query($conn, "SELECT
-            mk.kode_mk, mk.nama_mk,
-            COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
-            COUNT(DISTINCT j.id) as total_jadwal,
-            SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-            SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-            SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
-            FROM jadwal j
-            JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
-            LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-            $base_where_exp
-            GROUP BY mk.kode_mk, mk.nama_mk
-            ORDER BY mk.nama_mk");
-        
-        $no = 1;
-        while ($row = mysqli_fetch_assoc($stat_per_mk_exp)) {
-            $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
-            $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
-            echo "$no;{$row['nama_mk']};{$row['jumlah_kelas']};{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
-            $no++;
-        }
-
-    } else { // lab
-        echo "No;Lab;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
-        $stat_per_lab_exp = mysqli_query($conn, "SELECT
-            l.kode_lab, l.nama_lab,
-            COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
-            COUNT(DISTINCT j.id) as total_jadwal,
-            SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-            SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-            SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
-            FROM jadwal j
-            JOIN lab l ON j.kode_lab = l.kode_lab
-            JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
-            LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-            $base_where_exp
-            GROUP BY l.kode_lab, l.nama_lab
-            ORDER BY l.nama_lab");
-
-        $no = 1;
-        while ($row = mysqli_fetch_assoc($stat_per_lab_exp)) {
-            $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
-            $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
-            echo "$no;{$row['nama_lab']};{$row['jumlah_kelas']};{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
-            $no++;
-        }
-    }
-    exit;
-}
-
-// Filter
+// 1. Inisialisasi Filter & Variabel
 $filter_bulan = isset($_GET['bulan']) ? escape($_GET['bulan']) : date('Y-m');
 $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $filter_mk = isset($_GET['mk']) ? escape($_GET['mk']) : '';
 $filter_lab = isset($_GET['lab']) ? escape($_GET['lab']) : '';
 $view = isset($_GET['view']) ? escape($_GET['view']) : 'kelas'; // kelas, mk, lab
 
-// Build WHERE conditions
+// 2. Build WHERE conditions
 $where_kelas = $filter_kelas ? "AND j.kode_kelas = '$filter_kelas'" : '';
 $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
 $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 
-// Hitung range tanggal untuk optimasi query (menggantikan DATE_FORMAT)
+// Range Tanggal
 $start_date = $filter_bulan . '-01';
 $end_date = date('Y-m-t', strtotime($start_date));
 
-// ============ STATISTIK (QUERIES REBUILT FOR ACCURACY) ============
-// Basis perhitungan adalah setiap mahasiswa yang terdaftar di setiap jadwal yang sudah lewat
-// Ini memastikan 'alpha' dihitung dengan benar dari pasangan (mahasiswa, jadwal) yang tidak memiliki rekor presensi.
+// 3. Konstruksi Query Utama (DRY - Satu Logika untuk Export & View)
+$sql = "";
+if ($view == 'kelas') {
+    // Fix alias untuk view kelas karena base table adalah kelas (k)
+    $where_kelas_fixed = str_replace('j.kode_kelas', 'k.kode_kelas', $where_kelas);
+    
+    $sql = "SELECT
+        k.kode_kelas, k.nama_kelas,
+        COUNT(DISTINCT m.nim) as jumlah_mhs,
+        COUNT(DISTINCT j.id) as total_jadwal,
+        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE WHEN m.nim IS NOT NULL AND j.id IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        FROM kelas k
+        LEFT JOIN jadwal j ON j.kode_kelas = k.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date' AND j.jenis != 'inhall' $where_mk $where_lab
+        LEFT JOIN mahasiswa m ON m.kode_kelas = k.kode_kelas AND (j.id IS NULL OR m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+        WHERE 1=1 $where_kelas_fixed
+        GROUP BY k.kode_kelas, k.nama_kelas
+        ORDER BY k.nama_kelas";
+} elseif ($view == 'mk') {
+    $sql = "SELECT
+        mk.kode_mk, mk.nama_mk,
+        COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
+        COUNT(DISTINCT j.id) as total_jadwal,
+        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE WHEN m.nim IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        FROM jadwal j
+        JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+        LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+        AND j.jenis != 'inhall'
+        $where_kelas $where_mk $where_lab
+        GROUP BY mk.kode_mk, mk.nama_mk
+        ORDER BY mk.nama_mk";
+} else { // lab
+    $sql = "SELECT
+        l.kode_lab, l.nama_lab,
+        COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
+        COUNT(DISTINCT j.id) as total_jadwal,
+        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE WHEN m.nim IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        FROM jadwal j
+        JOIN lab l ON j.kode_lab = l.kode_lab
+        LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
+        AND j.jenis != 'inhall'
+        $where_kelas $where_mk $where_lab
+        GROUP BY l.kode_lab, l.nama_lab
+        ORDER BY l.nama_lab";
+}
 
-// ============ STATISTIK PER KELAS ============
-$stat_per_kelas = mysqli_query($conn, "SELECT
-    k.kode_kelas, k.nama_kelas,
-    COUNT(DISTINCT m.nim) as jumlah_mhs,
-    COUNT(DISTINCT j.id) as total_jadwal,
-    SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-    SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-    SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
-FROM jadwal j
-JOIN kelas k ON j.kode_kelas = k.kode_kelas
-JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
-LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND j.jenis != 'inhall'
-  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-  $where_kelas $where_mk $where_lab
-GROUP BY k.kode_kelas, k.nama_kelas
-ORDER BY k.nama_kelas");
+// Eksekusi Query Utama
+$q_data = mysqli_query($conn, $sql);
 
-// ============ STATISTIK PER MATA KULIAH ============
-$stat_per_mk = mysqli_query($conn, "SELECT
-    mk.kode_mk, mk.nama_mk,
-    COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
-    COUNT(DISTINCT j.id) as total_jadwal,
-    SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-    SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-    SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
-FROM jadwal j
-JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
-LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND j.jenis != 'inhall'
-  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-  $where_kelas $where_mk $where_lab
-GROUP BY mk.kode_mk, mk.nama_mk
-ORDER BY mk.nama_mk");
+// Persiapan Data untuk Grafik (Chart.js)
+$json_labels = [];
+$json_hadir = [];
+$json_izin = [];
+$json_sakit = [];
+$json_alpha = [];
 
-// ============ STATISTIK PER LAB ============
-$stat_per_lab = mysqli_query($conn, "SELECT
-    l.kode_lab, l.nama_lab,
-    COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
-    COUNT(DISTINCT j.id) as total_jadwal,
-    SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-    SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-    SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
-FROM jadwal j
-JOIN lab l ON j.kode_lab = l.kode_lab
-JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
-LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-  AND j.jenis != 'inhall'
-  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-  $where_kelas $where_mk $where_lab
-GROUP BY l.kode_lab, l.nama_lab
-ORDER BY l.nama_lab");
+while ($row = mysqli_fetch_assoc($q_data)) {
+    if ($view == 'kelas') $lbl = $row['nama_kelas'];
+    elseif ($view == 'mk') $lbl = $row['nama_mk'];
+    else $lbl = $row['nama_lab'];
+    
+    $json_labels[] = $lbl;
+    $json_hadir[] = (int)$row['hadir'];
+    $json_izin[] = (int)$row['izin'];
+    $json_sakit[] = (int)$row['sakit'];
+    $json_alpha[] = (int)$row['alpha'];
+}
+mysqli_data_seek($q_data, 0); // Reset pointer agar bisa diloop ulang di tabel
+
+// 4. Handle Export Excel (CSV)
+if (isset($_GET['export'])) {
+    if (ob_get_length()) ob_end_clean();
+    
+    $filename = 'statistik_presensi_admin_' . $view . '_' . date('Y-m-d_His') . '.csv';
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename=' . $filename);
+    echo chr(0xEF) . chr(0xBB) . chr(0xBF); // BOM
+
+    // Header CSV
+    if ($view == 'kelas') {
+        echo "No;Kelas;Jumlah Mahasiswa;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
+    } elseif ($view == 'mk') {
+        echo "No;Mata Kuliah;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
+    } else {
+        echo "No;Lab;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
+    }
+
+    $no = 1;
+    while ($row = mysqli_fetch_assoc($q_data)) {
+        $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
+        $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
+        
+        $name = '';
+        $col3 = '';
+        if ($view == 'kelas') {
+            $name = $row['nama_kelas'];
+            $col3 = $row['jumlah_mhs'];
+        } elseif ($view == 'mk') {
+            $name = $row['nama_mk'];
+            $col3 = $row['jumlah_kelas'];
+        } else {
+            $name = $row['nama_lab'];
+            $col3 = $row['jumlah_kelas'];
+        }
+
+        echo "$no;$name;$col3;{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
+        $no++;
+    }
+    exit;
+}
 
 // ============ TOTAL KESELURUHAN ============
 $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT 
@@ -202,61 +147,17 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN m.nim IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
 FROM jadwal j
-JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
 WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
   AND j.jenis != 'inhall'
-  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
   $where_kelas $where_mk $where_lab"));
 
 $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
 $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
 $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
-
-// ============ FUNCTION: GET DETAIL MAHASISWA PER STATUS ============
-function get_detail_mahasiswa($conn, $status, $filter_kelas = '', $filter_mk = '', $filter_lab = '', $filter_bulan = '') {
-    $where_kelas = $filter_kelas ? "AND j.kode_kelas = '$filter_kelas'" : '';
-    $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
-    $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
-
-    $start_date = $filter_bulan . '-01';
-    $end_date = date('Y-m-t', strtotime($start_date));
-
-    // Base query starts from jadwal and mahasiswa to correctly identify all attendance events
-    $base_from = "
-        FROM jadwal j
-        JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
-        JOIN kelas k ON j.kode_kelas = k.kode_kelas
-        JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-    ";
-
-    // For this detail view, we only care about past schedules where status is determined
-    $base_where = "
-        WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
-          AND j.jenis != 'inhall'
-          AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-          $where_kelas $where_mk $where_lab
-    ";
-
-    // Dynamic condition based on the requested status
-    if ($status == 'alpha') {
-        $status_condition = "AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit'))";
-    } else {
-        $status_condition = "AND p.status = '$status'";
-    }
-
-    $query = "SELECT DISTINCT m.nim, m.nama, k.nama_kelas, mk.nama_mk, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, 
-                     IF(p.status IS NULL, 'alpha', p.status) as status
-              $base_from
-              $base_where
-              $status_condition
-              ORDER BY m.nama, j.tanggal";
-    
-    return mysqli_query($conn, $query);
-}
 
 $total_presensi = ($total_all['hadir'] ?? 0) + ($total_all['izin'] ?? 0) + ($total_all['sakit'] ?? 0) + ($total_all['alpha'] ?? 0);
 $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi) * 100) : 0;
@@ -986,7 +887,17 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                         </div>
                     </div>
                 </div>
-                
+
+                <!-- Chart Section -->
+                <div class="card mb-4 shadow-sm border-0 no-print">
+                    <div class="card-body">
+                        <h5 class="card-title mb-4 fw-bold text-secondary"><i class="fas fa-chart-bar me-2"></i>Grafik Visualisasi</h5>
+                        <div style="position: relative; height: 350px; width: 100%;">
+                            <canvas id="presensiChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tab Navigation -->
                 <div class="stat-tabs no-print">
                     <a class="stat-tab <?= $view == 'kelas' ? 'active' : '' ?>" 
@@ -1052,14 +963,13 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                                 <?php 
                                 $no = 1;
                                 $has_data = false;
-                                
-                                if ($view == 'kelas'):
-                                    while ($row = mysqli_fetch_assoc($stat_per_kelas)):
-                                        if ($row['total_jadwal'] == 0) continue;
+                                while ($row = mysqli_fetch_assoc($q_data)):
                                         $has_data = true;
                                         $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
                                         $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
                                         $persen_class = $persen >= 75 ? 'high' : ($persen >= 50 ? 'medium' : 'low');
+                                        
+                                        if ($view == 'kelas'):
                                 ?>
                                     <tr>
                                         <td class="text-center"><?= $no++ ?></td>
@@ -1083,14 +993,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                                         </td>
                                     </tr>
                                 <?php 
-                                    endwhile;
-                                elseif ($view == 'mk'):
-                                    while ($row = mysqli_fetch_assoc($stat_per_mk)):
-                                        if ($row['total_jadwal'] == 0) continue;
-                                        $has_data = true;
-                                        $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
-                                        $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
-                                        $persen_class = $persen >= 75 ? 'high' : ($persen >= 50 ? 'medium' : 'low');
+                                        elseif ($view == 'mk'):
+                                            if ($row['total_jadwal'] == 0) continue;
                                 ?>
                                     <tr>
                                         <td class="text-center"><?= $no++ ?></td>
@@ -1114,14 +1018,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                                         </td>
                                     </tr>
                                 <?php 
-                                    endwhile;
-                                else:
-                                    while ($row = mysqli_fetch_assoc($stat_per_lab)):
-                                        if ($row['total_jadwal'] == 0) continue;
-                                        $has_data = true;
-                                        $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
-                                        $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
-                                        $persen_class = $persen >= 75 ? 'high' : ($persen >= 50 ? 'medium' : 'low');
+                                        else: // lab
+                                            if ($row['total_jadwal'] == 0) continue;
                                 ?>
                                     <tr>
                                         <td class="text-center"><?= $no++ ?></td>
@@ -1145,8 +1043,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                                         </td>
                                     </tr>
                                 <?php 
-                                    endwhile;
-                                endif;
+                                        endif;
+                                endwhile;
                                 
                                 if (!$has_data):
                                 ?>
@@ -1203,15 +1101,11 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
         <tbody>
             <?php 
             $no = 1;
-            $result_set = null;
+            // Reset pointer result set untuk digunakan kembali
+            mysqli_data_seek($q_data, 0);
             
-            if ($view == 'kelas') $result_set = $stat_per_kelas;
-            elseif ($view == 'mk') $result_set = $stat_per_mk;
-            elseif ($view == 'lab') $result_set = $stat_per_lab;
-            
-            if ($result_set && mysqli_num_rows($result_set) > 0) {
-                mysqli_data_seek($result_set, 0); // Reset pointer agar bisa di-loop ulang
-                while ($row = mysqli_fetch_assoc($result_set)) {
+            if ($q_data && mysqli_num_rows($q_data) > 0) {
+                while ($row = mysqli_fetch_assoc($q_data)) {
                     $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
                     $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
                     
@@ -1238,6 +1132,10 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                     <td class="text-center"><?= $row['izin'] ?></td>
                     <td class="text-center"><?= $row['sakit'] ?></td>
                     <td class="text-center"><?= $row['alpha'] ?></td>
+                    <td class="text-center"><span style="background-color: #d4edda; color: #155724; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['hadir'] ?></span></td>
+                    <td class="text-center"><span style="background-color: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['izin'] ?></span></td>
+                    <td class="text-center"><span style="background-color: #d1ecf1; color: #0c5460; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['sakit'] ?></span></td>
+                    <td class="text-center"><span style="background-color: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['alpha'] ?></span></td>
                     <td class="text-center"><?= $total ?></td>
                     <td class="text-center"><?= $persen ?>%</td>
                 </tr>
@@ -1253,6 +1151,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 
 <!-- Library html2pdf.js -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<!-- Library Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 function exportPDF() {
     const originalElement = document.querySelector('.print-only');
@@ -1360,6 +1260,73 @@ function exportPDF() {
 <?php include 'includes/footer.php'; ?>
 
 <script>
+// Inisialisasi Chart.js
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('presensiChart').getContext('2d');
+    
+    // Data dari PHP
+    const labels = <?= json_encode(array_slice($json_labels, 0, 20)) ?>; // Ambil max 20 item agar tidak penuh
+    const dataHadir = <?= json_encode(array_slice($json_hadir, 0, 20)) ?>;
+    const dataIzin = <?= json_encode(array_slice($json_izin, 0, 20)) ?>;
+    const dataSakit = <?= json_encode(array_slice($json_sakit, 0, 20)) ?>;
+    const dataAlpha = <?= json_encode(array_slice($json_alpha, 0, 20)) ?>;
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Hadir',
+                    data: dataHadir,
+                    backgroundColor: '#28a745',
+                    borderColor: '#1e7e34',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Izin',
+                    data: dataIzin,
+                    backgroundColor: '#ffc107',
+                    borderColor: '#d39e00',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Sakit',
+                    data: dataSakit,
+                    backgroundColor: '#17a2b8',
+                    borderColor: '#117a8b',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Alpha',
+                    data: dataAlpha,
+                    backgroundColor: '#dc3545',
+                    borderColor: '#bd2130',
+                    borderWidth: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    stacked: true // Stacked bar chart agar lebih rapi
+                },
+                x: {
+                    stacked: true
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+});
+
 // Function to show detail mahasiswa modal
 function showDetailMahasiswa(status, kode_kelas = '', kode_mk = '', kode_lab = '') {
     const bulan = document.querySelector('input[name="bulan"]').value;

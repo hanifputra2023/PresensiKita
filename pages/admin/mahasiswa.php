@@ -192,6 +192,59 @@ $mahasiswa = mysqli_query($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, 
                                    $where ORDER BY m.nim LIMIT $offset, $per_page");
 $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
 
+// Handle AJAX Search
+if (isset($_GET['ajax_search'])) {
+    ?>
+    <div class="row">
+        <?php if (mysqli_num_rows($mahasiswa) > 0): ?>
+            <?php while ($m = mysqli_fetch_assoc($mahasiswa)): ?>
+                <div class="col-xl-4 col-lg-6 col-md-6 mb-4">
+                    <div class="card h-100 mahasiswa-card">
+                        <div class="card-body d-flex flex-column">
+                            <div class="text-center mb-3">
+                                <?php 
+                                $foto_profil = (!empty($m['foto']) && file_exists($m['foto'])) ? $m['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($m['nama']) . '&background=random&color=fff&rounded=true';
+                                ?>
+                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;">
+                            </div>
+                            <h5 class="card-title text-center mb-1"><?= htmlspecialchars($m['nama']) ?></h5>
+                            <p class="text-center text-muted small"><?= htmlspecialchars($m['nim']) ?></p>
+                            
+                            <p class="text-muted mb-2 mt-3"><i class="fas fa-university me-2"></i><?= htmlspecialchars($m['prodi']) ?: 'N/A' ?></p>
+                            <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i><?= htmlspecialchars($m['nama_kelas']) ?: 'N/A' ?></p>
+                            <p class="text-muted mb-2"><i class="fas fa-phone-alt me-2"></i><?= htmlspecialchars($m['no_hp']) ?: 'N/A' ?></p>
+                            
+                            <div class="mt-auto action-buttons">
+                                <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
+                                    <i class="fas fa-edit me-1"></i>Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="hapusMhs(<?= $m['id'] ?>)">
+                                    <i class="fas fa-trash me-1"></i>Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Tidak ada data mahasiswa yang cocok dengan filter.
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($total_data > 0): ?>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+        <?= render_pagination_info($current_page, $per_page, $total_data) ?>
+        <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_mahasiswa', ['kelas' => $filter_kelas, 'search' => $search]) ?>
+    </div>
+    <?php endif; ?>
+    <?php
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -298,6 +351,7 @@ $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
                     </div>
                 </div>
                 
+                <div id="mahasiswaContainer">
                 <div class="row">
                     <?php if (mysqli_num_rows($mahasiswa) > 0): ?>
                         <?php while ($m = mysqli_fetch_assoc($mahasiswa)): ?>
@@ -345,6 +399,7 @@ $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
                     <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_mahasiswa', ['kelas' => $filter_kelas, 'search' => $search]) ?>
                 </div>
                 <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -452,6 +507,30 @@ function hapusMhs(id) {
         document.getElementById('formHapus').submit();
     }
 }
+
+// Live Search
+let searchTimeout = null;
+const searchInput = document.getElementById('search');
+const kelasSelect = document.getElementById('kelas');
+
+function performSearch() {
+    clearTimeout(searchTimeout);
+    const searchValue = searchInput.value;
+    const kelasValue = kelasSelect.value;
+    const container = document.getElementById('mahasiswaContainer');
+    
+    searchTimeout = setTimeout(function() {
+        fetch(`index.php?page=admin_mahasiswa&ajax_search=1&search=${encodeURIComponent(searchValue)}&kelas=${encodeURIComponent(kelasValue)}`)
+            .then(response => response.text())
+            .then(html => {
+                container.innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }, 300);
+}
+
+searchInput.addEventListener('input', performSearch);
+kelasSelect.addEventListener('change', performSearch);
 </script>
 
 <?php include 'includes/footer.php'; ?>

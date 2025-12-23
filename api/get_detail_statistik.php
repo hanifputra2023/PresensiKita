@@ -14,6 +14,10 @@ $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $filter_mk = isset($_GET['mk']) ? escape($_GET['mk']) : '';
 $filter_lab = isset($_GET['lab']) ? escape($_GET['lab']) : '';
 
+// Hitung range tanggal (Optimasi: Menggunakan BETWEEN lebih cepat daripada DATE_FORMAT)
+$start_date = $filter_bulan . '-01';
+$end_date = date('Y-m-t', strtotime($start_date));
+
 // Build WHERE conditions
 $where_kelas = $filter_kelas ? "AND j.kode_kelas = '$filter_kelas'" : '';
 $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
@@ -47,7 +51,7 @@ $query = "SELECT DISTINCT
           FROM mahasiswa m
           LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
           LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
-              AND DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
+              AND j.tanggal BETWEEN '$start_date' AND '$end_date'
               AND j.tanggal <= CURDATE()
               AND j.jenis != 'inhall'
               $where_mk $where_lab

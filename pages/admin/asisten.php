@@ -65,6 +65,59 @@ $offset = get_offset($current_page, $per_page);
 
 $asisten = mysqli_query($conn, "SELECT a.*, mk.nama_mk FROM asisten a LEFT JOIN mata_kuliah mk ON a.kode_mk = mk.kode_mk $where_sql ORDER BY a.kode_asisten LIMIT $offset, $per_page");
 $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
+
+// Handle AJAX Search
+if (isset($_GET['ajax_search'])) {
+    ?>
+    <div class="row">
+        <?php if (mysqli_num_rows($asisten) > 0): ?>
+            <?php while ($a = mysqli_fetch_assoc($asisten)): ?>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 asisten-card">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 class="card-title mb-1"><?= htmlspecialchars($a['nama']) ?></h5>
+                                    <span class="badge bg-info mb-2"><?= htmlspecialchars($a['kode_asisten']) ?></span>
+                                </div>
+                                <span class="badge <?= $a['status'] == 'aktif' ? 'bg-success' : 'bg-secondary' ?> text-capitalize">
+                                    <?= htmlspecialchars($a['status']) ?>
+                                </span>
+                            </div>
+                            <p class="text-muted mb-2"><i class="fas fa-phone-alt me-2"></i><?= htmlspecialchars($a['no_hp'] ?: '-') ?></p>
+                            <p class="text-muted mb-2"><i class="fas fa-star me-2"></i><?= htmlspecialchars($a['nama_mk'] ?: 'Belum ditentukan') ?></p>
+                            
+                            <div class="mt-auto action-buttons">
+                                <button class="btn btn-sm btn-warning" onclick="editAst(<?= $a['id'] ?>, '<?= htmlspecialchars($a['nama'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['no_hp'], ENT_QUOTES) ?>', '<?= htmlspecialchars($a['kode_mk'], ENT_QUOTES) ?>', '<?= $a['status'] ?>')">
+                                    <i class="fas fa-edit me-1"></i>Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="hapusAst(<?= $a['id'] ?>)">
+                                    <i class="fas fa-trash me-1"></i>Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Data asisten tidak ditemukan.
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+    
+    <?php if ($total_data > 0): ?>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+        <?= render_pagination_info($current_page, $per_page, $total_data) ?>
+        <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_asisten', ['search' => $search]) ?>
+    </div>
+    <?php endif; ?>
+    <?php
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -144,7 +197,7 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
                             <div class="col-12 col-md">
                                 <div class="input-group">
                                     <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
-                                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Cari nama atau kode asisten..." value="<?= htmlspecialchars($search) ?>">
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari nama atau kode asisten..." value="<?= htmlspecialchars($search) ?>">
                                 </div>
                             </div>
                             <div class="col-12 col-md-auto">
@@ -154,6 +207,7 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
                     </div>
                 </div>
 
+                <div id="asistenContainer">
                 <div class="row">
                     <?php if (mysqli_num_rows($asisten) > 0): ?>
                         <?php while ($a = mysqli_fetch_assoc($asisten)): ?>
@@ -201,6 +255,7 @@ $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
                     <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_asisten', ['search' => $search]) ?>
                 </div>
                 <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -326,6 +381,23 @@ function hapusAst(id) {
         document.getElementById('formHapus').submit();
     }
 }
+
+// Live Search
+let searchTimeout = null;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const searchValue = this.value;
+    const container = document.getElementById('asistenContainer');
+    
+    searchTimeout = setTimeout(function() {
+        fetch(`index.php?page=admin_asisten&ajax_search=1&search=${encodeURIComponent(searchValue)}`)
+            .then(response => response.text())
+            .then(html => {
+                container.innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }, 300);
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>

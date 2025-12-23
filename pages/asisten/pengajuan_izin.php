@@ -96,6 +96,19 @@ if (isset($_GET['batal'])) {
 // Jadwal mendatang (yang bisa diajukan izin)
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
+
+// Filter dan Pencarian
+$filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
+$search = isset($_GET['search']) ? escape($_GET['search']) : '';
+
+$where_clauses = [
+    "(j.tanggal > '$today' OR (j.tanggal = '$today' AND j.jam_selesai >= '$now_time'))",
+    "(j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')"
+];
+if ($filter_kelas) $where_clauses[] = "j.kode_kelas = '$filter_kelas'";
+if ($search) $where_clauses[] = "(mk.nama_mk LIKE '%$search%' OR j.materi LIKE '%$search%')";
+$where_sql = "WHERE " . implode(" AND ", $where_clauses);
+
 $jadwal_mendatang = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk,
                                           aa.id as izin_id, aa.status as izin_status, aa.pengganti, aa.catatan, aa.jam_masuk,
                                           ap.nama as nama_pengganti,
@@ -109,10 +122,10 @@ $jadwal_mendatang = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, m
                                           LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                           LEFT JOIN absen_asisten aa ON aa.jadwal_id = j.id AND aa.kode_asisten = '$kode_asisten'
                                           LEFT JOIN asisten ap ON aa.pengganti = ap.kode_asisten
-                                          WHERE (j.tanggal > '$today' OR (j.tanggal = '$today' AND j.jam_selesai >= '$now_time'))
-                                          AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                          $where_sql
                                           ORDER BY j.tanggal, j.jam_mulai");
 
+$kelas_list = mysqli_query($conn, "SELECT DISTINCT k.kode_kelas, k.nama_kelas FROM jadwal j JOIN kelas k ON j.kode_kelas = k.kode_kelas WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten' ORDER BY k.nama_kelas");
 // Riwayat izin (hanya yang izin/sakit)
 $riwayat_izin = mysqli_query($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi,
                                       k.nama_kelas, mk.nama_mk, ap.nama as nama_pengganti
@@ -125,6 +138,141 @@ $riwayat_izin = mysqli_query($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_
                                       AND aa.status IN ('izin', 'sakit')
                                       ORDER BY j.tanggal DESC
                                       LIMIT 10");
+
+// Handle AJAX Search
+if (isset($_GET['ajax_search'])) {
+    ?>
+    <!-- Desktop Table -->
+    <div class="table-responsive d-none d-lg-block">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Waktu</th>
+                    <th>Kelas</th>
+                    <th>Materi</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php 
+                if (mysqli_num_rows($jadwal_mendatang) > 0):
+                    mysqli_data_seek($jadwal_mendatang, 0);
+                    while ($j = mysqli_fetch_assoc($jadwal_mendatang)): ?>
+                        <tr>
+                            <td>
+                                <?= format_tanggal($j['tanggal']) ?>
+                                <?php if ($j['tanggal'] == $today): ?>
+                                    <span class="badge bg-warning text-dark">Hari Ini</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></td>
+                            <td><?= $j['nama_kelas'] ?></td>
+                            <td>
+                                <strong><?= $j['nama_mk'] ?></strong><br>
+                                <small class="text-muted"><?= $j['materi'] ?> - <?= $j['nama_lab'] ?></small>
+                            </td>
+                            <td>
+                                <?php if ($j['izin_status'] == 'hadir'): ?>
+                                    <span class="badge bg-success"><i class="fas fa-check me-1"></i>Hadir</span>
+                                    <?php if ($j['jam_masuk']): ?>
+                                        <br><small class="text-muted">Masuk: <?= format_waktu($j['jam_masuk']) ?></small>
+                                    <?php endif; ?>
+                                <?php elseif ($j['izin_status'] == 'izin'): ?>
+                                    <span class="badge bg-warning">Izin</span>
+                                    <?php if ($j['nama_pengganti']): ?>
+                                        <br><small class="text-muted">Pengganti: <?= $j['nama_pengganti'] ?></small>
+                                    <?php endif; ?>
+                                <?php elseif ($j['izin_status'] == 'sakit'): ?>
+                                    <span class="badge bg-info">Sakit</span>
+                                    <?php if ($j['nama_pengganti']): ?>
+                                        <br><small class="text-muted">Pengganti: <?= $j['nama_pengganti'] ?></small>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">Belum Hadir</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($j['izin_status'] == 'hadir'): ?>
+                                    <span class="text-success"><i class="fas fa-check-circle"></i> Sudah hadir</span>
+                                <?php elseif ($j['sudah_mulai']): ?>
+                                    <span class="text-muted"><i class="fas fa-clock"></i> Sedang berlangsung</span>
+                                <?php elseif ($j['izin_status'] && $j['izin_status'] != 'hadir'): ?>
+                                    <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
+                                       class="btn btn-sm btn-outline-danger"
+                                       onclick="return confirm('Batalkan pengajuan izin?')">
+                                        <i class="fas fa-times"></i> Batal
+                                    </a>
+                                <?php else: ?>
+                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
+                                            data-bs-target="#modalIzin<?= $j['id'] ?>">
+                                        <i class="fas fa-paper-plane"></i> Ajukan Izin
+                                    </button>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Tidak ada jadwal yang cocok dengan filter.</td></tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Mobile Cards -->
+    <div class="d-lg-none">
+        <?php 
+        if (mysqli_num_rows($jadwal_mendatang) > 0):
+            mysqli_data_seek($jadwal_mendatang, 0);
+            while ($j = mysqli_fetch_assoc($jadwal_mendatang)): ?>
+                <div class="card mb-2 <?= $j['tanggal'] == $today ? 'border-warning' : '' ?>">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <strong class="small"><?= $j['nama_mk'] ?></strong>
+                                <br><small class="text-muted"><?= $j['nama_kelas'] ?> - <?= $j['nama_lab'] ?></small>
+                            </div>
+                            <?php if ($j['izin_status'] == 'hadir'): ?>
+                                <span class="badge bg-success">Hadir</span>
+                            <?php elseif ($j['izin_status'] == 'izin'): ?>
+                                <span class="badge bg-warning">Izin</span>
+                            <?php elseif ($j['izin_status'] == 'sakit'): ?>
+                                <span class="badge bg-info">Sakit</span>
+                            <?php else: ?>
+                                <span class="badge bg-secondary">Belum</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center small mb-2">
+                            <span>
+                                <i class="fas fa-calendar me-1 text-muted"></i><?= format_tanggal($j['tanggal']) ?>
+                                <?php if ($j['tanggal'] == $today): ?>
+                                    <span class="badge bg-warning text-dark">Hari Ini</span>
+                                <?php endif; ?>
+                            </span>
+                            <span><i class="fas fa-clock me-1 text-muted"></i><?= format_waktu($j['jam_mulai']) ?></span>
+                        </div>
+                        <div class="text-end">
+                            <?php if ($j['izin_status'] == 'hadir'): ?>
+                                <span class="text-success small"><i class="fas fa-check-circle"></i> Sudah hadir</span>
+                            <?php elseif ($j['sudah_mulai']): ?>
+                                <span class="text-muted small"><i class="fas fa-clock"></i> Sedang berlangsung</span>
+                            <?php elseif ($j['izin_status'] && $j['izin_status'] != 'hadir'): ?>
+                                <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Batalkan pengajuan izin?')"><i class="fas fa-times"></i> Batal</a>
+                            <?php else: ?>
+                                <button class="btn btn-sm btn-warning w-100" data-bs-toggle="modal" data-bs-target="#modalIzinMobile<?= $j['id'] ?>"><i class="fas fa-paper-plane"></i> Ajukan Izin</button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="text-center text-muted py-4">Tidak ada jadwal yang cocok dengan filter.</div>
+        <?php endif; ?>
+    </div>
+    <?php
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -159,12 +307,37 @@ $riwayat_izin = mysqli_query($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_
                 
                 <?= show_alert() ?>
                 
+                <!-- Filter -->
+                <div class="card mb-4">
+                    <div class="card-body p-2 p-md-3">
+                        <form method="GET" class="row g-2 align-items-end">
+                            <input type="hidden" name="page" value="asisten_pengajuan_izin">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label small">Cari Materi / MK</label>
+                                <input type="text" name="search" id="searchInput" class="form-control form-control-sm" value="<?= htmlspecialchars($search) ?>" placeholder="Masukkan kata kunci...">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label small">Filter Kelas</label>
+                                <select name="kelas" id="kelasSelect" class="form-select form-select-sm">
+                                    <option value="">Semua Kelas</option>
+                                    <?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?>
+                                        <option value="<?= $k['kode_kelas'] ?>" <?= $filter_kelas == $k['kode_kelas'] ? 'selected' : '' ?>><?= htmlspecialchars($k['nama_kelas']) ?></option>
+                                    <?php endwhile; ?>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-2">
+                                <button type="submit" class="btn btn-primary btn-sm w-100"><i class="fas fa-filter me-1"></i>Filter</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
                 <!-- Jadwal Mendatang -->
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
                         <i class="fas fa-calendar-alt me-2"></i>Jadwal Mendatang
                     </div>
-                    <div class="card-body p-2 p-md-3">
+                    <div class="card-body p-2 p-md-3" id="jadwalContainer">
                         <?php if (mysqli_num_rows($jadwal_mendatang) > 0): ?>
                             <!-- Desktop Table -->
                             <div class="table-responsive d-none d-lg-block">
@@ -511,5 +684,31 @@ $riwayat_izin = mysqli_query($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_
         </div>
     </div>
 </div>
+
+ <script>
+ // Live Search
+ let searchTimeout = null;
+ const searchInput = document.getElementById('searchInput');
+ const kelasSelect = document.getElementById('kelasSelect');
+ 
+ function performSearch() {
+     clearTimeout(searchTimeout);
+     const searchValue = searchInput.value;
+     const kelasValue = kelasSelect.value;
+     const container = document.getElementById('jadwalContainer');
+     
+     searchTimeout = setTimeout(function() {
+         fetch(`index.php?page=asisten_pengajuan_izin&ajax_search=1&search=${encodeURIComponent(searchValue)}&kelas=${encodeURIComponent(kelasValue)}`)
+             .then(response => response.text())
+             .then(html => {
+                 container.innerHTML = html;
+             })
+             .catch(error => console.error('Error:', error));
+     }, 300);
+ }
+ 
+ searchInput.addEventListener('input', performSearch);
+ kelasSelect.addEventListener('change', performSearch);
+ </script>
 
 <?php include 'includes/footer.php'; ?>

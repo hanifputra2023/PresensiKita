@@ -69,6 +69,65 @@ $users = mysqli_query($conn, "SELECT
                                   ORDER BY 
                                     u.role, u.username 
                                   LIMIT $offset, $per_page");
+
+// Handle AJAX Search
+if (isset($_GET['ajax_search'])) {
+    ?>
+    <div class="row">
+         <?php if (mysqli_num_rows($users) > 0): ?>
+            <?php 
+            while ($u = mysqli_fetch_assoc($users)): 
+                $badge_role = ['admin' => 'bg-danger', 'asisten' => 'bg-info', 'mahasiswa' => 'bg-success'];
+                
+                $foto_profil = (!empty($u['foto']) && file_exists($u['foto'])) 
+                               ? $u['foto'] 
+                               : 'https://ui-avatars.com/api/?name=' . urlencode($u['username']) . '&background=random&color=fff&rounded=true';
+            ?>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100 user-card">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex align-items-center mb-3">
+                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3">
+                                <div>
+                                    <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
+                                    <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>
+                                    <span class="badge <?= $badge_role[$u['role']] ?> mt-1"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
+                                </div>
+                            </div>
+                            <p class="text-muted mb-2"><i class="fas fa-hashtag me-2"></i>ID Pengguna: <?= $u['id'] ?></p>
+                            <p class="text-muted mb-2"><i class="fas fa-calendar-alt me-2"></i>Dibuat pada: <?= date('d M Y, H:i', strtotime($u['created_at'])) ?></p>
+                            
+                            <div class="mt-auto action-buttons">
+                                <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
+                                    <i class="fas fa-edit me-1"></i>Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="hapusUser(<?= $u['id'] ?>)">
+                                    <i class="fas fa-trash me-1"></i>Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Data pengguna tidak ditemukan.
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+
+    <?php if ($total_data > 0): ?>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+        <?= render_pagination_info($current_page, $per_page, $total_data) ?>
+        <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_users', ['search' => $search]) ?>
+    </div>
+    <?php endif; ?>
+    <?php
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -147,7 +206,7 @@ $users = mysqli_query($conn, "SELECT
                             <div class="col-12 col-md">
                                 <div class="input-group">
                                     <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
-                                    <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Cari nama atau username..." value="<?= htmlspecialchars($search) ?>">
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari Nama atau NIM..." value="<?= htmlspecialchars($search) ?>">
                                 </div>
                             </div>
                             <div class="col-12 col-md-auto">
@@ -157,6 +216,7 @@ $users = mysqli_query($conn, "SELECT
                     </div>
                 </div>
 
+                <div id="usersContainer">
                 <div class="row">
                      <?php if (mysqli_num_rows($users) > 0): ?>
                         <?php 
@@ -210,6 +270,7 @@ $users = mysqli_query($conn, "SELECT
                     <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_users', ['search' => $search]) ?>
                 </div>
                 <?php endif; ?>
+                </div>
             </div>
         </div>
     </div>
@@ -309,6 +370,23 @@ function hapusUser(id) {
         document.getElementById('formHapus').submit();
     }
 }
+
+// Live Search
+let searchTimeout = null;
+document.getElementById('searchInput').addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    const searchValue = this.value;
+    const container = document.getElementById('usersContainer');
+    
+    searchTimeout = setTimeout(function() {
+        fetch(`index.php?page=admin_users&ajax_search=1&search=${encodeURIComponent(searchValue)}`)
+            .then(response => response.text())
+            .then(html => {
+                container.innerHTML = html;
+            })
+            .catch(error => console.error('Error:', error));
+    }, 300);
+});
 </script>
 
 <?php include 'includes/footer.php'; ?>

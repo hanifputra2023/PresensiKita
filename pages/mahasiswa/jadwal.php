@@ -51,7 +51,8 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
         <style>
             table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid #000000; padding: 5px; }
+            th, td { border: 1px solid #000000; padding: 5px; text-align: left; }
+            th { background-color: #f2f2f2; font-weight: bold; }
         </style>
     </head>
     <body>
@@ -71,6 +72,7 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
             </thead>
             <tbody>';
 
+    mysqli_data_seek($jadwal, 0);
     while ($row = mysqli_fetch_assoc($jadwal)) {
         $asisten = $row['asisten1_nama'] ?: '-';
         if ($row['asisten2_nama']) $asisten .= ', ' . $row['asisten2_nama'];
@@ -399,21 +401,23 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 
 <!-- Print Only Content for PDF -->
 <div class="print-only" style="display: none;">
-    <div class="text-center mb-4" style="color: #000000;">
-        <h3 style="color: #000000;">Jadwal Praktikum</h3>
-        <p class="mb-1" style="color: #000000;">Nama: <?= $mahasiswa['nama'] ?> (<?= $mahasiswa['nim'] ?>)</p>
-        <p style="color: #000000;">Kelas: <?= $mahasiswa['nama_kelas'] ?></p>
+    <div class="text-center mb-4">
+        <h3>Jadwal Praktikum</h3>
+        <p class="mb-1">Nama: <?= $mahasiswa['nama'] ?> (<?= $mahasiswa['nim'] ?>)</p>
+        <p>Kelas: <?= $mahasiswa['nama_kelas'] ?></p>
     </div>
-    <table class="table table-bordered" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+    <table class="table table-bordered">
         <thead>
-            <tr style="background-color: #000000; color: #ffffff;">
-                <th style="border: 1px solid #000; padding: 6px; text-align: center; color: #ffffff;">P</th>
-                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Tanggal</th>
-                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Waktu</th>
-                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Mata Kuliah</th>
-                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Lab</th>
-                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Materi</th>
-                <th style="border: 1px solid #000; padding: 6px; color: #ffffff;">Status</th>
+            <tr>
+                <th>P</th>
+                <th>Tanggal</th>
+                <th>Waktu</th>
+                <th>Mata Kuliah</th>
+                <th>Lab</th>
+                <th>Materi</th>
+                <th>Asisten</th>
+                <th>Jenis</th>
+                <th>Status</th>
             </tr>
         </thead>
         <tbody>
@@ -421,15 +425,19 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
             mysqli_data_seek($jadwal, 0);
             while ($j = mysqli_fetch_assoc($jadwal)): 
                 $status_pdf = $j['presensi_status'] ? ucfirst($j['presensi_status']) : 'Belum';
+                $asisten_pdf = $j['asisten1_nama'] ?: '-';
+                if ($j['asisten2_nama']) $asisten_pdf .= ', ' . $j['asisten2_nama'];
             ?>
             <tr>
-                <td style="border: 1px solid #000; padding: 6px; text-align: center; color: #000000;"><?= $j['pertemuan_ke'] ?></td>
-                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= format_tanggal($j['tanggal']) ?></td>
-                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></td>
-                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $j['nama_mk'] ?></td>
-                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $j['nama_lab'] ?></td>
-                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $j['materi'] ?></td>
-                <td style="border: 1px solid #000; padding: 6px; color: #000000;"><?= $status_pdf ?></td>
+                <td><?= $j['pertemuan_ke'] ?></td>
+                <td><?= format_tanggal($j['tanggal']) ?></td>
+                <td><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></td>
+                <td><?= $j['nama_mk'] ?></td>
+                <td><?= $j['nama_lab'] ?></td>
+                <td><?= $j['materi'] ?></td>
+                <td><?= $asisten_pdf ?></td>
+                <td><?= ucfirst($j['jenis']) ?></td>
+                <td><?= $status_pdf ?></td>
             </tr>
             <?php endwhile; ?>
         </tbody>
@@ -440,20 +448,59 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 function exportPDF() {
-    const element = document.querySelector('.print-only');
-    element.style.display = 'block'; // Show for capture
+    const originalElement = document.querySelector('.print-only');
+    const elementToPrint = originalElement.cloneNode(true);
+    
+    // Force light theme styles for PDF
+    elementToPrint.style.display = 'block';
+    elementToPrint.style.backgroundColor = '#ffffff';
+    elementToPrint.style.color = '#000000';
+    elementToPrint.style.padding = '20px';
+    elementToPrint.style.fontSize = '10px'; // Smaller font for landscape
+
+    // Force all child elements to have black text
+    elementToPrint.querySelectorAll('*').forEach(el => {
+        el.style.color = '#000000';
+    });
+    
+    // Style the table header specifically
+    const tableHeader = elementToPrint.querySelector('thead tr');
+    if (tableHeader) {
+        tableHeader.style.backgroundColor = '#0066cc'; // A nice blue header
+        tableHeader.querySelectorAll('th').forEach(th => {
+            th.style.color = '#020202ff';
+            th.style.padding = '5px';
+            th.style.border = '1px solid #8a8a8aff';
+        });
+    }
+
+    // Style table cells
+    elementToPrint.querySelectorAll('td, th').forEach(cell => {
+        cell.style.padding = '5px';
+        cell.style.border = '1px solid #dddddd';
+    });
+
+    // Create a temporary wrapper to render the element off-screen
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'fixed';
+    wrapper.style.left = '-10000px';
+    wrapper.style.top = '0';
+    wrapper.style.width = '1100px'; // A reasonable width for landscape A4
+    wrapper.appendChild(elementToPrint);
+    document.body.appendChild(wrapper);
     
     const opt = {
         margin: 10,
         filename: 'jadwal_praktikum_<?= $nim ?>.pdf',
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 3, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, scrollY: 0 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
         pagebreak: { mode: ['css', 'legacy'] }
     };
 
-    html2pdf().set(opt).from(element).save().then(function() {
-        element.style.display = 'none'; // Hide after capture
+    html2pdf().set(opt).from(elementToPrint).save().then(function() {
+        // Clean up by removing the temporary wrapper
+        document.body.removeChild(wrapper);
     });
 }
 </script>
