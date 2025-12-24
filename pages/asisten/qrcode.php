@@ -266,7 +266,7 @@ while ($j = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $j; }
 <div class="container-fluid qr-page">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
-            <?php include 'includes/sidebar_asisten.php'; ?>
+            <?php include 'includes/sidebar.php'; ?>
         </div>
         
         <div class="col-md-9 col-lg-10">

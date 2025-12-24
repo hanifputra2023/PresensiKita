@@ -546,77 +546,129 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 .jadwal-list {
     display: flex;
     flex-direction: column;
-    gap: 14px;
+    gap: 16px;
 }
 .jadwal-item {
     display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 16px;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
     background: var(--bg-body);
-    border-radius: 12px;
-    transition: all 0.2s;
-    border: 1px solid transparent;
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+}
+.jadwal-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: transparent;
+    transition: background 0.3s ease;
 }
 .jadwal-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 102, 204, 0.3);
     background: var(--bg-card);
-    border-color: #0066cc;
-    box-shadow: 0 4px 12px rgba(78, 115, 223, 0.1);
+}
+.jadwal-item:hover::before {
+    background: #0066cc;
 }
 .jadwal-item.today {
-    border-left: 3px solid #66cc00;
-    background: linear-gradient(to right, rgba(28, 200, 138, 0.05), #f8f9fc);
+    background: linear-gradient(to right, rgba(46, 204, 113, 0.08), rgba(46, 204, 113, 0.02));
+    border-color: rgba(46, 204, 113, 0.3);
+}
+.jadwal-item.today::before {
+    background: #2ecc71;
 }
 .jadwal-date {
-    text-align: center;
-    min-width: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 70px;
+    height: 70px;
+    background: rgba(0, 102, 204, 0.08);
+    border-radius: 14px;
     flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+.jadwal-item.today .jadwal-date {
+    background: rgba(46, 204, 113, 0.15);
 }
 .jadwal-date .day {
-    font-size: 1.25rem;
-    font-weight: 700;
+    font-size: 1.6rem;
+    font-weight: 800;
     color: #0066cc;
     line-height: 1;
+    margin-bottom: 2px;
+}
+.jadwal-item.today .jadwal-date .day {
+    color: #218838;
 }
 .jadwal-date .month {
-    font-size: 0.65rem;
-    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 .jadwal-info-item {
     flex: 1;
     min-width: 0;
 }
 .jadwal-info-item h4 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin: 0 0 4px 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
     color: var(--text-main);
+    line-height: 1.3;
 }
 .jadwal-info-item .meta {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     color: var(--text-muted);
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 16px;
+}
+.jadwal-info-item .meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.jadwal-info-item .meta i {
+    color: #a0aec0;
+    font-size: 0.85rem;
 }
 .jadwal-info-item .asisten {
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .jadwal-status {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 6px;
+    gap: 8px;
     flex-shrink: 0;
 }
 .jadwal-badge {
-    font-size: 0.65rem;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-weight: 500;
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .jadwal-badge.materi { background: #cce5ff; color: #0066cc; }
 .jadwal-badge.inhall { background: #fff3cd; color: #856404; }
@@ -624,10 +676,14 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 .jadwal-badge.responsi { background: #f8d7da; color: #721c24; }
 .jadwal-badge.ujikom { background: #f8d7da; color: #721c24; }
 .status-badge {
-    font-size: 0.65rem;
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-weight: 500;
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 .status-badge.hadir { background: #d4edda; color: #155724; }
 .status-badge.izin { background: #cce5ff; color: #004085; }
@@ -730,20 +786,6 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     .quick-btn span {
         font-size: 0.7rem;
     }
-    .jadwal-item {
-        flex-direction: column;
-        gap: 10px;
-    }
-    .jadwal-date {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .jadwal-status {
-        flex-direction: row;
-        width: 100%;
-        justify-content: flex-start;
-    }
     .ring-chart {
         width: 110px;
         height: 110px;
@@ -769,6 +811,47 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
     .welcome-content .info-badge {
         font-size: 0.7rem;
         padding: 5px 10px;
+    }
+    .jadwal-info-item .meta {
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+    }
+}
+
+/* Responsive Jadwal Item */
+@media (max-width: 768px) {
+    .jadwal-item {
+        flex-wrap: wrap;
+        padding: 16px;
+        gap: 16px;
+    }
+    .jadwal-date {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+    }
+    .jadwal-date .day {
+        font-size: 1.3rem;
+    }
+    .jadwal-date .month {
+        font-size: 0.65rem;
+    }
+    .jadwal-info-item {
+        width: calc(100% - 72px);
+        flex: none;
+    }
+    .jadwal-info-item h4 {
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+    .jadwal-status {
+        width: 100%;
+        flex-direction: row;
+        justify-content: flex-start;
+        padding-top: 12px;
+        border-top: 1px dashed var(--border-color);
+        margin-top: 4px;
     }
 }
 
@@ -803,11 +886,22 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 }
 [data-theme="dark"] .jadwal-item.today {
     background: linear-gradient(to right, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
-    border-left-color: #2ecc71;
+    border-color: rgba(46, 204, 113, 0.3);
 }
-[data-theme="dark"] .jadwal-time {
-    background: rgba(0, 102, 204, 0.3);
+[data-theme="dark"] .jadwal-date {
+    background: rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .jadwal-date .day {
     color: #66b0ff;
+}
+[data-theme="dark"] .jadwal-date .month {
+    color: #a0aec0;
+}
+[data-theme="dark"] .jadwal-item.today .jadwal-date {
+    background: rgba(46, 204, 113, 0.15);
+}
+[data-theme="dark"] .jadwal-item.today .jadwal-date .day {
+    color: #2ecc71;
 }
 
 [data-theme="dark"] .jadwal-badge.materi { background: rgba(13, 110, 253, 0.2); color: #6ea8fe; }

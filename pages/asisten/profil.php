@@ -1105,8 +1105,8 @@ $tanggal_daftar = $user['created_at'] ?? date('Y-m-d H:i:s');
     <div class="container-fluid">
         <div class="row">
             <div class="col-md-3 col-lg-2 px-0">
-                <?php include 'includes/sidebar_asisten.php'; ?>
-            </div>
+            <?php include 'includes/sidebar.php'; ?>
+        </div>
             
             <div class="col-md-9 col-lg-10">
                 <div class="profile-header">

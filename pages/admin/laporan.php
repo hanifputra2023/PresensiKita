@@ -588,7 +588,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
-            <?php include 'includes/sidebar_admin.php'; ?>
+            <?php include 'includes/sidebar.php'; ?>
         </div>
         
         <div class="col-md-9 col-lg-10">

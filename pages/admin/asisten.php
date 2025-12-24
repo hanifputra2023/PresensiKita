@@ -175,7 +175,7 @@ if (isset($_GET['ajax_search'])) {
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
-            <?php include 'includes/sidebar_admin.php'; ?>
+            <?php include 'includes/sidebar.php'; ?>
         </div>
         
         <div class="col-md-9 col-lg-10">
