@@ -10,6 +10,38 @@ $now_time = date('H:i:s');
 $toleransi_sebelum = TOLERANSI_SEBELUM;
 $toleransi_sesudah = TOLERANSI_SESUDAH;
 
+// Ambil daftar mata kuliah untuk filter
+$list_mk = mysqli_query($conn, "SELECT DISTINCT mk.kode_mk, mk.nama_mk 
+                                FROM jadwal j
+                                JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                WHERE j.kode_kelas = '$kelas'
+                                ORDER BY mk.nama_mk");
+
+// Ambil daftar bulan yang tersedia di jadwal
+$list_bulan_query = mysqli_query($conn, "SELECT DISTINCT DATE_FORMAT(tanggal, '%Y-%m') as bulan 
+                                         FROM jadwal 
+                                         WHERE kode_kelas = '$kelas' 
+                                         ORDER BY bulan DESC");
+
+$filter_mk = isset($_GET['mk']) ? mysqli_real_escape_string($conn, $_GET['mk']) : '';
+$filter_bulan = isset($_GET['bulan']) ? mysqli_real_escape_string($conn, $_GET['bulan']) : '';
+
+$where_clause = "WHERE j.kode_kelas = '$kelas'
+                 AND (
+                     j.jenis != 'inhall'
+                     OR EXISTS (
+                         SELECT 1 FROM penggantian_inhall pi 
+                         JOIN jadwal jx ON pi.jadwal_asli_id = jx.id
+                         WHERE pi.nim = '$nim' 
+                         AND pi.status IN ('terdaftar', 'hadir')
+                         AND pi.status_approval = 'approved'
+                         AND jx.kode_mk = j.kode_mk
+                     )
+                 )";
+
+if (!empty($filter_mk)) $where_clause .= " AND j.kode_mk = '$filter_mk'";
+if (!empty($filter_bulan)) $where_clause .= " AND DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'";
+
 // Ambil jadwal MATERI dan UJIKOM (bukan inhall)
 // Inhall hanya ditampilkan jika mahasiswa terdaftar di penggantian_inhall
 $jadwal = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as presensi_status,
@@ -21,18 +53,7 @@ $jadwal = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as p
                                 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = '$nim'
                                 LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
                                 LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
-                                WHERE j.kode_kelas = '$kelas'
-                                AND (
-                                    j.jenis != 'inhall'
-                                    OR EXISTS (
-                                        SELECT 1 FROM penggantian_inhall pi 
-                                        JOIN jadwal jx ON pi.jadwal_asli_id = jx.id
-                                        WHERE pi.nim = '$nim' 
-                                        AND pi.status IN ('terdaftar', 'hadir')
-                                        AND pi.status_approval = 'approved'
-                                        AND jx.kode_mk = j.kode_mk
-                                    )
-                                )
+                                $where_clause
                                 ORDER BY j.tanggal, j.jam_mulai");
 
 // Ambil tanggal daftar mahasiswa
@@ -107,12 +128,62 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2">
                     <h4 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Jadwal Praktikum - <?= $mahasiswa['nama_kelas'] ?></h4>
                     <div class="d-grid d-md-flex gap-2 justify-content-md-end">
-                        <a href="index.php?page=mahasiswa_jadwal&export=excel" class="btn btn-success">
+                        <a href="index.php?page=mahasiswa_jadwal&export=excel&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-success">
                             <i class="fas fa-file-excel me-1"></i>Excel
                         </a>
                         <button onclick="exportPDF()" class="btn btn-danger">
                             <i class="fas fa-file-pdf me-1"></i>PDF
                         </button>
+                    </div>
+                </div>
+                
+                <!-- Filter Card -->
+                <div class="card mb-4 border-0 shadow-sm">
+                    <div class="card-body">
+                        <form method="GET" action="index.php">
+                            <input type="hidden" name="page" value="mahasiswa_jadwal">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold text-muted">Mata Kuliah</label>
+                                    <select name="mk" class="form-select">
+                                        <option value="">Semua Mata Kuliah</option>
+                                        <?php while($mk = mysqli_fetch_assoc($list_mk)): ?>
+                                            <option value="<?= $mk['kode_mk'] ?>" <?= $filter_mk == $mk['kode_mk'] ? 'selected' : '' ?>>
+                                                <?= $mk['nama_mk'] ?>
+                                            </option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold text-muted">Bulan</label>
+                                    <select name="bulan" class="form-select">
+                                        <option value="">Semua Bulan</option>
+                                        <?php 
+                                        $bulan_indo = [
+                                            '01' => 'Januari', '02' => 'Februari', '03' => 'Maret', '04' => 'April',
+                                            '05' => 'Mei', '06' => 'Juni', '07' => 'Juli', '08' => 'Agustus',
+                                            '09' => 'September', '10' => 'Oktober', '11' => 'November', '12' => 'Desember'
+                                        ];
+                                        while($b = mysqli_fetch_assoc($list_bulan_query)): 
+                                            $parts = explode('-', $b['bulan']);
+                                            $label = $bulan_indo[$parts[1]] . ' ' . $parts[0];
+                                        ?>
+                                            <option value="<?= $b['bulan'] ?>" <?= $filter_bulan == $b['bulan'] ? 'selected' : '' ?>><?= $label ?></option>
+                                        <?php endwhile; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-5">
+                                    <div class="d-flex gap-2">
+                                        <button type="submit" class="btn btn-primary flex-grow-1">
+                                            <i class="fas fa-filter me-1"></i>Filter
+                                        </button>
+                                        <a href="index.php?page=mahasiswa_jadwal" class="btn btn-outline-secondary">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
                 
