@@ -65,6 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['reject'])) {
 $active_tab = $_GET['tab'] ?? 'pending';
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
 
+// Pagination
+$per_page = 10;
+$current_page = isset($_GET['p']) ? max(1, (int)$_GET['p']) : 1;
+$offset = ($current_page - 1) * $per_page;
+
 // Build query berdasarkan tab
 $where_status = "";
 if ($active_tab == 'pending') {
@@ -80,11 +85,21 @@ if ($search) {
     $where_search = "AND (a.nama LIKE '%$search%' OR mk.nama_mk LIKE '%$search%' OR k.nama_kelas LIKE '%$search%')";
 }
 
+// Count total untuk pagination
+$count_query = "SELECT COUNT(*) as total FROM absen_asisten aa
+                JOIN jadwal j ON aa.jadwal_id = j.id
+                JOIN asisten a ON aa.kode_asisten = a.kode_asisten
+                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                WHERE aa.status IN ('izin', 'sakit') $where_status $where_search";
+$total_data = mysqli_fetch_assoc(mysqli_query($conn, $count_query))['total'];
+$total_pages = ceil($total_data / $per_page);
+
 // Query pengajuan izin asisten
 $query = "SELECT aa.*, 
                  j.tanggal, j.jam_mulai, j.jam_selesai, j.materi,
-                 a.nama as nama_asisten, a.kode_asisten,
-                 ap.nama as nama_pengganti,
+                 a.nama as nama_asisten, a.kode_asisten, a.foto as foto_asisten,
+                 ap.nama as nama_pengganti, ap.foto as foto_pengganti,
                  mk.nama_mk, k.nama_kelas, l.nama_lab,
                  u.username as approved_by_name
           FROM absen_asisten aa
@@ -98,7 +113,8 @@ $query = "SELECT aa.*,
           WHERE aa.status IN ('izin', 'sakit')
           $where_status
           $where_search
-          ORDER BY j.tanggal ASC, j.jam_mulai ASC";
+          ORDER BY j.tanggal ASC, j.jam_mulai ASC
+          LIMIT $per_page OFFSET $offset";
 $result = mysqli_query($conn, $query);
 
 // Hitung statistik
@@ -110,196 +126,87 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
 <?php include 'includes/header.php'; ?>
 
 <style>
-.izin-asisten-page .nav-pills .nav-link.active {
-    background-color: #0066cc;
-}
-.izin-asisten-page .nav-pills .nav-link {
-    color: #0066cc;
-    border-radius: 10px;
-    font-weight: 500;
-    transition: all 0.2s;
-}
-.izin-asisten-page .nav-pills .nav-link:hover:not(.active) {
-    background-color: rgba(0, 102, 204, 0.1);
-}
-[data-theme="dark"] .izin-asisten-page .nav-pills .nav-link {
-    color: #66b0ff;
-}
-[data-theme="dark"] .izin-asisten-page .nav-pills .nav-link.active {
-    background-color: #0066cc;
-    color: #fff;
-}
-
-/* Modal Header Gradient */
-.modal-header.custom-gradient {
-    background: linear-gradient(135deg, #0066cc 0%, #3b5ca5 50%, #0066cc 100%);
-    border-radius: 0.5rem 0.5rem 0 0;
-    color: white;
-}
-.modal-header.custom-gradient-danger {
-    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
-    border-radius: 0.5rem 0.5rem 0 0;
-    color: white;
-}
-[data-theme="dark"] .modal-header .btn-close {
-    filter: invert(1);
-}
-
-/* Card Styling */
-.izin-card {
-    border-radius: 14px;
-    border: none;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    transition: all 0.25s ease;
-    overflow: hidden;
-}
-.izin-card:hover {
-    box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-}
-.izin-card.pending-card {
-    border-left: 4px solid #ffc107;
-}
-.izin-card.approved-card {
-    border-left: 4px solid #198754;
-}
-.izin-card.rejected-card {
-    border-left: 4px solid #dc3545;
-}
-
-/* Button Action */
-.btn-action {
-    border-radius: 8px;
-    font-weight: 600;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s ease;
-}
-.btn-action:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-/* Badge Improvements */
-.badge-status {
-    font-size: 0.75rem;
-    padding: 6px 10px;
-    border-radius: 20px;
-    font-weight: 600;
-}
-
-/* Info Row */
-.info-row {
-    display: flex;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-.info-row:last-child {
-    border-bottom: none;
-}
-.info-label {
-    width: 120px;
-    font-weight: 600;
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
-.info-value {
-    flex: 1;
-    font-size: 0.9rem;
-}
-
-/* Avatar Circle */
-.avatar-circle {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-weight: 600;
-    font-size: 0.9rem;
-    flex-shrink: 0;
-}
-
-/* Empty State */
-.empty-state {
-    padding: 60px 20px;
-}
-.empty-state i {
-    font-size: 4rem;
-    opacity: 0.3;
-    margin-bottom: 1rem;
-}
-.empty-state h5 {
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-}
-
-/* Dark Mode */
-[data-theme="dark"] .izin-card {
-    background-color: var(--bg-card);
-}
-[data-theme="dark"] .info-row {
-    border-color: rgba(255,255,255,0.1);
-}
-[data-theme="dark"] .table-light {
-    background-color: rgba(255,255,255,0.05);
-}
-[data-theme="dark"] .alert-light {
-    background-color: rgba(255,255,255,0.05);
-    border-color: rgba(255,255,255,0.1);
-}
-
-/* Responsive */
-@media (max-width: 991.98px) {
-    .izin-asisten-page .nav-pills {
+    /* Avatar Styling */
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
         display: flex;
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        gap: 8px;
-        padding-bottom: 8px;
-        scrollbar-width: none;
-    }
-    .izin-asisten-page .nav-pills::-webkit-scrollbar {
-        display: none;
-    }
-    .izin-asisten-page .nav-pills .nav-item {
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 1rem;
+        overflow: hidden;
         flex-shrink: 0;
     }
-    .izin-asisten-page .nav-pills .nav-link {
-        padding: 10px 16px;
-        font-size: 0.9rem;
-        white-space: nowrap;
+    .avatar-circle img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
     }
-}
 
-@media (max-width: 767.98px) {
-    .izin-asisten-page .content-wrapper {
-        padding: 16px 12px !important;
+    /* Action Buttons */
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
     }
-    .izin-asisten-page .content-wrapper h4 {
-        font-size: 1.15rem;
+    
+    /* Modal Styling */
+    .modal-header.custom-gradient {
+        background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
+        color: white;
+        border-bottom: none;
     }
-    .izin-asisten-page .nav-pills .nav-item {
-        flex: 1;
+    .modal-header.custom-gradient-danger {
+        background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);
+        color: white;
+        border-bottom: none;
     }
-    .izin-asisten-page .nav-pills .nav-link {
-        text-align: center;
-        padding: 10px 8px;
-        font-size: 0.8rem;
+    .info-row {
+        display: flex;
+        margin-bottom: 12px;
+        border-bottom: 1px dashed #eee;
+        padding-bottom: 8px;
     }
-    .izin-asisten-page .nav-pills .nav-link .badge {
-        font-size: 0.65rem;
-        padding: 2px 5px;
+    .info-row:last-child {
+        border-bottom: none;
+        margin-bottom: 0;
+        padding-bottom: 0;
     }
     .info-label {
-        width: 100px;
-        font-size: 0.8rem;
+        width: 130px;
+        font-weight: 600;
+        color: #6c757d;
+        flex-shrink: 0;
     }
     .info-value {
-        font-size: 0.85rem;
+        flex: 1;
+        color: #333;
     }
-}
+
+    /* Mobile Card Styling */
+    .izin-card {
+        border: 1px solid #e3e6f0;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+    }
+    .izin-card.pending-card { border-left: 4px solid #ffc107; }
+    .izin-card.approved-card { border-left: 4px solid #198754; }
+    .izin-card.rejected-card { border-left: 4px solid #dc3545; }
+
+    /* Dark Mode Support */
+    [data-theme="dark"] .info-label { color: #adb5bd; }
+    [data-theme="dark"] .info-value { color: #e9ecef; }
+    [data-theme="dark"] .info-row { border-bottom-color: #495057; }
+    [data-theme="dark"] .izin-card {
+        background-color: var(--bg-card);
+        border-color: var(--border-color);
+    }
 </style>
 
 <div class="container-fluid izin-asisten-page">
@@ -404,7 +311,11 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                 <td class="ps-3">
                                                     <div class="d-flex align-items-center gap-2">
                                                         <div class="avatar-circle bg-primary text-white">
-                                                            <?= strtoupper(substr($r['nama_asisten'], 0, 1)) ?>
+                                                            <?php if ($r['foto_asisten'] && file_exists($r['foto_asisten'])): ?>
+                                                                <img src="<?= $r['foto_asisten'] ?>" alt="<?= $r['nama_asisten'] ?>" loading="lazy">
+                                                            <?php else: ?>
+                                                                <?= strtoupper(substr($r['nama_asisten'], 0, 1)) ?>
+                                                            <?php endif; ?>
                                                         </div>
                                                         <div>
                                                             <strong><?= $r['nama_asisten'] ?></strong>
@@ -609,8 +520,12 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                                     
                                                                     <div class="alert alert-light border mb-3">
                                                                         <div class="d-flex align-items-center gap-2 mb-2">
-                                                                            <div class="avatar-circle bg-primary text-white">
-                                                                                <?= strtoupper(substr($r['nama_asisten'], 0, 1)) ?>
+                                                                            <div class="avatar-circle bg-primary text-white" style="width: 45px; height: 45px;">
+                                                                                <?php if ($r['foto_asisten'] && file_exists($r['foto_asisten'])): ?>
+                                                                                    <img src="<?= $r['foto_asisten'] ?>" alt="<?= $r['nama_asisten'] ?>" loading="lazy">
+                                                                                <?php else: ?>
+                                                                                    <?= strtoupper(substr($r['nama_asisten'], 0, 1)) ?>
+                                                                                <?php endif; ?>
                                                                             </div>
                                                                             <div>
                                                                                 <strong><?= $r['nama_asisten'] ?></strong>
@@ -660,7 +575,11 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                     <div class="d-flex justify-content-between align-items-start mb-3">
                                         <div class="d-flex align-items-center gap-2">
                                             <div class="avatar-circle bg-primary text-white" style="width: 40px; height: 40px; font-size: 1rem;">
-                                                <?= strtoupper(substr($r['nama_asisten'], 0, 1)) ?>
+                                                <?php if ($r['foto_asisten'] && file_exists($r['foto_asisten'])): ?>
+                                                    <img src="<?= $r['foto_asisten'] ?>" alt="<?= $r['nama_asisten'] ?>" loading="lazy">
+                                                <?php else: ?>
+                                                    <?= strtoupper(substr($r['nama_asisten'], 0, 1)) ?>
+                                                <?php endif; ?>
                                             </div>
                                             <div>
                                                 <strong><?= $r['nama_asisten'] ?></strong>
@@ -843,6 +762,56 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                             <?php endif; ?>
                         </div>
                     </div>
+                <?php endif; ?>
+                
+                <!-- Pagination -->
+                <?php if ($total_pages > 1): ?>
+                    <nav class="mt-4">
+                        <ul class="pagination justify-content-center mb-0">
+                            <?php if ($current_page > 1): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="index.php?page=admin_izin_asisten&tab=<?= $active_tab ?>&p=<?= $current_page - 1 ?><?= $search ? '&search=' . urlencode($search) : '' ?>">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
+                            
+                            <?php
+                            $start = max(1, $current_page - 2);
+                            $end = min($total_pages, $current_page + 2);
+                            
+                            if ($start > 1): ?>
+                                <li class="page-item"><a class="page-link" href="index.php?page=admin_izin_asisten&tab=<?= $active_tab ?>&p=1<?= $search ? '&search=' . urlencode($search) : '' ?>">1</a></li>
+                                <?php if ($start > 2): ?>
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                            
+                            <?php for ($i = $start; $i <= $end; $i++): ?>
+                                <li class="page-item <?= $i == $current_page ? 'active' : '' ?>">
+                                    <a class="page-link" href="index.php?page=admin_izin_asisten&tab=<?= $active_tab ?>&p=<?= $i ?><?= $search ? '&search=' . urlencode($search) : '' ?>"><?= $i ?></a>
+                                </li>
+                            <?php endfor; ?>
+                            
+                            <?php if ($end < $total_pages): ?>
+                                <?php if ($end < $total_pages - 1): ?>
+                                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                                <?php endif; ?>
+                                <li class="page-item"><a class="page-link" href="index.php?page=admin_izin_asisten&tab=<?= $active_tab ?>&p=<?= $total_pages ?><?= $search ? '&search=' . urlencode($search) : '' ?>"><?= $total_pages ?></a></li>
+                            <?php endif; ?>
+                            
+                            <?php if ($current_page < $total_pages): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="index.php?page=admin_izin_asisten&tab=<?= $active_tab ?>&p=<?= $current_page + 1 ?><?= $search ? '&search=' . urlencode($search) : '' ?>">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
+                        </ul>
+                        <p class="text-center text-muted small mt-2 mb-0">
+                            Menampilkan <?= min($offset + 1, $total_data) ?>-<?= min($offset + $per_page, $total_data) ?> dari <?= $total_data ?> data
+                        </p>
+                    </nav>
                 <?php endif; ?>
                 
             </div>
