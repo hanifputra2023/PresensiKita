@@ -1,12 +1,12 @@
 <?php
 // Konfigurasi Database - Sederhana
-$host = "localhost";
-$user = "root";
-$pass = "";
-$db   = "presensi";
+// $host = "localhost";
+// $user = "root";
+// $pass = "";
+// $db   = "presensi";
 
 // Koneksi database
-$conn = mysqli_connect($host, $user, $pass, $db);
+$conn = mysqli_connect('mysql', 'root', 'root', 'presensi');
 
 // Cek koneksi
 if (!$conn) {

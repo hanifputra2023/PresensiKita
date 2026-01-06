@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+    # 1. PHP Native Web Server
+    web:
+        build: .
+        container_name: presensikita-web
+        ports:
+            - "8080:80"
+        volumes:
+            - .:/var/www/html
+        depends_on:
+            - mysql
+        networks:
+            - presensi-net  # Kita namakan jaringannya presensi-net
+
+    # 2. Database MySQL
+    mysql:
+        image: 'mysql:8.0'
+        container_name: presensikita-db
+        restart: always
+        ports:
+            - '3309:3306'
+        environment:
+            MYSQL_ROOT_PASSWORD: 'root'
+            MYSQL_DATABASE: 'presensi' # Sesuai request kamu
+        volumes:
+            - 'mysql_data:/var/lib/mysql'
+        networks:
+            - presensi-net  # Harus sama
+
+    # 3. PhpMyAdmin
+    phpmyadmin:
+        image: 'phpmyadmin/phpmyadmin'
+        container_name: presensikita-pma
+        environment:
+            PMA_HOST: mysql
+            PMA_USER: root
+            PMA_PASSWORD: root
+        ports:
+            - '8081:80'
+        depends_on:
+            - mysql
+        networks:
+            - presensi-net  # Harus sama
+
+networks:
+    presensi-net:
+        driver: bridge
+
+volumes:
+    mysql_data:
+        driver: local
