@@ -30,6 +30,8 @@
             <li class="nav-item"><a href="index.php?page=admin_mahasiswa" class="nav-link <?= is_active('admin_mahasiswa') ?>"><i class="fas fa-user-graduate"></i> Mahasiswa</a></li>
             <li class="nav-item"><a href="index.php?page=admin_asisten" class="nav-link <?= is_active('admin_asisten') ?>"><i class="fas fa-user-tie"></i> Asisten</a></li>
             <li class="nav-item"><a href="index.php?page=admin_jadwal" class="nav-link <?= is_active(['admin_jadwal', 'admin_materi']) ?>"><i class="fas fa-calendar-alt"></i> Jadwal</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_izin_asisten" class="nav-link <?= is_active('admin_izin_asisten') ?>"><i class="fas fa-user-clock"></i> Izin Asisten</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_pengumuman" class="nav-link <?= is_active('admin_pengumuman') ?>"><i class="fas fa-bullhorn"></i> Pengumuman</a></li>
             <li class="nav-item"><a href="index.php?page=admin_users" class="nav-link <?= is_active('admin_users') ?>"><i class="fas fa-user-cog"></i> Users</a></li>
             <li class="nav-item"><a href="index.php?page=admin_laporan" class="nav-link <?= is_active('admin_laporan') ?>"><i class="fas fa-chart-bar"></i> Laporan</a></li>
             <li class="nav-item"><a href="index.php?page=admin_statistik" class="nav-link <?= is_active('admin_statistik') ?>"><i class="fas fa-chart-pie"></i> Statistik</a></li>

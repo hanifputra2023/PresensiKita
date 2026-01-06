@@ -11,17 +11,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mk = escape($_POST['kode_mk']);
         $password = $_POST['password'];
         
-        $cek = mysqli_query($conn, "SELECT * FROM asisten WHERE kode_asisten = '$kode'");
+        // Prepared statement
+        $stmt_cek = mysqli_prepare($conn, "SELECT * FROM asisten WHERE kode_asisten = ?");
+        mysqli_stmt_bind_param($stmt_cek, "s", $kode);
+        mysqli_stmt_execute($stmt_cek);
+        $cek = mysqli_stmt_get_result($stmt_cek);
         if (mysqli_num_rows($cek) > 0) {
             set_alert('danger', 'Kode asisten sudah ada!');
         } else {
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             // Buat user dulu
-            mysqli_query($conn, "INSERT INTO users (username, password, role) VALUES ('$kode', '$password', 'asisten')");
+            $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'asisten')");
+            mysqli_stmt_bind_param($stmt_user, "ss", $kode, $hashed_password);
+            mysqli_stmt_execute($stmt_user);
             $user_id = mysqli_insert_id($conn);
             
             $mk = $mk ?: null;
-            $mk_sql = $mk ? "'$mk'" : "NULL";
-            mysqli_query($conn, "INSERT INTO asisten (kode_asisten, user_id, nama, no_hp, kode_mk) VALUES ('$kode', '$user_id', '$nama', '$hp', $mk_sql)");
+            $stmt_ast = mysqli_prepare($conn, "INSERT INTO asisten (kode_asisten, user_id, nama, no_hp, kode_mk) VALUES (?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_ast, "sisss", $kode, $user_id, $nama, $hp, $mk);
+            mysqli_stmt_execute($stmt_ast);
             set_alert('success', 'Asisten berhasil ditambahkan!');
         }
     } elseif ($aksi == 'edit') {
@@ -31,16 +39,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $mk = escape($_POST['kode_mk']);
         $status = escape($_POST['status']);
         
-        $mk_sql = $mk ? "'$mk'" : "NULL";
-        mysqli_query($conn, "UPDATE asisten SET nama='$nama', no_hp='$hp', kode_mk=$mk_sql, status='$status' WHERE id='$id'");
+        $mk = $mk ?: null;
+        $stmt_upd = mysqli_prepare($conn, "UPDATE asisten SET nama=?, no_hp=?, kode_mk=?, status=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt_upd, "ssssi", $nama, $hp, $mk, $status, $id);
+        mysqli_stmt_execute($stmt_upd);
         set_alert('success', 'Data asisten berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
         $id = (int)$_POST['id'];
-        $ast = mysqli_fetch_assoc(mysqli_query($conn, "SELECT user_id FROM asisten WHERE id = '$id'"));
+        $stmt_get = mysqli_prepare($conn, "SELECT user_id FROM asisten WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_get, "i", $id);
+        mysqli_stmt_execute($stmt_get);
+        $ast = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_get));
         if ($ast && $ast['user_id']) {
-            mysqli_query($conn, "DELETE FROM users WHERE id = '{$ast['user_id']}'");
+            $stmt_del_user = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_del_user, "i", $ast['user_id']);
+            mysqli_stmt_execute($stmt_del_user);
         }
-        mysqli_query($conn, "DELETE FROM asisten WHERE id = '$id'");
+        $stmt_del = mysqli_prepare($conn, "DELETE FROM asisten WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_del, "i", $id);
+        mysqli_stmt_execute($stmt_del);
         set_alert('success', 'Asisten berhasil dihapus!');
     }
     
@@ -48,22 +65,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     exit;
 }
 
-// Pagination
+// Pagination - prepared statement
 $per_page = 9;
 $current_page = get_current_page();
 
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
-$where_sql = '';
-if ($search) {
-    $where_sql = "WHERE a.nama LIKE '%$search%' OR a.kode_asisten LIKE '%$search%'";
-}
+$search_param = '%' . $search . '%';
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM asisten a $where_sql");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+if ($search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM asisten a WHERE a.nama LIKE ? OR a.kode_asisten LIKE ?");
+    mysqli_stmt_bind_param($stmt_count, "ss", $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} else {
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM asisten");
+}
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-$asisten = mysqli_query($conn, "SELECT a.*, mk.nama_mk FROM asisten a LEFT JOIN mata_kuliah mk ON a.kode_mk = mk.kode_mk $where_sql ORDER BY a.kode_asisten LIMIT $offset, $per_page");
+if ($search) {
+    $stmt_asisten = mysqli_prepare($conn, "SELECT a.*, mk.nama_mk FROM asisten a LEFT JOIN mata_kuliah mk ON a.kode_mk = mk.kode_mk WHERE a.nama LIKE ? OR a.kode_asisten LIKE ? ORDER BY a.kode_asisten LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_asisten, "ssii", $search_param, $search_param, $offset, $per_page);
+    mysqli_stmt_execute($stmt_asisten);
+    $asisten = mysqli_stmt_get_result($stmt_asisten);
+} else {
+    $stmt_asisten = mysqli_prepare($conn, "SELECT a.*, mk.nama_mk FROM asisten a LEFT JOIN mata_kuliah mk ON a.kode_mk = mk.kode_mk ORDER BY a.kode_asisten LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_asisten, "ii", $offset, $per_page);
+    mysqli_stmt_execute($stmt_asisten);
+    $asisten = mysqli_stmt_get_result($stmt_asisten);
+}
 $matkul = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
 
 // Handle AJAX Search

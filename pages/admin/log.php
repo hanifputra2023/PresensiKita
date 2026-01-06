@@ -5,23 +5,39 @@ $page = 'admin_log';
 $per_page = 20;
 $current_page = get_current_page();
 
-// Search
+// Search - prepared statement
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
-$where_sql = '';
-if ($search) {
-    $where_sql = "WHERE l.aksi LIKE '%$search%' OR l.tabel LIKE '%$search%' OR l.detail LIKE '%$search%' OR u.username LIKE '%$search%'";
-}
+$search_param = '%' . $search . '%';
 
 // Hitung total data
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM log_presensi l LEFT JOIN users u ON l.user_id = u.id $where_sql");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+if ($search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM log_presensi l LEFT JOIN users u ON l.user_id = u.id WHERE l.aksi LIKE ? OR l.tabel LIKE ? OR l.detail LIKE ? OR u.username LIKE ?");
+    mysqli_stmt_bind_param($stmt_count, "ssss", $search_param, $search_param, $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} else {
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM log_presensi");
+}
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-$logs = mysqli_query($conn, "SELECT l.*, u.username FROM log_presensi l 
+if ($search) {
+    $stmt_logs = mysqli_prepare($conn, "SELECT l.*, u.username FROM log_presensi l 
                               LEFT JOIN users u ON l.user_id = u.id 
-                              $where_sql
-                              ORDER BY l.created_at DESC LIMIT $offset, $per_page");
+                              WHERE l.aksi LIKE ? OR l.tabel LIKE ? OR l.detail LIKE ? OR u.username LIKE ?
+                              ORDER BY l.created_at DESC LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_logs, "ssssii", $search_param, $search_param, $search_param, $search_param, $offset, $per_page);
+    mysqli_stmt_execute($stmt_logs);
+    $logs = mysqli_stmt_get_result($stmt_logs);
+} else {
+    $stmt_logs = mysqli_prepare($conn, "SELECT l.*, u.username FROM log_presensi l 
+                              LEFT JOIN users u ON l.user_id = u.id 
+                              ORDER BY l.created_at DESC LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_logs, "ii", $offset, $per_page);
+    mysqli_stmt_execute($stmt_logs);
+    $logs = mysqli_stmt_get_result($stmt_logs);
+}
 ?>
 <?php include 'includes/header.php'; ?>
 

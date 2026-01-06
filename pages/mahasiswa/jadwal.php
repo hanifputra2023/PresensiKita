@@ -117,6 +117,56 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* Fix Hover Table di Dark Mode */
+[data-theme="dark"] .table-hover tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-main, #e2e8f0);
+}
+
+/* Override Bootstrap Contextual Classes for Dark Mode */
+[data-theme="dark"] .table-success {
+    background-color: rgba(25, 135, 84, 0.15) !important;
+    color: #75b798 !important;
+    border-color: rgba(25, 135, 84, 0.2);
+}
+[data-theme="dark"] .table-hover .table-success:hover,
+[data-theme="dark"] .table-hover .table-success:hover > * {
+    background-color: rgba(25, 135, 84, 0.25) !important;
+    color: #75b798 !important;
+    --bs-table-accent-bg: rgba(25, 135, 84, 0.25) !important;
+}
+
+[data-theme="dark"] .table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+    color: #ffda6a !important;
+    border-color: rgba(255, 193, 7, 0.2);
+}
+[data-theme="dark"] .table-hover .table-warning:hover,
+[data-theme="dark"] .table-hover .table-warning:hover > * {
+    background-color: rgba(255, 193, 7, 0.2) !important;
+    color: #ffda6a !important;
+    --bs-table-accent-bg: rgba(255, 193, 7, 0.2) !important;
+}
+
+[data-theme="dark"] .table-primary {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+    color: #6ea8fe !important;
+    border-color: rgba(13, 110, 253, 0.2);
+}
+[data-theme="dark"] .table-hover .table-primary:hover,
+[data-theme="dark"] .table-hover .table-primary:hover > * {
+    background-color: rgba(13, 110, 253, 0.2) !important;
+    color: #6ea8fe !important;
+    --bs-table-accent-bg: rgba(13, 110, 253, 0.2) !important;
+}
+
+/* Fix text muted in dark mode table */
+[data-theme="dark"] .table .text-muted {
+    color: #94a3b8 !important;
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">

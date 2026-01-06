@@ -10,6 +10,8 @@ $total_matkul = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total
 
 // Jadwal hari ini
 $today = date('Y-m-d');
+$now_time = date('H:i:s');
+$total_jadwal_hari_ini = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal WHERE tanggal = '$today'"))['total'];
 $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk,
                                          a1.nama as asisten1_nama
                                          FROM jadwal j 
@@ -18,9 +20,8 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk
                                          LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                          LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
                                          WHERE j.tanggal = '$today' 
-                                         ORDER BY j.jam_mulai
+                                         ORDER BY (j.jam_selesai >= '$now_time') DESC, j.jam_mulai ASC
                                          LIMIT 5");
-$total_jadwal_hari_ini = mysqli_num_rows($jadwal_hari_ini);
 
 // Statistik presensi hari ini, dengan perhitungan alpha yang akurat
 $today_stats_query = mysqli_query($conn, "SELECT 
@@ -95,16 +96,13 @@ $lab_usage = mysqli_query($conn, "
 ");
 
 // Greeting berdasarkan waktu
-$hour = date('H');
-if ($hour < 12) {
-    $greeting = 'Selamat Pagi';
-} elseif ($hour < 15) {
-    $greeting = 'Selamat Siang';
-} elseif ($hour < 18) {
-    $greeting = 'Selamat Sore';
-} else {
-    $greeting = 'Selamat Malam';
-}
+$greeting = sapaan_waktu();
+
+// Fetch Pengumuman Terbaru (3 Teratas) untuk Admin
+$pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
+                                        WHERE target_role IN ('semua', 'admin')
+                                        AND status = 'active'
+                                        ORDER BY created_at DESC LIMIT 3");
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -113,6 +111,108 @@ if ($hour < 12) {
 .dashboard-content {
     padding: 24px;
     max-width: 1600px;
+}
+
+/* Announcement Style */
+.announcement-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.announcement-item {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+.announcement-item.alert {
+    margin-bottom: 0;
+}
+.announcement-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border-color: #0066cc;
+}
+.announcement-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #0066cc 0%, #00ccff 100%);
+}
+.announcement-icon-box {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.announcement-content {
+    flex: 1;
+    padding-right: 20px;
+}
+.announcement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.announcement-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+.announcement-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.announcement-body {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.announcement-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.2s;
+    z-index: 2;
+}
+.announcement-close:hover {
+    opacity: 1;
+    color: #ef4444;
+    transform: rotate(90deg);
+}
+[data-theme="dark"] .announcement-icon-box {
+    background: rgba(2, 132, 199, 0.2);
+    color: #38bdf8;
 }
 
 /* Welcome Banner - Modern dengan tema biru */
@@ -459,6 +559,13 @@ if ($hour < 12) {
 }
 .jadwal-item:hover {
     background: var(--border-color);
+}
+.jadwal-item.active-schedule {
+    background: rgba(0, 102, 204, 0.08);
+    border-left: 4px solid #0066cc;
+}
+[data-theme="dark"] .jadwal-item.active-schedule {
+    background: rgba(0, 102, 204, 0.2);
 }
 .jadwal-time {
     background: #0066cc;
@@ -1009,6 +1116,33 @@ if ($hour < 12) {
                 
                 <?= show_alert() ?>
                 
+                <!-- Pengumuman Section -->
+                <?php if (mysqli_num_rows($pengumuman_list) > 0): ?>
+                    <div class="announcement-wrapper">
+                        <?php while($p = mysqli_fetch_assoc($pengumuman_list)): ?>
+                        <div class="announcement-item alert fade show" role="alert">
+                            <div class="announcement-icon-box">
+                                <i class="fas fa-bullhorn"></i>
+                            </div>
+                            <div class="announcement-content">
+                                <div class="announcement-header">
+                                    <h5 class="announcement-title"><?= htmlspecialchars($p['judul']) ?></h5>
+                                    <span class="announcement-time">
+                                        <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <div class="announcement-body">
+                                    <?= nl2br(htmlspecialchars($p['isi'])) ?>
+                                </div>
+                            </div>
+                            <button type="button" class="announcement-close" data-bs-dismiss="alert" aria-label="Close">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php endif; ?>
+                
                 <!-- Welcome Banner - Modern -->
                 <div class="welcome-banner">
                     <div class="floating-shapes">
@@ -1128,11 +1262,19 @@ if ($hour < 12) {
                         <div class="card-body">
                             <?php if ($total_jadwal_hari_ini > 0): ?>
                                 <div class="jadwal-list">
-                                    <?php while ($j = mysqli_fetch_assoc($jadwal_hari_ini)): ?>
-                                        <div class="jadwal-item">
+                                    <?php while ($j = mysqli_fetch_assoc($jadwal_hari_ini)): 
+                                        $is_active = ($j['jam_mulai'] <= $now_time && $j['jam_selesai'] >= $now_time);
+                                        $item_class = $is_active ? 'active-schedule' : '';
+                                    ?>
+                                        <div class="jadwal-item <?= $item_class ?>">
                                             <div class="jadwal-time"><?= format_waktu($j['jam_mulai']) ?></div>
                                             <div class="jadwal-info">
-                                                <h4><?= $j['nama_mk'] ?></h4>
+                                                <h4>
+                                                    <?= $j['nama_mk'] ?>
+                                                    <?php if($is_active): ?>
+                                                        <span class="badge bg-success ms-2" style="font-size: 0.65rem;">AKTIF</span>
+                                                    <?php endif; ?>
+                                                </h4>
                                                 <p>
                                                     <i class="fas fa-map-marker-alt"></i><?= $j['nama_lab'] ?>
                                                     <span class="mx-2">•</span>
@@ -1327,6 +1469,10 @@ if ($hour < 12) {
                             <a href="index.php?page=admin_log" class="quick-btn">
                                 <i class="fas fa-clipboard-list"></i>
                                 <span>Log Aktivitas</span>
+                            </a>
+                            <a href="index.php?page=admin_sync_alpha" class="quick-btn" onclick="return confirm('Proses ini akan mengubah semua jadwal yang terlewat menjadi Alpha. Lanjutkan?')">
+                                <i class="fas fa-sync-alt" style="color: #fd7e14;"></i>
+                                <span>Sinkronisasi Alpha</span>
                             </a>
                         </div>
                     </div>

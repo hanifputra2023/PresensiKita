@@ -26,14 +26,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Karena database mungkin tidak memiliki UNIQUE KEY pada (jadwal_id, nim),
     // kita gunakan metode DELETE lalu INSERT untuk mencegah duplikasi data.
     
-    // 1. Hapus data lama (membersihkan duplikat jika ada)
-    mysqli_query($conn, "DELETE FROM presensi_mahasiswa WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'");
+    // 1. Hapus data lama (membersihkan duplikat jika ada) - prepared statement
+    $stmt_del = mysqli_prepare($conn, "DELETE FROM presensi_mahasiswa WHERE jadwal_id = ? AND nim = ?");
+    mysqli_stmt_bind_param($stmt_del, "is", $jadwal_id, $nim);
+    mysqli_stmt_execute($stmt_del);
 
-    // 2. Insert data baru
-    $query = "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, waktu_presensi) 
-              VALUES ('$jadwal_id', '$nim', '$status', NOW())";
+    // 2. Insert data baru - prepared statement
+    $stmt_ins = mysqli_prepare($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, waktu_presensi) 
+              VALUES (?, ?, ?, NOW())");
+    mysqli_stmt_bind_param($stmt_ins, "iss", $jadwal_id, $nim, $status);
 
-    if (mysqli_query($conn, $query)) {
+    if (mysqli_stmt_execute($stmt_ins)) {
         echo json_encode(['status' => 'success', 'message' => 'Status berhasil diubah']);
     } else {
         // Memberikan pesan error yang lebih spesifik untuk debugging

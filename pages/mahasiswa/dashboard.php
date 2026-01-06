@@ -114,17 +114,37 @@ if ($hour < 12) {
 
 // Quotes Motivasi Random (Fitur Premium)
 $quotes = [
-    "Masa depan adalah milik mereka yang menyiapkan hari ini.",
-    "Jangan berhenti saat lelah, berhentilah saat selesai.",
-    "Pendidikan adalah tiket ke masa depan. Hari esok dimiliki oleh orang-orang yang mempersiapkan dirinya pada hari ini.",
-    "Setiap ahli dulunya adalah seorang pemula.",
-    "Fokus pada progres, bukan kesempurnaan."
+    "Jadilah orang yang berilmu, biar kamu punya pilihan dalam hidup. Tanpa ilmu, kamu cuma bisa nerima apa yang sisa.",
+    "Jangan cuma mau dapet suksesnya, tapi nggak mau dapet pusingnya. Dunia ini nggak semurah itu, Bro.",
+    "Investasi terbaik itu bukan emas atau saham, tapi apa yang kamu masukin ke dalam kepala kamu hari ini.",
+    "Ilmu itu kayak kunci. Semakin banyak yang kamu punya, semakin banyak pintu yang bisa kamu buka sendiri tanpa bantuan orang lain.",
+    "Belajar itu cara kamu menghormati masa depanmu sendiri. Jangan khianati dirimu yang versi 10 tahun lagi cuma karena males hari ini.",
+    "Orang tua kita nggak butuh harta kita nanti, mereka cuma mau lihat anak yang mereka besarin nggak direndahin orang karena nggak tahu apa-apa.",
+    "Mending sekarang kamu pusing karena baca buku, daripada nanti kamu pusing karena nggak tahu besok mau makan apa.",
+    "Jangan bangga jadi orang yang santai kalau aslinya kamu cuma males. Dunia nggak bakal kasih penghargaan buat orang yang cuma diem.",
+    "Pintar itu bukan buat sombong, tapi buat tameng. Biar kamu nggak gampang ditipu dan nggak gampang diinjek-injek orang.",
+    "Rasa malas itu sebenernya adalah penghalang antara kamu dan versi terbaik dari dirimu. Singkirkan atau kamu tetep di situ aja.",
+    "Jangan nunggu butuh baru belajar. Belajarlah biar pas kesempatan dateng, kamu udah jadi orang yang paling siap buat ambil itu.",
+    "Setiap halaman yang kamu baca hari ini adalah satu langkah menjauh dari jurang kebodohan di masa depan.",
+    "Ilmu itu satu-satunya hal yang nggak bakal ninggalin kamu meskipun kamu udah nggak punya apa-apa lagi.",
+    "Berhentilah membandingkan progresmu dengan orang lain. Fokus aja bikin otakmu lebih berisi dibanding kemarin.",
+    "Belajar itu emang capek, tapi lebih capek lagi kalau harus pura-pura ngerti padahal aslinya nggak tahu apa-apa.",
+    "Dunia ini keras bagi mereka yang malas, tapi sangat bersahabat bagi mereka yang punya otak dan niat.",
+    "Tuhan kasih kamu otak buat mikir, jangan cuma dipake buat scrolling hal nggak berguna sampai ketiduran.",
+    "Orang hebat nggak lahir dari kenyamanan. Mereka lahir dari malam-malam yang dipake buat mikir keras pas yang lain udah tidur.",
+    "Kejar ilmu seolah-olah kamu bakal hidup selamanya, dan berbuat baiklah seolah-olah kamu bakal mati besok.",
+    "Jangan kasih kendor! Masa depanmu nggak butuh alasanmu, masa depanmu butuh hasil dari usahamu hari ini."
 ];
 $daily_quote = $quotes[array_rand($quotes)];
 
 // Hitung persentase kehadiran
 $total = $stat['total'] ?: 1;
 $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
+// Fetch Pengumuman Terbaru (3 Teratas)
+$pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
+                                        WHERE target_role IN ('semua', 'mahasiswa')
+                                        AND status = 'active'
+                                        ORDER BY created_at DESC LIMIT 3");
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -133,6 +153,108 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 .dashboard-content {
     padding: 24px;
     max-width: 1400px;
+}
+
+/* Announcement Style */
+.announcement-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.announcement-item {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+.announcement-item.alert {
+    margin-bottom: 0;
+}
+.announcement-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border-color: #0066cc;
+}
+.announcement-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #0066cc 0%, #00ccff 100%);
+}
+.announcement-icon-box {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.announcement-content {
+    flex: 1;
+    padding-right: 20px;
+}
+.announcement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.announcement-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+.announcement-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.announcement-body {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.announcement-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.2s;
+    z-index: 2;
+}
+.announcement-close:hover {
+    opacity: 1;
+    color: #ef4444;
+    transform: rotate(90deg);
+}
+[data-theme="dark"] .announcement-icon-box {
+    background: rgba(2, 132, 199, 0.2);
+    color: #38bdf8;
 }
 
 /* Welcome Banner */
@@ -806,16 +928,73 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
         grid-template-columns: repeat(2, 1fr);
     }
     .welcome-content .info-badges {
-        gap: 8px;
+        gap: 6px;
+        width: 100%;
     }
     .welcome-content .info-badge {
         font-size: 0.7rem;
         padding: 5px 10px;
+        flex: 0 1 auto;
     }
     .jadwal-info-item .meta {
         flex-direction: column;
         gap: 4px;
         align-items: flex-start;
+    }
+}
+
+/* Extra Small Phones (320px - 375px) */
+@media (max-width: 375px) {
+    .welcome-content {
+        padding: 16px 18px;
+    }
+    .welcome-content h1 {
+        font-size: 1.15rem;
+    }
+    .welcome-content .quote {
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+    }
+    .welcome-content .info-badges {
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    .welcome-content .info-badge {
+        font-size: 0.65rem;
+        padding: 4px 8px;
+        border-radius: 14px;
+    }
+    .welcome-stats {
+        padding: 0 18px 16px;
+    }
+    .stats-glass {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    .stats-glass .stat-num {
+        font-size: 1.1rem;
+    }
+    .stats-glass .stat-label {
+        font-size: 0.6rem;
+    }
+}
+
+/* Very Small Phones (below 320px) */
+@media (max-width: 320px) {
+    .welcome-content .info-badges {
+        gap: 4px;
+    }
+    .welcome-content .info-badge {
+        font-size: 0.6rem;
+        padding: 3px 6px;
+    }
+    .stats-glass {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+    .stats-glass .stat-item {
+        min-width: 45px;
     }
 }
 
@@ -989,12 +1168,39 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
-            <?php include 'includes/sidebar_mahasiswa.php'; ?>
+            <?php include 'includes/sidebar.php'; ?>
         </div>
         
         <div class="col-md-9 col-lg-10">
             <div class="dashboard-content">
                 <?= show_alert() ?>
+                
+                <!-- Pengumuman Section -->
+                <?php if (mysqli_num_rows($pengumuman_list) > 0): ?>
+                    <div class="announcement-wrapper">
+                        <?php while($p = mysqli_fetch_assoc($pengumuman_list)): ?>
+                        <div class="announcement-item alert fade show" role="alert">
+                            <div class="announcement-icon-box">
+                                <i class="fas fa-bullhorn"></i>
+                            </div>
+                            <div class="announcement-content">
+                                <div class="announcement-header">
+                                    <h5 class="announcement-title"><?= htmlspecialchars($p['judul']) ?></h5>
+                                    <span class="announcement-time">
+                                        <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <div class="announcement-body">
+                                    <?= nl2br(htmlspecialchars($p['isi'])) ?>
+                                </div>
+                            </div>
+                            <button type="button" class="announcement-close" data-bs-dismiss="alert" aria-label="Close">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php endif; ?>
                 
                 <!-- Welcome Banner -->
                 <div class="welcome-banner">
@@ -1233,15 +1439,6 @@ $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
                                     <p>Tidak ada jadwal mendatang</p>
                                 </div>
                             <?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<?php include 'includes/footer.php'; ?>
                         </div>
                     </div>
                 </div>

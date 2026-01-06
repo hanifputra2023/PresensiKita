@@ -1,7 +1,7 @@
 <?php
 $page = 'admin_lab';
 
-// Proses tambah/edit/hapus
+// Proses tambah/edit/hapus - prepared statements
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $aksi = $_POST['aksi'];
     mysqli_begin_transaction($conn);
@@ -12,20 +12,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $nama = escape($_POST['nama_lab']);
             $kapasitas = (int)$_POST['kapasitas'];
             $lokasi = escape($_POST['lokasi']);
+            $latitude = escape($_POST['latitude']);
+            $longitude = escape($_POST['longitude']);
             $status = escape($_POST['status']);
             $kode_mks = isset($_POST['kode_mk']) ? (array)$_POST['kode_mk'] : [];
             
-            $cek = mysqli_query($conn, "SELECT * FROM lab WHERE kode_lab = '$kode'");
+            $stmt_cek = mysqli_prepare($conn, "SELECT * FROM lab WHERE kode_lab = ?");
+            mysqli_stmt_bind_param($stmt_cek, "s", $kode);
+            mysqli_stmt_execute($stmt_cek);
+            $cek = mysqli_stmt_get_result($stmt_cek);
             if (mysqli_num_rows($cek) > 0) {
                 throw new Exception('Kode lab sudah ada!');
             }
 
-            mysqli_query($conn, "INSERT INTO lab (kode_lab, nama_lab, kapasitas, lokasi, status) VALUES ('$kode', '$nama', '$kapasitas', '$lokasi', '$status')");
+            $stmt_ins = mysqli_prepare($conn, "INSERT INTO lab (kode_lab, nama_lab, kapasitas, lokasi, latitude, longitude, status) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_ins, "ssissss", $kode, $nama, $kapasitas, $lokasi, $latitude, $longitude, $status);
+            mysqli_stmt_execute($stmt_ins);
             $id_lab_baru = mysqli_insert_id($conn);
 
+            $stmt_mk = mysqli_prepare($conn, "INSERT INTO lab_matakuliah (id_lab, kode_mk) VALUES (?, ?)");
             foreach ($kode_mks as $kode_mk) {
                 $kmk = escape($kode_mk);
-                mysqli_query($conn, "INSERT INTO lab_matakuliah (id_lab, kode_mk) VALUES ('$id_lab_baru', '$kmk')");
+                mysqli_stmt_bind_param($stmt_mk, "is", $id_lab_baru, $kmk);
+                mysqli_stmt_execute($stmt_mk);
             }
 
             set_alert('success', 'Lab berhasil ditambahkan!');
@@ -35,18 +44,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $nama = escape($_POST['nama_lab']);
             $kapasitas = (int)$_POST['kapasitas'];
             $lokasi = escape($_POST['lokasi']);
+            $latitude = escape($_POST['latitude']);
+            $longitude = escape($_POST['longitude']);
             $status = escape($_POST['status']);
             $kode_mks = isset($_POST['kode_mk']) ? (array)$_POST['kode_mk'] : [];
 
-            mysqli_query($conn, "UPDATE lab SET nama_lab='$nama', kapasitas='$kapasitas', lokasi='$lokasi', status='$status' WHERE id='$id'");
+            $stmt_upd = mysqli_prepare($conn, "UPDATE lab SET nama_lab=?, kapasitas=?, lokasi=?, latitude=?, longitude=?, status=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "sissssi", $nama, $kapasitas, $lokasi, $latitude, $longitude, $status, $id);
+            mysqli_stmt_execute($stmt_upd);
             
             // Hapus relasi lama
-            mysqli_query($conn, "DELETE FROM lab_matakuliah WHERE id_lab = '$id'");
+            $stmt_del_rel = mysqli_prepare($conn, "DELETE FROM lab_matakuliah WHERE id_lab = ?");
+            mysqli_stmt_bind_param($stmt_del_rel, "i", $id);
+            mysqli_stmt_execute($stmt_del_rel);
             
             // Tambah relasi baru
+            $stmt_mk = mysqli_prepare($conn, "INSERT INTO lab_matakuliah (id_lab, kode_mk) VALUES (?, ?)");
             foreach ($kode_mks as $kode_mk) {
                 $kmk = escape($kode_mk);
-                mysqli_query($conn, "INSERT INTO lab_matakuliah (id_lab, kode_mk) VALUES ('$id', '$kmk')");
+                mysqli_stmt_bind_param($stmt_mk, "is", $id, $kmk);
+                mysqli_stmt_execute($stmt_mk);
             }
 
             set_alert('success', 'Lab berhasil diupdate!');
@@ -54,7 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } elseif ($aksi == 'hapus') {
             $id = (int)$_POST['id'];
             // ON DELETE CASCADE akan menghapus relasi di lab_matakuliah secara otomatis
-            mysqli_query($conn, "DELETE FROM lab WHERE id = '$id'");
+            $stmt_del = mysqli_prepare($conn, "DELETE FROM lab WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_del, "i", $id);
+            mysqli_stmt_execute($stmt_del);
             set_alert('success', 'Lab berhasil dihapus!');
         }
         
@@ -73,32 +92,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 $per_page = 9;
 $current_page = get_current_page();
 
-// Search
+// Search - prepared statement
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
-$where_sql = '';
-if ($search) {
-    $where_sql = "WHERE l.nama_lab LIKE '%$search%' OR l.kode_lab LIKE '%$search%' OR l.lokasi LIKE '%$search%'";
-}
+$search_param = '%' . $search . '%';
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM lab l $where_sql");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+if ($search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM lab l WHERE l.nama_lab LIKE ? OR l.kode_lab LIKE ? OR l.lokasi LIKE ?");
+    mysqli_stmt_bind_param($stmt_count, "sss", $search_param, $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} else {
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM lab");
+}
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-// Query utama untuk mengambil data lab beserta matakuliah terkait
-$labs_query = "
-    SELECT 
-        l.*, 
-        GROUP_CONCAT(mk.nama_mk SEPARATOR ', ') as daftar_mata_kuliah,
-        GROUP_CONCAT(mk.kode_mk SEPARATOR ',') as daftar_kode_mk
-    FROM lab l 
-    LEFT JOIN lab_matakuliah lm ON l.id = lm.id_lab
-    LEFT JOIN mata_kuliah mk ON lm.kode_mk = mk.kode_mk
-    $where_sql
-    GROUP BY l.id
-    ORDER BY l.kode_lab 
-    LIMIT $offset, $per_page";
-$labs = mysqli_query($conn, $labs_query);
+// Query utama untuk mengambil data lab beserta matakuliah terkait - prepared statement
+if ($search) {
+    $stmt_labs = mysqli_prepare($conn, "
+        SELECT 
+            l.*, 
+            GROUP_CONCAT(mk.nama_mk SEPARATOR ', ') as daftar_mata_kuliah,
+            GROUP_CONCAT(mk.kode_mk SEPARATOR ',') as daftar_kode_mk
+        FROM lab l 
+        LEFT JOIN lab_matakuliah lm ON l.id = lm.id_lab
+        LEFT JOIN mata_kuliah mk ON lm.kode_mk = mk.kode_mk
+        WHERE l.nama_lab LIKE ? OR l.kode_lab LIKE ? OR l.lokasi LIKE ?
+        GROUP BY l.id
+        ORDER BY l.kode_lab 
+        LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_labs, "sssii", $search_param, $search_param, $search_param, $offset, $per_page);
+} else {
+    $stmt_labs = mysqli_prepare($conn, "
+        SELECT 
+            l.*, 
+            GROUP_CONCAT(mk.nama_mk SEPARATOR ', ') as daftar_mata_kuliah,
+            GROUP_CONCAT(mk.kode_mk SEPARATOR ',') as daftar_kode_mk
+        FROM lab l 
+        LEFT JOIN lab_matakuliah lm ON l.id = lm.id_lab
+        LEFT JOIN mata_kuliah mk ON lm.kode_mk = mk.kode_mk
+        GROUP BY l.id
+        ORDER BY l.kode_lab 
+        LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_labs, "ii", $offset, $per_page);
+}
+mysqli_stmt_execute($stmt_labs);
+$labs = mysqli_stmt_get_result($stmt_labs);
 
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
@@ -124,9 +164,9 @@ if (isset($_GET['ajax_search'])) {
                             
                             <div class="mt-auto action-buttons">
                                 <?php
-                                $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk']));
+                                $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk'] ?? ''));
                                 ?>
-                                <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
+                                <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['latitude'] ?: 0 ?>', '<?= $l['longitude'] ?: 0 ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="hapusLab(<?= $l['id'] ?>)">
@@ -263,9 +303,9 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                                         
                                         <div class="mt-auto action-buttons">
                                             <?php
-                                            $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk']));
+                                            $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk'] ?? ''));
                                             ?>
-                                            <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
+                                            <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['latitude'] ?: 0 ?>', '<?= $l['longitude'] ?: 0 ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="hapusLab(<?= $l['id'] ?>)">
@@ -327,6 +367,20 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                         <input type="text" name="lokasi" class="form-control" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Koordinat (Latitude, Longitude)</label>
+                        <div class="input-group mb-1">
+                            <input type="text" id="tambah_koordinat" class="form-control" placeholder="Paste koordinat dari Google Maps di sini" oninput="handleCoordinatePaste('tambah_koordinat', 'tambah_latitude', 'tambah_longitude')" required>
+                            <a href="https://www.google.com/maps" target="_blank" class="btn btn-outline-secondary" title="Buka Google Maps"><i class="fas fa-map-marked-alt"></i></a>
+                        </div>
+                        <!-- Hidden inputs to store the split values -->
+                        <input type="hidden" name="latitude" id="tambah_latitude">
+                        <input type="hidden" name="longitude" id="tambah_longitude">
+                        <small class="text-muted" style="font-size: 0.75rem;">
+                            <i class="fas fa-info-circle me-1"></i>Cara ambil: Buka Google Maps > Klik kanan lokasi Lab > Klik angka koordinat paling atas untuk copy.
+                            <br>Paste hasilnya ke sini (format: latitude, longitude).
+                        </small>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Status</label>
                         <select name="status" class="form-select" required>
                             <option value="active" selected>Active</option>
@@ -384,6 +438,19 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                         <input type="text" name="lokasi" id="edit_lokasi" class="form-control" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Koordinat (Latitude, Longitude)</label>
+                        <div class="input-group mb-1">
+                            <input type="text" id="edit_koordinat" class="form-control" placeholder="Paste koordinat dari Google Maps di sini" oninput="handleCoordinatePaste('edit_koordinat', 'edit_latitude_hidden', 'edit_longitude_hidden')" required>
+                            <a href="https://www.google.com/maps" target="_blank" class="btn btn-outline-secondary" title="Buka Google Maps"><i class="fas fa-map-marked-alt"></i></a>
+                        </div>
+                        <!-- Hidden inputs to store the split values -->
+                        <input type="hidden" name="latitude" id="edit_latitude_hidden">
+                        <input type="hidden" name="longitude" id="edit_longitude_hidden">
+                        <small class="text-muted" style="font-size: 0.75rem;">
+                            Klik kanan di Google Maps pada lokasi lab untuk menyalin koordinat.
+                        </small>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Status</label>
                         <select name="status" id="edit_status" class="form-select" required>
                             <option value="active">Active</option>
@@ -422,13 +489,20 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 </form>
 
 <script>
-function editLab(id, nama, kapasitas, lokasi, status, daftar_kode_mk) {
+function editLab(id, nama, kapasitas, lokasi, lat, long, status, daftar_kode_mk) {
     document.getElementById('edit_id').value = id;
     document.getElementById('edit_nama').value = nama;
     document.getElementById('edit_kapasitas').value = kapasitas;
     document.getElementById('edit_lokasi').value = lokasi;
-    document.getElementById('edit_status').value = status;
-    
+    document.getElementById('edit_status').value = status;    
+
+    // [FIX] Populate the new coordinate fields
+    const latVal = lat || 0;
+    const longVal = long || 0;
+    document.getElementById('edit_koordinat').value = latVal + ', ' + longVal;
+    document.getElementById('edit_latitude_hidden').value = latVal;
+    document.getElementById('edit_longitude_hidden').value = longVal;
+
     // Filter out potential empty string from GROUP_CONCAT if no MK is associated
     const kode_mk_values = Array.isArray(daftar_kode_mk) ? daftar_kode_mk.filter(Boolean) : [];
     
@@ -453,6 +527,22 @@ function hapusLab(id) {
     if (confirm('Yakin ingin menghapus lab ini?')) {
         document.getElementById('hapus_id').value = id;
         document.getElementById('formHapus').submit();
+    }
+}
+
+// [BARU] Fungsi untuk auto-split koordinat
+function handleCoordinatePaste(sourceId, latTargetId, lonTargetId) {
+    const sourceInput = document.getElementById(sourceId);
+    const latInput = document.getElementById(latTargetId);
+    const lonInput = document.getElementById(lonTargetId);
+    
+    const value = sourceInput.value;
+    if (value.includes(',')) {
+        const parts = value.split(',');
+        const lat = parts[0].trim();
+        const lon = parts[1].trim();
+        latInput.value = lat;
+        lonInput.value = lon;
     }
 }
 

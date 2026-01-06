@@ -9,11 +9,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $password = $_POST['password'];
         $role = escape($_POST['role']);
         
-        $cek = mysqli_query($conn, "SELECT * FROM users WHERE username = '$username'");
+        // Prepared statement untuk cek username
+        $stmt_cek = mysqli_prepare($conn, "SELECT * FROM users WHERE username = ?");
+        mysqli_stmt_bind_param($stmt_cek, "s", $username);
+        mysqli_stmt_execute($stmt_cek);
+        $cek = mysqli_stmt_get_result($stmt_cek);
         if (mysqli_num_rows($cek) > 0) {
             set_alert('danger', 'Username sudah ada!');
         } else {
-            mysqli_query($conn, "INSERT INTO users (username, password, role) VALUES ('$username', '$password', '$role')");
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            // Prepared statement untuk insert user
+            $stmt_ins = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_ins, "sss", $username, $hashed_password, $role);
+            mysqli_stmt_execute($stmt_ins);
             set_alert('success', 'User berhasil ditambahkan!');
         }
     } elseif ($aksi == 'edit') {
@@ -22,14 +30,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $role = escape($_POST['role']);
         
         if ($password) {
-            mysqli_query($conn, "UPDATE users SET password='$password', role='$role' WHERE id='$id'");
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            // Prepared statement untuk update dengan password
+            $stmt_upd = mysqli_prepare($conn, "UPDATE users SET password=?, role=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "ssi", $hashed_password, $role, $id);
+            mysqli_stmt_execute($stmt_upd);
         } else {
-            mysqli_query($conn, "UPDATE users SET role='$role' WHERE id='$id'");
+            // Prepared statement untuk update tanpa password
+            $stmt_upd = mysqli_prepare($conn, "UPDATE users SET role=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "si", $role, $id);
+            mysqli_stmt_execute($stmt_upd);
         }
         set_alert('success', 'User berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
         $id = (int)$_POST['id'];
-        mysqli_query($conn, "DELETE FROM users WHERE id = '$id'");
+        // Prepared statement untuk hapus user
+        $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_del, "i", $id);
+        mysqli_stmt_execute($stmt_del);
         set_alert('success', 'User berhasil dihapus!');
     }
     
@@ -42,20 +60,27 @@ $per_page = 9;
 $current_page = get_current_page();
 
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
-$where_sql = '';
-if ($search) {
-    $where_sql = "WHERE (u.username LIKE '%$search%' OR m.nama LIKE '%$search%' OR a.nama LIKE '%$search%')";
-}
+$search_param = '%' . $search . '%';
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM users u 
+// Prepared statement untuk count
+if ($search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM users u 
                                     LEFT JOIN mahasiswa m ON u.id = m.user_id
                                     LEFT JOIN asisten a ON u.id = a.user_id
-                                    $where_sql");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+                                    WHERE (u.username LIKE ? OR m.nama LIKE ? OR a.nama LIKE ?)");
+    mysqli_stmt_bind_param($stmt_count, "sss", $search_param, $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} else {
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM users");
+}
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-$users = mysqli_query($conn, "SELECT 
+// Prepared statement untuk fetch users
+if ($search) {
+    $stmt_users = mysqli_prepare($conn, "SELECT 
                                     u.*,
                                     COALESCE(m.foto, a.foto) as foto,
                                     COALESCE(m.nama, a.nama, u.username) as nama_lengkap
@@ -65,10 +90,31 @@ $users = mysqli_query($conn, "SELECT
                                     mahasiswa m ON u.id = m.user_id
                                   LEFT JOIN 
                                     asisten a ON u.id = a.user_id
-                                  $where_sql
+                                  WHERE (u.username LIKE ? OR m.nama LIKE ? OR a.nama LIKE ?)
                                   ORDER BY 
                                     u.role, u.username 
-                                  LIMIT $offset, $per_page");
+                                  LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_users, "sssii", $search_param, $search_param, $search_param, $offset, $per_page);
+    mysqli_stmt_execute($stmt_users);
+    $users = mysqli_stmt_get_result($stmt_users);
+} else {
+    $stmt_users = mysqli_prepare($conn, "SELECT 
+                                    u.*,
+                                    COALESCE(m.foto, a.foto) as foto,
+                                    COALESCE(m.nama, a.nama, u.username) as nama_lengkap
+                                  FROM 
+                                    users u
+                                  LEFT JOIN 
+                                    mahasiswa m ON u.id = m.user_id
+                                  LEFT JOIN 
+                                    asisten a ON u.id = a.user_id
+                                  ORDER BY 
+                                    u.role, u.username 
+                                  LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_users, "ii", $offset, $per_page);
+    mysqli_stmt_execute($stmt_users);
+    $users = mysqli_stmt_get_result($stmt_users);
+}
 
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
@@ -87,7 +133,7 @@ if (isset($_GET['ajax_search'])) {
                     <div class="card h-100 user-card">
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex align-items-center mb-3">
-                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3">
+                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3" loading="lazy">
                                 <div>
                                     <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
                                     <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>
@@ -231,7 +277,7 @@ if (isset($_GET['ajax_search'])) {
                                 <div class="card h-100 user-card">
                                     <div class="card-body d-flex flex-column">
                                         <div class="d-flex align-items-center mb-3">
-                                            <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3">
+                                            <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3" loading="lazy">
                                             <div>
                                                 <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
                                                 <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>

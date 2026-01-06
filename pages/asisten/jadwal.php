@@ -36,15 +36,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['aksi'])) {
     if ($aksi == 'edit') {
         $id = (int)$_POST['id'];
         
-        // Security Check: Pastikan asisten ini berhak mengedit jadwal ini
-        $cek_kepemilikan = mysqli_query($conn, "SELECT id FROM jadwal WHERE id = $id AND (kode_asisten_1 = '$kode_asisten' OR kode_asisten_2 = '$kode_asisten')");
+        // Security Check: Pastikan asisten ini berhak mengedit jadwal ini - prepared statement
+        $stmt_cek = mysqli_prepare($conn, "SELECT id FROM jadwal WHERE id = ? AND (kode_asisten_1 = ? OR kode_asisten_2 = ?)");
+        mysqli_stmt_bind_param($stmt_cek, "iss", $id, $kode_asisten, $kode_asisten);
+        mysqli_stmt_execute($stmt_cek);
+        $cek_kepemilikan = mysqli_stmt_get_result($stmt_cek);
         if (mysqli_num_rows($cek_kepemilikan) == 0) {
             set_alert('danger', 'Error! Anda tidak memiliki hak untuk mengubah jadwal ini.');
         } else {
             $materi = escape($_POST['materi']);
             
-            // Hanya update materi, tidak semua field seperti admin
-            mysqli_query($conn, "UPDATE jadwal SET materi='$materi' WHERE id='$id'");
+            // Hanya update materi, tidak semua field seperti admin - prepared statement
+            $stmt_upd = mysqli_prepare($conn, "UPDATE jadwal SET materi=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "si", $materi, $id);
+            mysqli_stmt_execute($stmt_upd);
             set_alert('success', 'Judul Materi berhasil diupdate!');
         }
     }
@@ -53,24 +58,60 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['aksi'])) {
     exit;
 }
 
-// Filter dan Pencarian
+// Filter dan Pencarian - prepared statement
 $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
+$search_param = '%' . $search . '%';
 
-$where_clauses = ["(j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')"];
-if ($filter_kelas) $where_clauses[] = "j.kode_kelas = '$filter_kelas'";
-if ($search) $where_clauses[] = "(j.materi LIKE '%$search%' OR mk.nama_mk LIKE '%$search%')";
-$where_sql = "WHERE " . implode(" AND ", $where_clauses);
-
-$jadwal = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
+// Build prepared statement untuk jadwal
+if ($filter_kelas && $search) {
+    $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
                                 FROM jadwal j 
                                 LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                 LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                 LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                $where_sql
+                                WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
+                                AND j.kode_kelas = ?
+                                AND (j.materi LIKE ? OR mk.nama_mk LIKE ?)
                                 ORDER BY j.tanggal ASC, j.jam_mulai ASC");
+    mysqli_stmt_bind_param($stmt_jadwal, "sssss", $kode_asisten, $kode_asisten, $filter_kelas, $search_param, $search_param);
+} elseif ($filter_kelas) {
+    $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
+                                FROM jadwal j 
+                                LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
+                                AND j.kode_kelas = ?
+                                ORDER BY j.tanggal ASC, j.jam_mulai ASC");
+    mysqli_stmt_bind_param($stmt_jadwal, "sss", $kode_asisten, $kode_asisten, $filter_kelas);
+} elseif ($search) {
+    $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
+                                FROM jadwal j 
+                                LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
+                                AND (j.materi LIKE ? OR mk.nama_mk LIKE ?)
+                                ORDER BY j.tanggal ASC, j.jam_mulai ASC");
+    mysqli_stmt_bind_param($stmt_jadwal, "ssss", $kode_asisten, $kode_asisten, $search_param, $search_param);
+} else {
+    $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
+                                FROM jadwal j 
+                                LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
+                                ORDER BY j.tanggal ASC, j.jam_mulai ASC");
+    mysqli_stmt_bind_param($stmt_jadwal, "ss", $kode_asisten, $kode_asisten);
+}
+mysqli_stmt_execute($stmt_jadwal);
+$jadwal = mysqli_stmt_get_result($stmt_jadwal);
 
-$kelas_list = mysqli_query($conn, "SELECT DISTINCT k.kode_kelas, k.nama_kelas FROM jadwal j JOIN kelas k ON j.kode_kelas = k.kode_kelas WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten' ORDER BY k.nama_kelas");
+$stmt_kelas = mysqli_prepare($conn, "SELECT DISTINCT k.kode_kelas, k.nama_kelas FROM jadwal j JOIN kelas k ON j.kode_kelas = k.kode_kelas WHERE j.kode_asisten_1 = ? OR j.kode_asisten_2 = ? ORDER BY k.nama_kelas");
+mysqli_stmt_bind_param($stmt_kelas, "ss", $kode_asisten, $kode_asisten);
+mysqli_stmt_execute($stmt_kelas);
+$kelas_list = mysqli_stmt_get_result($stmt_kelas);
 
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {

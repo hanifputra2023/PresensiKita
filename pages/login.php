@@ -23,37 +23,55 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $password = $_POST['password'];
     $remember = isset($_POST['remember']) ? true : false;
     
-    // Query untuk semua role (admin, asisten, mahasiswa)
-    $query = mysqli_query($conn, "SELECT * FROM users WHERE username = '$username'");
+    // [SECURITY] Gunakan Prepared Statement untuk mencegah SQL Injection
+    $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE username = ?");
+    mysqli_stmt_bind_param($stmt, "s", $username);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
     
-    if (mysqli_num_rows($query) == 1) {
-        $user = mysqli_fetch_assoc($query);
+    if (mysqli_num_rows($result) == 1) {
+        $user = mysqli_fetch_assoc($result);
         
-        // Cek password (Mendukung plain text untuk legacy/demo & hash untuk keamanan)
-        if (($password === $user['password']) || password_verify($password, $user['password'])) {
-            // Regenerate session ID untuk keamanan
-            session_regenerate_id(true);
+        // [MIGRASI OTOMATIS] Cek password dengan dua metode
+        $password_match = false;
+
+        // 1. Coba verifikasi sebagai HASH (metode modern dan aman)
+        if (password_verify($password, $user['password'])) {
+            $password_match = true;
+        } 
+        // 2. Jika gagal, coba verifikasi sebagai PLAIN TEXT (untuk migrasi)
+        // dan langsung update ke hash jika cocok.
+        elseif ($password === $user['password']) {
+            $password_match = true;
+            // [SECURITY] Update password lama (plain text) ke hash - prepared statement
+            $new_hash = password_hash($password, PASSWORD_DEFAULT);
+            $stmt_upd_pass = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_upd_pass, "si", $new_hash, $user['id']);
+            mysqli_stmt_execute($stmt_upd_pass);
+        }
+
+        if ($password_match) {
+            session_regenerate_id(true); // Regenerate session ID untuk keamanan
             
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['username'] = $user['username'];
             $_SESSION['role'] = $user['role'];
             
-            // Remember Me - simpan token di cookie selama 30 hari
             if ($remember) {
                 $token = bin2hex(random_bytes(32));
-                $expires = time() + (30 * 24 * 60 * 60); // 30 hari
+                $expires = time() + (30 * 24 * 60 * 60);
                 
-                // Simpan token di database
-                mysqli_query($conn, "UPDATE users SET remember_token = '$token', token_expires = FROM_UNIXTIME($expires) WHERE id = '{$user['id']}'");
-                
-                // Set cookie
+                // [SECURITY] Gunakan Prepared Statement juga di sini
+                $stmt_token = mysqli_prepare($conn, "UPDATE users SET remember_token = ?, token_expires = FROM_UNIXTIME(?) WHERE id = ?");
+                mysqli_stmt_bind_param($stmt_token, "sii", $token, $expires, $user['id']);
+                mysqli_stmt_execute($stmt_token);
+
                 setcookie('remember_token', $token, $expires, '/', '', false, true);
                 setcookie('remember_user', $user['id'], $expires, '/', '', false, true);
             }
             
             log_aktivitas($user['id'], 'LOGIN', 'users', $user['id'], 'User login berhasil sebagai ' . $user['role']);
             
-            // Redirect sesuai role
             switch ($user['role']) {
                 case 'admin':
                     header("Location: index.php?page=admin_dashboard");
@@ -80,6 +98,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?= APP_NAME ?></title>
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.php">
+    <meta name="theme-color" content="#0066cc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Presensi">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="includes/icon-192.png">
+    <link rel="apple-touch-icon" href="includes/icon-192.png">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         // Apply theme immediately to prevent flash
@@ -900,6 +931,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         floatingElements.forEach((el, index) => {
             el.style.animationDuration = (6 + index * 2) + 's';
         });
+        
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.php')
+                    .then(function(registration) {
+                        console.log('PWA ServiceWorker registered');
+                    })
+                    .catch(function(err) {
+                        console.log('PWA ServiceWorker failed:', err);
+                    });
+            });
+        }
     </script>
 </body>
 </html>

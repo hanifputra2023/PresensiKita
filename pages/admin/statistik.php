@@ -1203,10 +1203,8 @@ function exportPDF() {
 <div class="modal fade" id="detailModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
-            <div class="modal-header" style="background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%); border: none;">
-                <h5 class="modal-title" id="modalTitle" style="color: #fff; font-weight: 600;">
-                    <i class="fas fa-users me-2"></i>Detail Mahasiswa
-                </h5>
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTitle"><i class="fas fa-users me-2"></i>Detail Mahasiswa</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="modalContent">

@@ -14,15 +14,22 @@ if (!$input || !isset($input['qr_code']) || !isset($input['nim'])) {
 
 $qr_code = escape($input['qr_code']);
 $nim = escape($input['nim']);
+$lat_user = isset($input['latitude']) ? (float)$input['latitude'] : null;
+$long_user = isset($input['longitude']) ? (float)$input['longitude'] : null;
 
 // VALIDASI 1: Cek QR Code valid dan belum expired
-$qr_session = mysqli_fetch_assoc(mysqli_query($conn, "SELECT qs.*, j.id as jadwal_id, j.kode_kelas, j.kode_mk, j.tanggal, j.jam_mulai, j.jam_selesai, 
-                                                       j.materi, j.jenis, mk.nama_mk, l.nama_lab
+$stmt_qr = mysqli_prepare($conn, "SELECT qs.*, j.id as jadwal_id, j.kode_kelas, j.kode_mk, j.tanggal, j.jam_mulai, j.jam_selesai,
+                                                       j.materi, j.jenis, mk.nama_mk, l.nama_lab, l.latitude as lab_lat, l.longitude as lab_long
                                                        FROM qr_code_session qs
                                                        JOIN jadwal j ON qs.jadwal_id = j.id
                                                        LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
-                                                       WHERE qs.qr_code = '$qr_code'"));
+                                                       WHERE qs.qr_code = ?");
+mysqli_stmt_bind_param($stmt_qr, "s", $qr_code);
+mysqli_stmt_execute($stmt_qr);
+$result_qr = mysqli_stmt_get_result($stmt_qr);
+$qr_session = mysqli_fetch_assoc($result_qr);
+mysqli_stmt_close($stmt_qr);
 
 if (!$qr_session) {
     echo json_encode(['success' => false, 'message' => 'QR Code tidak valid atau tidak ditemukan']);
@@ -36,7 +43,12 @@ if (strtotime($qr_session['expired_at']) < time()) {
 }
 
 // VALIDASI 2: Cek mahasiswa ada
-$mahasiswa = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM mahasiswa WHERE nim = '$nim'"));
+$stmt_mhs = mysqli_prepare($conn, "SELECT * FROM mahasiswa WHERE nim = ?");
+mysqli_stmt_bind_param($stmt_mhs, "s", $nim);
+mysqli_stmt_execute($stmt_mhs);
+$result_mhs = mysqli_stmt_get_result($stmt_mhs);
+$mahasiswa = mysqli_fetch_assoc($result_mhs);
+mysqli_stmt_close($stmt_mhs);
 
 if (!$mahasiswa) {
     echo json_encode(['success' => false, 'message' => 'NIM tidak ditemukan dalam database']);
@@ -52,15 +64,19 @@ if ($is_inhall) {
     $kode_mk = $qr_session['kode_mk'];
     
     // Cek apakah mahasiswa punya izin/sakit yang belum diganti untuk MK ini
-    $cek_perlu_inhall = mysqli_fetch_assoc(mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.materi, mk.nama_mk
+    $stmt_inhall = mysqli_prepare($conn, "SELECT pi.*, j.pertemuan_ke, j.materi, mk.nama_mk
                                                                  FROM penggantian_inhall pi
                                                                  JOIN jadwal j ON pi.jadwal_asli_id = j.id
                                                                  JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                                                 WHERE pi.nim = '$nim' 
+                                                                 WHERE pi.nim = ?
                                                                  AND pi.status = 'terdaftar'
-                                                                 AND j.kode_mk = '$kode_mk'
+                                                                 AND j.kode_mk = ?
                                                                  ORDER BY j.tanggal ASC
-                                                                 LIMIT 1"));
+                                                                 LIMIT 1");
+    mysqli_stmt_bind_param($stmt_inhall, "ss", $nim, $kode_mk);
+    mysqli_stmt_execute($stmt_inhall);
+    $cek_perlu_inhall = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_inhall));
+    mysqli_stmt_close($stmt_inhall);
     
     if (!$cek_perlu_inhall) {
         echo json_encode(['success' => false, 'message' => 'Anda tidak memiliki izin/sakit yang perlu diganti untuk mata kuliah ' . $qr_session['nama_mk']]);
@@ -99,7 +115,12 @@ if ($now > $toleransi_sesudah) {
 }
 
 // VALIDASI 4: Cek sudah pernah presensi untuk jadwal ini
-$cek_presensi = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM presensi_mahasiswa WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'"));
+$stmt_cek = mysqli_prepare($conn, "SELECT * FROM presensi_mahasiswa WHERE jadwal_id = ? AND nim = ?");
+mysqli_stmt_bind_param($stmt_cek, "is", $jadwal_id, $nim);
+mysqli_stmt_execute($stmt_cek);
+$result_cek = mysqli_stmt_get_result($stmt_cek);
+$cek_presensi = mysqli_fetch_assoc($result_cek);
+mysqli_stmt_close($stmt_cek);
 
 if ($cek_presensi) {
     // Jika status 'belum', update ke 'hadir' (bukan insert baru)
@@ -119,21 +140,73 @@ if ($cek_presensi) {
     }
 }
 
+// VALIDASI 6: Cek Lokasi (Geofencing) - Mencegah scan dari rumah
+if ($qr_session['lab_lat'] && $qr_session['lab_long']) {
+    if ($lat_user === null || $long_user === null) {
+        echo json_encode(['success' => false, 'message' => 'Lokasi tidak terdeteksi. Mohon izinkan akses lokasi di browser Anda.']);
+        exit;
+    }
+
+    // Rumus Haversine untuk hitung jarak (meter)
+    $earthRadius = 6371000;
+    $dLat = deg2rad($qr_session['lab_lat'] - $lat_user);
+    $dLon = deg2rad($qr_session['lab_long'] - $long_user);
+    $a = sin($dLat/2) * sin($dLat/2) +
+         cos(deg2rad($lat_user)) * cos(deg2rad($qr_session['lab_lat'])) *
+         sin($dLon/2) * sin($dLon/2);
+    $c = 2 * atan2(sqrt($a), sqrt(1-$a));
+    $distance = $earthRadius * $c;
+
+    // Toleransi jarak (misal 100 meter dari titik pusat lab)
+    if ($distance > 100) {
+        echo json_encode(['success' => false, 'message' => 'Anda berada di luar jangkauan Lab (' . round($distance) . 'm). Silakan scan di dalam ruangan lab.']);
+        exit;
+    }
+}
+
+// VALIDASI 5: Cek Penggunaan Perangkat (Mencegah 1 HP untuk banyak NIM)
+// Gunakan escape() untuk keamanan dan perpanjang durasi blokir jadi 5 menit
+$device_id = escape(substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 100));
+$stmt_device = mysqli_prepare($conn, "SELECT * FROM presensi_mahasiswa
+                                         WHERE jadwal_id = ?
+                                         AND device_id = ?
+                                         AND nim != ?
+                                         AND waktu_presensi > NOW() - INTERVAL 5 MINUTE");
+mysqli_stmt_bind_param($stmt_device, "iss", $jadwal_id, $device_id, $nim);
+mysqli_stmt_execute($stmt_device);
+$cek_device_query = mysqli_stmt_get_result($stmt_device);
+
+if (mysqli_num_rows($cek_device_query) > 0) {
+    mysqli_stmt_close($stmt_device);
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Perangkat ini baru saja digunakan untuk presensi NIM lain. Silakan gunakan perangkat masing-masing atau tunggu 5 menit.'
+    ]);
+    exit;
+}
+
+mysqli_stmt_close($stmt_device);
+
 // SEMUA VALIDASI LOLOS - Catat presensi
 $ip = $_SERVER['REMOTE_ADDR'] ?? '';
-$device = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 100);
 $location = $qr_session['nama_lab'];
 
 // Jika sudah ada record, UPDATE. Jika belum ada record, INSERT
 if ($cek_presensi) {
     // Update status ke hadir (dari 'belum' atau untuk inhall dari status apapun)
-    $query = mysqli_query($conn, "UPDATE presensi_mahasiswa 
-                                   SET status = 'hadir', waktu_presensi = NOW(), metode = 'qr', 
-                                       location_lab = '$location', ip_address = '$ip', device_id = '$device', verified_by_system = 1
-                                   WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'");
+    $stmt_update = mysqli_prepare($conn, "UPDATE presensi_mahasiswa
+                                   SET status = 'hadir', waktu_presensi = NOW(), metode = 'qr',
+                                       location_lab = ?, ip_address = ?, device_id = ?, verified_by_system = 1
+                                   WHERE jadwal_id = ? AND nim = ?");
+    mysqli_stmt_bind_param($stmt_update, "sssis", $location, $ip, $device_id, $jadwal_id, $nim);
+    $query = mysqli_stmt_execute($stmt_update);
+    mysqli_stmt_close($stmt_update);
 } else {
-    $query = mysqli_query($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, location_lab, ip_address, device_id, verified_by_system) 
-                                   VALUES ('$jadwal_id', '$nim', 'hadir', 'qr', '$location', '$ip', '$device', 1)");
+    $stmt_insert = mysqli_prepare($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, location_lab, ip_address, device_id, verified_by_system)
+                                   VALUES (?, ?, 'hadir', 'qr', ?, ?, ?, 1)");
+    mysqli_stmt_bind_param($stmt_insert, "issss", $jadwal_id, $nim, $location, $ip, $device_id);
+    $query = mysqli_stmt_execute($stmt_insert);
+    mysqli_stmt_close($stmt_insert);
 }
 
 if ($query) {
@@ -141,8 +214,9 @@ if ($query) {
     
     // Jika ini adalah jadwal INHALL, update penggantian_inhall
     if ($is_inhall && isset($inhall_id)) {
-        mysqli_query($conn, "UPDATE penggantian_inhall SET status = 'hadir', jadwal_inhall_id = '$jadwal_id' 
-                              WHERE id = '$inhall_id'");
+        $stmt_inhall_upd = mysqli_prepare($conn, "UPDATE penggantian_inhall SET status = 'hadir', jadwal_inhall_id = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_inhall_upd, "ii", $jadwal_id, $inhall_id);
+        mysqli_stmt_execute($stmt_inhall_upd);
         
         $message = "Presensi INHALL berhasil! Pertemuan ke-$pertemuan_diganti ({$qr_session['nama_mk']}) telah diganti.";
     }

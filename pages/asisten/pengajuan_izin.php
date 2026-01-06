@@ -3,9 +3,12 @@ $page = 'asisten_pengajuan_izin';
 $asisten = get_asisten_login();
 $kode_asisten = $asisten['kode_asisten'];
 
-// Ambil daftar asisten lain untuk pengganti
-$asisten_lain = mysqli_query($conn, "SELECT kode_asisten, nama FROM asisten 
-                                      WHERE kode_asisten != '$kode_asisten' AND status = 'aktif'");
+// Ambil daftar asisten lain untuk pengganti - prepared statement
+$stmt_asisten_lain = mysqli_prepare($conn, "SELECT kode_asisten, nama FROM asisten 
+                                      WHERE kode_asisten != ? AND status = 'aktif'");
+mysqli_stmt_bind_param($stmt_asisten_lain, "s", $kode_asisten);
+mysqli_stmt_execute($stmt_asisten_lain);
+$asisten_lain = mysqli_stmt_get_result($stmt_asisten_lain);
 
 // Proses form izin
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajukan_izin'])) {
@@ -16,11 +19,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajukan_izin'])) {
     
     // Validasi: Cek jadwal valid dan milik asisten ini
     $now = date('Y-m-d H:i:s');
-    $jadwal_cek = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, 
+    $stmt_jadwal_cek = mysqli_prepare($conn, "SELECT j.*, 
                                                            CONCAT(j.tanggal, ' ', j.jam_mulai) as jadwal_datetime
                                                            FROM jadwal j 
-                                                           WHERE j.id = '$jadwal_id' 
-                                                           AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')"));
+                                                           WHERE j.id = ? 
+                                                           AND (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)");
+    mysqli_stmt_bind_param($stmt_jadwal_cek, "iss", $jadwal_id, $kode_asisten, $kode_asisten);
+    mysqli_stmt_execute($stmt_jadwal_cek);
+    $jadwal_cek = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal_cek));
     
     if (!$jadwal_cek) {
         set_alert('danger', 'Jadwal tidak ditemukan atau bukan jadwal Anda!');
@@ -36,8 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajukan_izin'])) {
     }
     
     // Cek apakah sudah hadir
-    $existing = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id, status FROM absen_asisten 
-                                                         WHERE jadwal_id = '$jadwal_id' AND kode_asisten = '$kode_asisten'"));
+    $stmt_existing = mysqli_prepare($conn, "SELECT id, status, status_approval FROM absen_asisten 
+                                                         WHERE jadwal_id = ? AND kode_asisten = ?");
+    mysqli_stmt_bind_param($stmt_existing, "is", $jadwal_id, $kode_asisten);
+    mysqli_stmt_execute($stmt_existing);
+    $existing = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_existing));
     
     if ($existing && $existing['status'] == 'hadir') {
         set_alert('danger', 'Anda sudah tercatat hadir di jadwal ini!');
@@ -45,19 +54,91 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['ajukan_izin'])) {
         exit;
     }
     
-    if ($existing) {
-        // Update izin yang sudah ada
-        $sql = "UPDATE absen_asisten SET status = '$status', pengganti = " . ($pengganti ? "'$pengganti'" : "NULL") . ", 
-                catatan = '$catatan' WHERE id = '{$existing['id']}'";
-    } else {
-        // Insert baru
-        $sql = "INSERT INTO absen_asisten (jadwal_id, kode_asisten, status, pengganti, catatan) 
-                VALUES ('$jadwal_id', '$kode_asisten', '$status', " . ($pengganti ? "'$pengganti'" : "NULL") . ", '$catatan')";
+    // VALIDASI BARU: Cek apakah asisten pengganti sudah punya jadwal di waktu yang sama
+    if ($pengganti) {
+        $stmt_konflik = mysqli_prepare($conn, "SELECT j.id, j.tanggal, j.jam_mulai, j.jam_selesai, 
+                                                           mk.nama_mk, k.nama_kelas
+                                                    FROM jadwal j
+                                                    LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                                    LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                                    WHERE j.tanggal = ?
+                                                    AND (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
+                                                    AND (
+                                                        (j.jam_mulai < ? AND j.jam_selesai > ?) OR
+                                                        (j.jam_mulai >= ? AND j.jam_mulai < ?) OR
+                                                        (j.jam_selesai > ? AND j.jam_selesai <= ?)
+                                                    )");
+        mysqli_stmt_bind_param($stmt_konflik, "sssssssss", 
+            $jadwal_cek['tanggal'], $pengganti, $pengganti,
+            $jadwal_cek['jam_selesai'], $jadwal_cek['jam_mulai'],
+            $jadwal_cek['jam_mulai'], $jadwal_cek['jam_selesai'],
+            $jadwal_cek['jam_mulai'], $jadwal_cek['jam_selesai']
+        );
+        mysqli_stmt_execute($stmt_konflik);
+        $result_konflik = mysqli_stmt_get_result($stmt_konflik);
+        
+        if (mysqli_num_rows($result_konflik) > 0) {
+            $konflik = mysqli_fetch_assoc($result_konflik);
+            $nama_pengganti_temp = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nama FROM asisten WHERE kode_asisten = '$pengganti'"))['nama'];
+            set_alert('danger', "Asisten pengganti ($nama_pengganti_temp) sudah memiliki jadwal lain pada waktu yang sama: {$konflik['nama_mk']} - {$konflik['nama_kelas']} ({$konflik['jam_mulai']} - {$konflik['jam_selesai']})");
+            header("Location: index.php?page=asisten_pengajuan_izin");
+            exit;
+        }
+        
+        // Cek juga apakah pengganti sudah jadi pengganti asisten lain di waktu yang sama
+        $stmt_konflik_pengganti = mysqli_prepare($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_selesai,
+                                                                  mk.nama_mk, k.nama_kelas, a.nama as nama_asisten_izin
+                                                           FROM absen_asisten aa
+                                                           JOIN jadwal j ON aa.jadwal_id = j.id
+                                                           LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                                           LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
+                                                           LEFT JOIN asisten a ON aa.kode_asisten = a.kode_asisten
+                                                           WHERE aa.pengganti = ?
+                                                           AND aa.status IN ('izin', 'sakit')
+                                                           AND aa.status_approval != 'rejected'
+                                                           AND j.tanggal = ?
+                                                           AND (
+                                                               (j.jam_mulai < ? AND j.jam_selesai > ?) OR
+                                                               (j.jam_mulai >= ? AND j.jam_mulai < ?) OR
+                                                               (j.jam_selesai > ? AND j.jam_selesai <= ?)
+                                                           )");
+        mysqli_stmt_bind_param($stmt_konflik_pengganti, "ssssssss", 
+            $pengganti, $jadwal_cek['tanggal'],
+            $jadwal_cek['jam_selesai'], $jadwal_cek['jam_mulai'],
+            $jadwal_cek['jam_mulai'], $jadwal_cek['jam_selesai'],
+            $jadwal_cek['jam_mulai'], $jadwal_cek['jam_selesai']
+        );
+        mysqli_stmt_execute($stmt_konflik_pengganti);
+        $result_konflik_pengganti = mysqli_stmt_get_result($stmt_konflik_pengganti);
+        
+        if (mysqli_num_rows($result_konflik_pengganti) > 0) {
+            $konflik_pg = mysqli_fetch_assoc($result_konflik_pengganti);
+            $nama_pengganti_temp = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nama FROM asisten WHERE kode_asisten = '$pengganti'"))['nama'];
+            set_alert('danger', "Asisten pengganti ($nama_pengganti_temp) sudah menjadi pengganti untuk {$konflik_pg['nama_asisten_izin']} di jadwal {$konflik_pg['nama_mk']} - {$konflik_pg['nama_kelas']} ({$konflik_pg['jam_mulai']} - {$konflik_pg['jam_selesai']})");
+            header("Location: index.php?page=asisten_pengajuan_izin");
+            exit;
+        }
     }
     
-    if (mysqli_query($conn, $sql)) {
-        log_aktivitas($_SESSION['user_id'], 'IZIN_ASISTEN', 'absen_asisten', $jadwal_id, "Asisten $kode_asisten mengajukan $status");
-        set_alert('success', 'Pengajuan izin berhasil disimpan!');
+    // Status approval default pending - perlu persetujuan admin
+    $status_approval = 'pending';
+    
+    if ($existing) {
+        // Update izin yang sudah ada
+        $stmt_upd = mysqli_prepare($conn, "UPDATE absen_asisten SET status = ?, pengganti = ?, catatan = ?, status_approval = 'pending', approved_by = NULL, approved_at = NULL WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_upd, "sssi", $status, $pengganti, $catatan, $existing['id']);
+        $success = mysqli_stmt_execute($stmt_upd);
+    } else {
+        // Insert baru dengan status_approval = pending
+        $stmt_ins = mysqli_prepare($conn, "INSERT INTO absen_asisten (jadwal_id, kode_asisten, status, pengganti, catatan, status_approval) 
+                VALUES (?, ?, ?, ?, ?, 'pending')");
+        mysqli_stmt_bind_param($stmt_ins, "issss", $jadwal_id, $kode_asisten, $status, $pengganti, $catatan);
+        $success = mysqli_stmt_execute($stmt_ins);
+    }
+    
+    if ($success) {
+        log_aktivitas($_SESSION['user_id'], 'IZIN_ASISTEN', 'absen_asisten', $jadwal_id, "Asisten $kode_asisten mengajukan $status (menunggu approval admin)");
+        set_alert('success', 'Pengajuan izin berhasil dikirim! Menunggu persetujuan dari admin.');
     } else {
         set_alert('danger', 'Gagal menyimpan: ' . mysqli_error($conn));
     }
@@ -72,20 +153,28 @@ if (isset($_GET['batal'])) {
     
     // Cek izin valid dan jadwal belum lewat
     $now = date('Y-m-d H:i:s');
-    $izin_cek = mysqli_fetch_assoc(mysqli_query($conn, "SELECT aa.*, 
+    $stmt_izin_cek = mysqli_prepare($conn, "SELECT aa.*, 
                                                          CONCAT(j.tanggal, ' ', j.jam_mulai) as jadwal_datetime
                                                          FROM absen_asisten aa
                                                          JOIN jadwal j ON aa.jadwal_id = j.id
-                                                         WHERE aa.id = '$id' AND aa.kode_asisten = '$kode_asisten'"));
+                                                         WHERE aa.id = ? AND aa.kode_asisten = ?");
+    mysqli_stmt_bind_param($stmt_izin_cek, "is", $id, $kode_asisten);
+    mysqli_stmt_execute($stmt_izin_cek);
+    $izin_cek = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_izin_cek));
     
     if (!$izin_cek) {
         set_alert('danger', 'Data izin tidak ditemukan!');
     } elseif ($izin_cek['status'] == 'hadir') {
         set_alert('danger', 'Tidak bisa membatalkan karena Anda sudah tercatat hadir!');
+    } elseif ($izin_cek['status_approval'] == 'approved') {
+        set_alert('danger', 'Tidak bisa membatalkan izin yang sudah disetujui admin!');
     } elseif (strtotime($izin_cek['jadwal_datetime']) <= strtotime($now)) {
         set_alert('danger', 'Tidak bisa membatalkan izin untuk jadwal yang sudah lewat!');
     } else {
-        mysqli_query($conn, "DELETE FROM absen_asisten WHERE id = '$id' AND kode_asisten = '$kode_asisten'");
+        $stmt_del = mysqli_prepare($conn, "DELETE FROM absen_asisten WHERE id = ? AND kode_asisten = ?");
+        mysqli_stmt_bind_param($stmt_del, "is", $id, $kode_asisten);
+        mysqli_stmt_execute($stmt_del);
+        log_aktivitas($_SESSION['user_id'], 'BATAL_IZIN_ASISTEN', 'absen_asisten', $id, "Asisten $kode_asisten membatalkan pengajuan izin");
         set_alert('info', 'Pengajuan izin dibatalkan.');
     }
     
@@ -101,43 +190,71 @@ $now_time = date('H:i:s');
 $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
 
-$where_clauses = [
-    "(j.tanggal > '$today' OR (j.tanggal = '$today' AND j.jam_selesai >= '$now_time'))",
-    "(j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')"
-];
-if ($filter_kelas) $where_clauses[] = "j.kode_kelas = '$filter_kelas'";
-if ($search) $where_clauses[] = "(mk.nama_mk LIKE '%$search%' OR j.materi LIKE '%$search%')";
-$where_sql = "WHERE " . implode(" AND ", $where_clauses);
+// Build prepared statement dynamically
+$bind_types = "ss"; // for today and now_time (used in subquery), also for kode_asisten used twice
+$bind_values = [];
+$where_base = "WHERE (j.tanggal > ? OR (j.tanggal = ? AND j.jam_selesai >= ?))
+               AND (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)";
+$bind_types = "sssss";
+$bind_values = [$today, $today, $now_time, $kode_asisten, $kode_asisten];
 
-$jadwal_mendatang = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk,
+$additional_where = "";
+if ($filter_kelas) {
+    $additional_where .= " AND j.kode_kelas = ?";
+    $bind_types .= "s";
+    $bind_values[] = $filter_kelas;
+}
+if ($search) {
+    $additional_where .= " AND (mk.nama_mk LIKE ? OR j.materi LIKE ?)";
+    $bind_types .= "ss";
+    $search_param = '%' . $search . '%';
+    $bind_values[] = $search_param;
+    $bind_values[] = $search_param;
+}
+
+$stmt_jadwal_mend = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk,
                                           aa.id as izin_id, aa.status as izin_status, aa.pengganti, aa.catatan, aa.jam_masuk,
+                                          aa.status_approval, aa.alasan_reject,
                                           ap.nama as nama_pengganti,
                                           CASE 
-                                            WHEN j.tanggal = '$today' AND j.jam_mulai <= '$now_time' THEN 1 
+                                            WHEN j.tanggal = CURDATE() AND j.jam_mulai <= CURTIME() THEN 1 
                                             ELSE 0 
                                           END as sudah_mulai
                                           FROM jadwal j 
                                           LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                           LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                           LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                          LEFT JOIN absen_asisten aa ON aa.jadwal_id = j.id AND aa.kode_asisten = '$kode_asisten'
+                                          LEFT JOIN absen_asisten aa ON aa.jadwal_id = j.id AND aa.kode_asisten = ?
                                           LEFT JOIN asisten ap ON aa.pengganti = ap.kode_asisten
-                                          $where_sql
+                                          $where_base $additional_where
                                           ORDER BY j.tanggal, j.jam_mulai");
+$full_bind_types = "s" . $bind_types; // add type for kode_asisten in LEFT JOIN
+$full_bind_values = array_merge([$kode_asisten], $bind_values);
+mysqli_stmt_bind_param($stmt_jadwal_mend, $full_bind_types, ...$full_bind_values);
+mysqli_stmt_execute($stmt_jadwal_mend);
+$jadwal_mendatang = mysqli_stmt_get_result($stmt_jadwal_mend);
 
-$kelas_list = mysqli_query($conn, "SELECT DISTINCT k.kode_kelas, k.nama_kelas FROM jadwal j JOIN kelas k ON j.kode_kelas = k.kode_kelas WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten' ORDER BY k.nama_kelas");
-// Riwayat izin (hanya yang izin/sakit)
-$riwayat_izin = mysqli_query($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi,
-                                      k.nama_kelas, mk.nama_mk, ap.nama as nama_pengganti
+$stmt_kelas_list = mysqli_prepare($conn, "SELECT DISTINCT k.kode_kelas, k.nama_kelas FROM jadwal j JOIN kelas k ON j.kode_kelas = k.kode_kelas WHERE j.kode_asisten_1 = ? OR j.kode_asisten_2 = ? ORDER BY k.nama_kelas");
+mysqli_stmt_bind_param($stmt_kelas_list, "ss", $kode_asisten, $kode_asisten);
+mysqli_stmt_execute($stmt_kelas_list);
+$kelas_list = mysqli_stmt_get_result($stmt_kelas_list);
+// Riwayat izin (hanya yang izin/sakit) - prepared statement
+$stmt_riwayat = mysqli_prepare($conn, "SELECT aa.*, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi,
+                                      k.nama_kelas, mk.nama_mk, ap.nama as nama_pengganti,
+                                      u.username as approved_by_name
                                       FROM absen_asisten aa
                                       JOIN jadwal j ON aa.jadwal_id = j.id
                                       LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                       LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                       LEFT JOIN asisten ap ON aa.pengganti = ap.kode_asisten
-                                      WHERE aa.kode_asisten = '$kode_asisten'
+                                      LEFT JOIN users u ON aa.approved_by = u.id
+                                      WHERE aa.kode_asisten = ?
                                       AND aa.status IN ('izin', 'sakit')
                                       ORDER BY j.tanggal DESC
                                       LIMIT 10");
+mysqli_stmt_bind_param($stmt_riwayat, "s", $kode_asisten);
+mysqli_stmt_execute($stmt_riwayat);
+$riwayat_izin = mysqli_stmt_get_result($stmt_riwayat);
 
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
@@ -179,13 +296,20 @@ if (isset($_GET['ajax_search'])) {
                                     <?php if ($j['jam_masuk']): ?>
                                         <br><small class="text-muted">Masuk: <?= format_waktu($j['jam_masuk']) ?></small>
                                     <?php endif; ?>
-                                <?php elseif ($j['izin_status'] == 'izin'): ?>
-                                    <span class="badge bg-warning">Izin</span>
-                                    <?php if ($j['nama_pengganti']): ?>
-                                        <br><small class="text-muted">Pengganti: <?= $j['nama_pengganti'] ?></small>
+                                <?php elseif ($j['izin_status'] == 'izin' || $j['izin_status'] == 'sakit'): ?>
+                                    <span class="badge bg-<?= $j['izin_status'] == 'izin' ? 'warning' : 'info' ?>">
+                                        <?= ucfirst($j['izin_status']) ?>
+                                    </span>
+                                    <?php if ($j['status_approval'] == 'pending'): ?>
+                                        <br><span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Menunggu Approval</span>
+                                    <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                        <br><span class="badge bg-success"><i class="fas fa-check me-1"></i>Disetujui</span>
+                                    <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                        <br><span class="badge bg-danger"><i class="fas fa-times me-1"></i>Ditolak</span>
+                                        <?php if ($j['alasan_reject']): ?>
+                                            <br><small class="text-danger">Alasan: <?= $j['alasan_reject'] ?></small>
+                                        <?php endif; ?>
                                     <?php endif; ?>
-                                <?php elseif ($j['izin_status'] == 'sakit'): ?>
-                                    <span class="badge bg-info">Sakit</span>
                                     <?php if ($j['nama_pengganti']): ?>
                                         <br><small class="text-muted">Pengganti: <?= $j['nama_pengganti'] ?></small>
                                     <?php endif; ?>
@@ -199,11 +323,20 @@ if (isset($_GET['ajax_search'])) {
                                 <?php elseif ($j['sudah_mulai']): ?>
                                     <span class="text-muted"><i class="fas fa-clock"></i> Sedang berlangsung</span>
                                 <?php elseif ($j['izin_status'] && $j['izin_status'] != 'hadir'): ?>
-                                    <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
-                                       class="btn btn-sm btn-outline-danger"
-                                       onclick="return confirm('Batalkan pengajuan izin?')">
-                                        <i class="fas fa-times"></i> Batal
-                                    </a>
+                                    <?php if ($j['status_approval'] == 'pending'): ?>
+                                        <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
+                                           class="btn btn-sm btn-outline-danger"
+                                           onclick="return confirm('Batalkan pengajuan izin?')">
+                                            <i class="fas fa-times"></i> Batal
+                                        </a>
+                                    <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                        <span class="text-success small"><i class="fas fa-check-circle"></i> Disetujui</span>
+                                    <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                        <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
+                                                data-bs-target="#modalIzin<?= $j['id'] ?>">
+                                            <i class="fas fa-redo"></i> Ajukan Ulang
+                                        </button>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
                                             data-bs-target="#modalIzin<?= $j['id'] ?>">
@@ -233,15 +366,24 @@ if (isset($_GET['ajax_search'])) {
                                 <strong class="small"><?= $j['nama_mk'] ?></strong>
                                 <br><small class="text-muted"><?= $j['nama_kelas'] ?> - <?= $j['nama_lab'] ?></small>
                             </div>
-                            <?php if ($j['izin_status'] == 'hadir'): ?>
-                                <span class="badge bg-success">Hadir</span>
-                            <?php elseif ($j['izin_status'] == 'izin'): ?>
-                                <span class="badge bg-warning">Izin</span>
-                            <?php elseif ($j['izin_status'] == 'sakit'): ?>
-                                <span class="badge bg-info">Sakit</span>
-                            <?php else: ?>
-                                <span class="badge bg-secondary">Belum</span>
-                            <?php endif; ?>
+                            <div class="text-end">
+                                <?php if ($j['izin_status'] == 'hadir'): ?>
+                                    <span class="badge bg-success">Hadir</span>
+                                <?php elseif ($j['izin_status'] == 'izin' || $j['izin_status'] == 'sakit'): ?>
+                                    <span class="badge bg-<?= $j['izin_status'] == 'izin' ? 'warning' : 'info' ?>">
+                                        <?= ucfirst($j['izin_status']) ?>
+                                    </span>
+                                    <?php if ($j['status_approval'] == 'pending'): ?>
+                                        <br><span class="badge bg-secondary small mt-1">Pending</span>
+                                    <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                        <br><span class="badge bg-success small mt-1">Disetujui</span>
+                                    <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                        <br><span class="badge bg-danger small mt-1">Ditolak</span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span class="badge bg-secondary">Belum</span>
+                                <?php endif; ?>
+                            </div>
                         </div>
                         <div class="d-flex justify-content-between align-items-center small mb-2">
                             <span>
@@ -258,7 +400,13 @@ if (isset($_GET['ajax_search'])) {
                             <?php elseif ($j['sudah_mulai']): ?>
                                 <span class="text-muted small"><i class="fas fa-clock"></i> Sedang berlangsung</span>
                             <?php elseif ($j['izin_status'] && $j['izin_status'] != 'hadir'): ?>
-                                <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Batalkan pengajuan izin?')"><i class="fas fa-times"></i> Batal</a>
+                                <?php if ($j['status_approval'] == 'pending'): ?>
+                                    <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Batalkan pengajuan izin?')"><i class="fas fa-times"></i> Batal</a>
+                                <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                    <span class="text-success small"><i class="fas fa-check-circle"></i> Disetujui</span>
+                                <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                    <button class="btn btn-sm btn-warning w-100" data-bs-toggle="modal" data-bs-target="#modalIzinMobile<?= $j['id'] ?>"><i class="fas fa-redo"></i> Ajukan Ulang</button>
+                                <?php endif; ?>
                             <?php else: ?>
                                 <button class="btn btn-sm btn-warning w-100" data-bs-toggle="modal" data-bs-target="#modalIzinMobile<?= $j['id'] ?>"><i class="fas fa-paper-plane"></i> Ajukan Izin</button>
                             <?php endif; ?>
@@ -375,13 +523,20 @@ if (isset($_GET['ajax_search'])) {
                                                         <?php if ($j['jam_masuk']): ?>
                                                             <br><small class="text-muted">Masuk: <?= format_waktu($j['jam_masuk']) ?></small>
                                                         <?php endif; ?>
-                                                    <?php elseif ($j['izin_status'] == 'izin'): ?>
-                                                        <span class="badge bg-warning">Izin</span>
-                                                        <?php if ($j['nama_pengganti']): ?>
-                                                            <br><small class="text-muted">Pengganti: <?= $j['nama_pengganti'] ?></small>
+                                                    <?php elseif ($j['izin_status'] == 'izin' || $j['izin_status'] == 'sakit'): ?>
+                                                        <span class="badge bg-<?= $j['izin_status'] == 'izin' ? 'warning' : 'info' ?>">
+                                                            <?= ucfirst($j['izin_status']) ?>
+                                                        </span>
+                                                        <?php if ($j['status_approval'] == 'pending'): ?>
+                                                            <br><span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Menunggu Approval</span>
+                                                        <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                                            <br><span class="badge bg-success"><i class="fas fa-check me-1"></i>Disetujui</span>
+                                                        <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                                            <br><span class="badge bg-danger"><i class="fas fa-times me-1"></i>Ditolak</span>
+                                                            <?php if ($j['alasan_reject']): ?>
+                                                                <br><small class="text-danger">Alasan: <?= $j['alasan_reject'] ?></small>
+                                                            <?php endif; ?>
                                                         <?php endif; ?>
-                                                    <?php elseif ($j['izin_status'] == 'sakit'): ?>
-                                                        <span class="badge bg-info">Sakit</span>
                                                         <?php if ($j['nama_pengganti']): ?>
                                                             <br><small class="text-muted">Pengganti: <?= $j['nama_pengganti'] ?></small>
                                                         <?php endif; ?>
@@ -395,11 +550,20 @@ if (isset($_GET['ajax_search'])) {
                                                     <?php elseif ($j['sudah_mulai']): ?>
                                                         <span class="text-muted"><i class="fas fa-clock"></i> Sedang berlangsung</span>
                                                     <?php elseif ($j['izin_status'] && $j['izin_status'] != 'hadir'): ?>
-                                                        <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
-                                                           class="btn btn-sm btn-outline-danger"
-                                                           onclick="return confirm('Batalkan pengajuan izin?')">
-                                                            <i class="fas fa-times"></i> Batal
-                                                        </a>
+                                                        <?php if ($j['status_approval'] == 'pending'): ?>
+                                                            <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
+                                                               class="btn btn-sm btn-outline-danger"
+                                                               onclick="return confirm('Batalkan pengajuan izin?')">
+                                                                <i class="fas fa-times"></i> Batal
+                                                            </a>
+                                                        <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                                            <span class="text-success"><i class="fas fa-check-circle"></i> Disetujui</span>
+                                                        <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
+                                                                    data-bs-target="#modalIzin<?= $j['id'] ?>">
+                                                                <i class="fas fa-redo"></i> Ajukan Ulang
+                                                            </button>
+                                                        <?php endif; ?>
                                                     <?php else: ?>
                                                         <button class="btn btn-sm btn-warning" data-bs-toggle="modal" 
                                                                 data-bs-target="#modalIzin<?= $j['id'] ?>">
@@ -425,15 +589,24 @@ if (isset($_GET['ajax_search'])) {
                                                     <strong class="small"><?= $j['nama_mk'] ?></strong>
                                                     <br><small class="text-muted"><?= $j['nama_kelas'] ?> - <?= $j['nama_lab'] ?></small>
                                                 </div>
-                                                <?php if ($j['izin_status'] == 'hadir'): ?>
-                                                    <span class="badge bg-success">Hadir</span>
-                                                <?php elseif ($j['izin_status'] == 'izin'): ?>
-                                                    <span class="badge bg-warning">Izin</span>
-                                                <?php elseif ($j['izin_status'] == 'sakit'): ?>
-                                                    <span class="badge bg-info">Sakit</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-secondary">Belum</span>
-                                                <?php endif; ?>
+                                                <div class="text-end">
+                                                    <?php if ($j['izin_status'] == 'hadir'): ?>
+                                                        <span class="badge bg-success">Hadir</span>
+                                                    <?php elseif ($j['izin_status'] == 'izin' || $j['izin_status'] == 'sakit'): ?>
+                                                        <span class="badge bg-<?= $j['izin_status'] == 'izin' ? 'warning' : 'info' ?>">
+                                                            <?= ucfirst($j['izin_status']) ?>
+                                                        </span>
+                                                        <?php if ($j['status_approval'] == 'pending'): ?>
+                                                            <br><span class="badge bg-secondary small mt-1">Pending</span>
+                                                        <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                                            <br><span class="badge bg-success small mt-1">Disetujui</span>
+                                                        <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                                            <br><span class="badge bg-danger small mt-1">Ditolak</span>
+                                                        <?php endif; ?>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary">Belum</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center small mb-2">
                                                 <span>
@@ -450,11 +623,20 @@ if (isset($_GET['ajax_search'])) {
                                                 <?php elseif ($j['sudah_mulai']): ?>
                                                     <span class="text-muted small"><i class="fas fa-clock"></i> Sedang berlangsung</span>
                                                 <?php elseif ($j['izin_status'] && $j['izin_status'] != 'hadir'): ?>
-                                                    <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
-                                                       class="btn btn-sm btn-outline-danger"
-                                                       onclick="return confirm('Batalkan pengajuan izin?')">
-                                                        <i class="fas fa-times"></i> Batal
-                                                    </a>
+                                                    <?php if ($j['status_approval'] == 'pending'): ?>
+                                                        <a href="index.php?page=asisten_pengajuan_izin&batal=<?= $j['izin_id'] ?>" 
+                                                           class="btn btn-sm btn-outline-danger"
+                                                           onclick="return confirm('Batalkan pengajuan izin?')">
+                                                            <i class="fas fa-times"></i> Batal
+                                                        </a>
+                                                    <?php elseif ($j['status_approval'] == 'approved'): ?>
+                                                        <span class="text-success small"><i class="fas fa-check-circle"></i> Disetujui</span>
+                                                    <?php elseif ($j['status_approval'] == 'rejected'): ?>
+                                                        <button class="btn btn-sm btn-warning w-100" data-bs-toggle="modal" 
+                                                                data-bs-target="#modalIzinMobile<?= $j['id'] ?>">
+                                                            <i class="fas fa-redo"></i> Ajukan Ulang
+                                                        </button>
+                                                    <?php endif; ?>
                                                 <?php else: ?>
                                                     <button class="btn btn-sm btn-warning w-100" data-bs-toggle="modal" 
                                                             data-bs-target="#modalIzinMobile<?= $j['id'] ?>">
@@ -611,6 +793,7 @@ if (isset($_GET['ajax_search'])) {
                                             <th>Tanggal</th>
                                             <th>Jadwal</th>
                                             <th>Status</th>
+                                            <th>Approval</th>
                                             <th>Pengganti</th>
                                             <th>Catatan</th>
                                         </tr>
@@ -626,12 +809,25 @@ if (isset($_GET['ajax_search'])) {
                                                     <small class="text-muted"><?= $r['materi'] ?></small>
                                                 </td>
                                                 <td>
-                                                    <?php if ($r['status'] == 'hadir'): ?>
-                                                        <span class="badge bg-success">Hadir</span>
-                                                    <?php elseif ($r['status'] == 'izin'): ?>
+                                                    <?php if ($r['status'] == 'izin'): ?>
                                                         <span class="badge bg-warning">Izin</span>
                                                     <?php else: ?>
                                                         <span class="badge bg-info">Sakit</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <?php if ($r['status_approval'] == 'pending'): ?>
+                                                        <span class="badge bg-secondary">Menunggu</span>
+                                                    <?php elseif ($r['status_approval'] == 'approved'): ?>
+                                                        <span class="badge bg-success">Disetujui</span>
+                                                        <?php if ($r['approved_by_name']): ?>
+                                                            <br><small class="text-muted">oleh <?= $r['approved_by_name'] ?></small>
+                                                        <?php endif; ?>
+                                                    <?php elseif ($r['status_approval'] == 'rejected'): ?>
+                                                        <span class="badge bg-danger">Ditolak</span>
+                                                        <?php if ($r['alasan_reject']): ?>
+                                                            <br><small class="text-danger"><?= $r['alasan_reject'] ?></small>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                 </td>
                                                 <td><?= $r['nama_pengganti'] ?: '-' ?></td>
@@ -654,13 +850,20 @@ if (isset($_GET['ajax_search'])) {
                                                     <strong class="small"><?= $r['nama_mk'] ?></strong>
                                                     <br><small class="text-muted"><?= $r['nama_kelas'] ?></small>
                                                 </div>
-                                                <?php if ($r['status'] == 'hadir'): ?>
-                                                    <span class="badge bg-success">Hadir</span>
-                                                <?php elseif ($r['status'] == 'izin'): ?>
-                                                    <span class="badge bg-warning">Izin</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-info">Sakit</span>
-                                                <?php endif; ?>
+                                                <div class="text-end">
+                                                    <?php if ($r['status'] == 'izin'): ?>
+                                                        <span class="badge bg-warning">Izin</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-info">Sakit</span>
+                                                    <?php endif; ?>
+                                                    <?php if ($r['status_approval'] == 'pending'): ?>
+                                                        <br><span class="badge bg-secondary small">Menunggu</span>
+                                                    <?php elseif ($r['status_approval'] == 'approved'): ?>
+                                                        <br><span class="badge bg-success small">Disetujui</span>
+                                                    <?php elseif ($r['status_approval'] == 'rejected'): ?>
+                                                        <br><span class="badge bg-danger small">Ditolak</span>
+                                                    <?php endif; ?>
+                                                </div>
                                             </div>
                                             <small class="text-muted">
                                                 <i class="fas fa-calendar me-1"></i><?= format_tanggal($r['tanggal']) ?>

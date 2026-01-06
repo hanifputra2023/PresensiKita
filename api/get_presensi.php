@@ -11,10 +11,13 @@ if (!$jadwal_id) {
     exit;
 }
 
-// Ambil data jadwal
-$jadwal = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, k.nama_kelas FROM jadwal j 
+// Ambil data jadwal - prepared statement
+$stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas FROM jadwal j 
                                                    LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
-                                                   WHERE j.id = '$jadwal_id'"));
+                                                   WHERE j.id = ?");
+mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
+mysqli_stmt_execute($stmt_jadwal);
+$jadwal = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
 
 if (!$jadwal) {
     echo json_encode(['success' => false, 'message' => 'Jadwal tidak ditemukan']);
@@ -23,17 +26,27 @@ if (!$jadwal) {
 
 $kelas = $jadwal['kode_kelas'];
 
-// Statistik
-$total = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = '$kelas'"))['total'];
-$hadir = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM presensi_mahasiswa WHERE jadwal_id = '$jadwal_id' AND status = 'hadir'"))['total'];
+// Statistik - prepared statement
+$stmt_total = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = ?");
+mysqli_stmt_bind_param($stmt_total, "s", $kelas);
+mysqli_stmt_execute($stmt_total);
+$total = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_total))['total'];
 
-// List mahasiswa
+$stmt_hadir = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM presensi_mahasiswa WHERE jadwal_id = ? AND status = 'hadir'");
+mysqli_stmt_bind_param($stmt_hadir, "i", $jadwal_id);
+mysqli_stmt_execute($stmt_hadir);
+$hadir = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_hadir))['total'];
+
+// List mahasiswa - prepared statement
 $list = [];
-$query = mysqli_query($conn, "SELECT m.nim, m.nama, p.status, p.waktu_presensi
+$stmt_list = mysqli_prepare($conn, "SELECT m.nim, m.nama, p.status, p.waktu_presensi
                                FROM mahasiswa m
-                               LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
-                               WHERE m.kode_kelas = '$kelas'
+                               LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = ?
+                               WHERE m.kode_kelas = ?
                                ORDER BY p.waktu_presensi DESC, m.nama");
+mysqli_stmt_bind_param($stmt_list, "is", $jadwal_id, $kelas);
+mysqli_stmt_execute($stmt_list);
+$query = mysqli_stmt_get_result($stmt_list);
 
 while ($row = mysqli_fetch_assoc($query)) {
     $list[] = $row;

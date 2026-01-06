@@ -1,20 +1,3 @@
-<link rel="icon" type="image/png" href="includes/icon.png">
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0066cc">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="mobile-web-app-capable" content="yes">
-<script>
-// Registrasi Service Worker untuk PWA
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('service-worker.js').then(function(registration) {
-      console.log('PWA ServiceWorker registered');
-    }, function(err) {
-      console.log('PWA ServiceWorker failed: ', err);
-    });
-  });
-}
-</script>
 <?php
 require_once 'includes/fungsi.php';
 
@@ -39,9 +22,11 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && isset($
         $_SESSION['username'] = $user['username'];
         $_SESSION['role'] = $user['role'];
         
-        // Refresh token expiry
+        // Refresh token expiry - menggunakan prepared statement
         $expires = time() + (30 * 24 * 60 * 60);
-        mysqli_query($conn, "UPDATE users SET token_expires = FROM_UNIXTIME($expires) WHERE id = '{$user['id']}'");
+        $stmt_refresh = mysqli_prepare($conn, "UPDATE users SET token_expires = FROM_UNIXTIME(?) WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_refresh, "ii", $expires, $user['id']);
+        mysqli_stmt_execute($stmt_refresh);
         setcookie('remember_token', $token, $expires, '/', '', false, true);
         setcookie('remember_user', $user['id'], $expires, '/', '', false, true);
     } else {
@@ -89,7 +74,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (permission === "granted") {
                     new Notification("Sistem Presensi", {
                         body: "Notifikasi aktif! Anda akan diingatkan jadwal presensi.",
-                        icon: "includes/08.12.2025_08.44.59_REC.png"
+                        icon: "includes/icon.png"
                     });
                     btn.remove();
                     checkNotifications(); // Langsung cek jadwal setelah izin diberikan
@@ -109,7 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         data.notifications.forEach(notif => {
                             const n = new Notification(notif.title, {
                                 body: notif.body,
-                                icon: "includes/08.12.2025_08.44.59_REC.png",
+                                icon: "includes/icon.png",
                                 tag: notif.id // Mencegah notifikasi duplikat
                             });
                             n.onclick = function() { window.focus(); window.location.href = notif.url; };
@@ -202,6 +187,18 @@ switch ($page) {
     case 'admin_materi':
         cek_role(['admin']);
         include 'pages/admin/materi.php';
+        break;
+     case 'admin_pengumuman':
+        cek_role(['admin']);
+        include 'pages/admin/pengumuman.php';
+        break;
+    case 'admin_sync_alpha':
+        cek_role(['admin']);
+        include 'pages/admin/sync_alpha.php';
+        break;
+    case 'admin_izin_asisten':
+        cek_role(['admin']);
+        include 'pages/admin/izin_asisten.php';
         break;
     
     // Asisten pages

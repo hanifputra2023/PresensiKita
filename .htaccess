@@ -28,8 +28,30 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 #############################################
 # 2. PROTECT SENSITIVE FILES
 #############################################
-<FilesMatch "\.(env|sql|db|json)$">
+# 2. PROTECT SENSITIVE FILES (kecuali manifest.json untuk PWA)
+#############################################
+<FilesMatch "\.(env|sql|db)$">
     Deny from all
+</FilesMatch>
+
+#############################################
+# PWA Support - Allow manifest.json and service-worker.js
+#############################################
+<FilesMatch "manifest\.json$">
+    <IfModule mod_headers.c>
+        Header set Content-Type "application/manifest+json"
+        Header set Cache-Control "no-cache"
+    </IfModule>
+    Require all granted
+</FilesMatch>
+
+<FilesMatch "service-worker\.js$">
+    <IfModule mod_headers.c>
+        Header set Content-Type "application/javascript"
+        Header set Service-Worker-Allowed "/"
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+    </IfModule>
+    Require all granted
 </FilesMatch>
 
 #############################################

@@ -4,6 +4,9 @@ $page = 'admin_mahasiswa';
 // ... (PHP code for export, import, CRUD remains the same) ...
 // Download template
 if (isset($_GET['download_template'])) {
+    // [FIX] Bersihkan output buffer agar tidak ada HTML dari index.php yang ikut terunduh
+    if (ob_get_length()) ob_end_clean();
+    
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=template_mahasiswa.csv');
     
@@ -20,6 +23,9 @@ if (isset($_GET['download_template'])) {
 
 // Export data mahasiswa
 if (isset($_GET['export'])) {
+    // [FIX] Bersihkan output buffer
+    if (ob_get_length()) ob_end_clean();
+    
     $filter_kelas_exp = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
     $where_exp = $filter_kelas_exp ? "WHERE m.kode_kelas = '$filter_kelas_exp'" : '';
     
@@ -70,16 +76,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($ext == 'csv') {
                 if (($handle = fopen($file, 'r')) !== FALSE) {
                     $first_line = fgets($handle);
-                    rewind($handle);
                     $delimiter = (strpos($first_line, ';') !== false) ? ';' : ',';
+                    rewind($handle); // Kembali ke awal file setelah cek delimiter
+                    
+                    // [BARU] Baca header dan petakan kolom
                     $header = fgetcsv($handle, 0, $delimiter);
+                    $header_map = [];
+                    foreach ($header as $index => $col) {
+                        $col_name = strtolower(trim($col));
+                        if (strpos($col_name, 'nim') !== false) $header_map['nim'] = $index;
+                        if (strpos($col_name, 'nama') !== false) $header_map['nama'] = $index;
+                        if (strpos($col_name, 'kelas') !== false) $header_map['kelas'] = $index;
+                        if (strpos($col_name, 'prodi') !== false) $header_map['prodi'] = $index;
+                        if (strpos($col_name, 'hp') !== false) $header_map['hp'] = $index;
+                        if (strpos($col_name, 'password') !== false) $header_map['password'] = $index;
+                    }
+
+                    // Validasi header
+                    if (!isset($header_map['nim']) || !isset($header_map['nama'])) {
+                        set_alert('danger', "File CSV tidak valid! Pastikan memiliki kolom 'NIM' dan 'Nama'.");
+                        header("Location: index.php?page=admin_mahasiswa");
+                        exit;
+                    }
+
                     while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
                         $data_rows[] = $data;
                     }
                     fclose($handle);
                 }
             } else {
-                set_alert('danger', 'Format file tidak didukung! Gunakan file CSV.');
+                set_alert('danger', 'Format file tidak didukung! Gunakan file .csv');
                 header("Location: index.php?page=admin_mahasiswa");
                 exit;
             }
@@ -88,28 +114,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $waktu_daftar = (isset($_POST['waktu_daftar']) && !empty($_POST['waktu_daftar'])) ? escape($_POST['waktu_daftar']) . ':00' : date('H:i:s');
             $tanggal_daftar = $tanggal_daftar . ' ' . $waktu_daftar;
             
-            $row_num = 1;
-            foreach ($data_rows as $data) {
-                $row_num++;
-                if (count($data) >= 2) {
-                    $nim = escape(trim(html_entity_decode(strip_tags($data[0]))));
-                    $nama = escape(trim(html_entity_decode(strip_tags($data[1]))));
-                    $kelas = isset($data[2]) ? escape(trim(html_entity_decode(strip_tags($data[2])))) : '';
-                    $prodi = isset($data[3]) ? escape(trim(html_entity_decode(strip_tags($data[3])))) : '';
-                    $hp = isset($data[4]) ? escape(trim(html_entity_decode(strip_tags($data[4])))) : '';
-                    $password = isset($data[5]) && !empty(trim($data[5])) ? trim($data[5]) : '123456';
+            foreach ($data_rows as $i => $data) {
+                $row_num = $i + 2; // +2 karena header dan 0-based index
+                if (count($data) > 0) {
+                    $nim = escape(trim($data[$header_map['nim']] ?? ''));
+                    $nama = escape(trim($data[$header_map['nama']] ?? ''));
+                    $kelas = isset($header_map['kelas']) ? escape(trim($data[$header_map['kelas']])) : '';
+                    $prodi = isset($header_map['prodi']) ? escape(trim($data[$header_map['prodi']])) : '';
+                    $hp = isset($header_map['hp']) ? escape(trim($data[$header_map['hp']])) : '';
+                    $password = isset($header_map['password']) && !empty(trim($data[$header_map['password']])) ? trim($data[$header_map['password']]) : '123456';
                     
                     if (empty($nim) && empty($nama)) continue;
                     if (!preg_match('/^[a-zA-Z0-9]+$/', $nim)) { $gagal++; $errors[] = "Baris $row_num: NIM tidak valid."; continue; }
                     if (empty($nim) || empty($nama)) { $gagal++; $errors[] = "Baris $row_num: NIM atau Nama kosong."; continue; }
                     
-                    $cek = mysqli_query($conn, "SELECT * FROM mahasiswa WHERE nim = '$nim'");
+                    // Prepared statement untuk cek NIM
+                    $stmt_cek = mysqli_prepare($conn, "SELECT * FROM mahasiswa WHERE nim = ?");
+                    mysqli_stmt_bind_param($stmt_cek, "s", $nim);
+                    mysqli_stmt_execute($stmt_cek);
+                    $cek = mysqli_stmt_get_result($stmt_cek);
                     if (mysqli_num_rows($cek) > 0) { $gagal++; $errors[] = "Baris $row_num: NIM $nim sudah terdaftar."; continue; }
                     
-                    mysqli_query($conn, "INSERT INTO users (username, password, role) VALUES ('$nim', '$password', 'mahasiswa')");
+                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'mahasiswa')");
+                    mysqli_stmt_bind_param($stmt_user, "ss", $nim, $hashed_password);
+                    mysqli_stmt_execute($stmt_user);
                     $user_id = mysqli_insert_id($conn);
                     
-                    $q = mysqli_query($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES ('$nim', '$user_id', '$nama', '$kelas', '$prodi', '$hp', '$tanggal_daftar')");
+                    $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                    mysqli_stmt_bind_param($stmt_mhs, "sissss s", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
+                    $q = mysqli_stmt_execute($stmt_mhs);
                     if ($q) { $success++; } else { $gagal++; $errors[] = "Baris $row_num: Gagal insert database."; }
                 }
             }
@@ -137,13 +171,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $waktu_daftar = (isset($_POST['waktu_daftar']) && !empty($_POST['waktu_daftar'])) ? escape($_POST['waktu_daftar']) . ':00' : date('H:i:s');
         $tanggal_daftar = $tanggal_daftar . ' ' . $waktu_daftar;
         
-        $cek = mysqli_query($conn, "SELECT * FROM mahasiswa WHERE nim = '$nim'");
+        // Prepared statement untuk cek NIM
+        $stmt_cek = mysqli_prepare($conn, "SELECT * FROM mahasiswa WHERE nim = ?");
+        mysqli_stmt_bind_param($stmt_cek, "s", $nim);
+        mysqli_stmt_execute($stmt_cek);
+        $cek = mysqli_stmt_get_result($stmt_cek);
         if (mysqli_num_rows($cek) > 0) {
             set_alert('danger', 'NIM sudah terdaftar!');
         } else {
-            mysqli_query($conn, "INSERT INTO users (username, password, role) VALUES ('$nim', '$password', 'mahasiswa')");
+            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'mahasiswa')");
+            mysqli_stmt_bind_param($stmt_user, "ss", $nim, $hashed_password);
+            mysqli_stmt_execute($stmt_user);
             $user_id = mysqli_insert_id($conn);
-            mysqli_query($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES ('$nim', '$user_id', '$nama', '$kelas', '$prodi', '$hp', '$tanggal_daftar')");
+            $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_mhs, "sisssss", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
+            mysqli_stmt_execute($stmt_mhs);
             set_alert('success', 'Mahasiswa berhasil ditambahkan!');
         }
     } elseif ($aksi == 'edit') {
@@ -153,15 +196,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $prodi = escape($_POST['prodi']);
         $hp = escape($_POST['no_hp']);
         
-        mysqli_query($conn, "UPDATE mahasiswa SET nama='$nama', kode_kelas='$kelas', prodi='$prodi', no_hp='$hp' WHERE id='$id'");
+        $stmt_upd = mysqli_prepare($conn, "UPDATE mahasiswa SET nama=?, kode_kelas=?, prodi=?, no_hp=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt_upd, "ssssi", $nama, $kelas, $prodi, $hp, $id);
+        mysqli_stmt_execute($stmt_upd);
         set_alert('success', 'Data mahasiswa berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
         $id = (int)$_POST['id'];
-        $mhs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT user_id FROM mahasiswa WHERE id = '$id'"));
+        // Prepared statement untuk get user_id
+        $stmt_get = mysqli_prepare($conn, "SELECT user_id FROM mahasiswa WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_get, "i", $id);
+        mysqli_stmt_execute($stmt_get);
+        $mhs = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_get));
         if ($mhs && $mhs['user_id']) {
-            mysqli_query($conn, "DELETE FROM users WHERE id = '{$mhs['user_id']}'");
+            $stmt_del_user = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_del_user, "i", $mhs['user_id']);
+            mysqli_stmt_execute($stmt_del_user);
         }
-        mysqli_query($conn, "DELETE FROM mahasiswa WHERE id = '$id'");
+        $stmt_del_mhs = mysqli_prepare($conn, "DELETE FROM mahasiswa WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_del_mhs, "i", $id);
+        mysqli_stmt_execute($stmt_del_mhs);
         set_alert('success', 'Mahasiswa berhasil dihapus!');
     }
     
@@ -171,25 +224,64 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
-$where_clauses = [];
-if ($filter_kelas) $where_clauses[] = "m.kode_kelas = '$filter_kelas'";
-if ($search) $where_clauses[] = "(m.nama LIKE '%$search%' OR m.nim LIKE '%$search%')";
-$where = count($where_clauses) > 0 ? "WHERE " . implode(' AND ', $where_clauses) : '';
+$search_param = '%' . $search . '%';
 
 $per_page = 12;
 $current_page = get_current_page();
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM mahasiswa m $where");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+
+// Prepared statement untuk count dan fetch mahasiswa
+if ($filter_kelas && $search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa m WHERE m.kode_kelas = ? AND (m.nama LIKE ? OR m.nim LIKE ?)");
+    mysqli_stmt_bind_param($stmt_count, "sss", $filter_kelas, $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} elseif ($filter_kelas) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa m WHERE m.kode_kelas = ?");
+    mysqli_stmt_bind_param($stmt_count, "s", $filter_kelas);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} elseif ($search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa m WHERE m.nama LIKE ? OR m.nim LIKE ?");
+    mysqli_stmt_bind_param($stmt_count, "ss", $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} else {
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM mahasiswa");
+}
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-$mahasiswa = mysqli_query($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
-
+if ($filter_kelas && $search) {
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
                                    FROM mahasiswa m 
-
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
-
-                                   $where ORDER BY m.nim LIMIT $offset, $per_page");
+                                   WHERE m.kode_kelas = ? AND (m.nama LIKE ? OR m.nim LIKE ?)
+                                   ORDER BY m.nim LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_mhs, "sssii", $filter_kelas, $search_param, $search_param, $offset, $per_page);
+} elseif ($filter_kelas) {
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+                                   FROM mahasiswa m 
+                                   LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   WHERE m.kode_kelas = ?
+                                   ORDER BY m.nim LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_mhs, "sii", $filter_kelas, $offset, $per_page);
+} elseif ($search) {
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+                                   FROM mahasiswa m 
+                                   LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   WHERE m.nama LIKE ? OR m.nim LIKE ?
+                                   ORDER BY m.nim LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_mhs, "ssii", $search_param, $search_param, $offset, $per_page);
+} else {
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+                                   FROM mahasiswa m 
+                                   LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   ORDER BY m.nim LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_mhs, "ii", $offset, $per_page);
+}
+mysqli_stmt_execute($stmt_mhs);
+$mahasiswa = mysqli_stmt_get_result($stmt_mhs);
 $kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
 
 // Handle AJAX Search
@@ -205,7 +297,7 @@ if (isset($_GET['ajax_search'])) {
                                 <?php 
                                 $foto_profil = (!empty($m['foto']) && file_exists($m['foto'])) ? $m['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($m['nama']) . '&background=random&color=fff&rounded=true';
                                 ?>
-                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;">
+                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;" loading="lazy">
                             </div>
                             <h5 class="card-title text-center mb-1"><?= htmlspecialchars($m['nama']) ?></h5>
                             <p class="text-center text-muted small"><?= htmlspecialchars($m['nim']) ?></p>
@@ -362,7 +454,7 @@ if (isset($_GET['ajax_search'])) {
                                             <?php 
                                             $foto_profil = (!empty($m['foto']) && file_exists($m['foto'])) ? $m['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($m['nama']) . '&background=random&color=fff&rounded=true';
                                             ?>
-                                            <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;">
+                                            <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;" loading="lazy">
                                         </div>
                                         <h5 class="card-title text-center mb-1"><?= htmlspecialchars($m['nama']) ?></h5>
                                         <p class="text-center text-muted small"><?= htmlspecialchars($m['nim']) ?></p>
@@ -471,8 +563,17 @@ if (isset($_GET['ajax_search'])) {
                 <input type="hidden" name="aksi" value="import">
                 <div class="modal-header"><h5 class="modal-title" id="modalImportLabel"><i class="fas fa-file-import me-2"></i>Import Mahasiswa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
-                    <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i><strong>Petunjuk:</strong><ol class="mb-0 mt-2"><li>Download template CSV.</li><li>Buka & isi data di Excel.</li><li>Simpan sebagai CSV, lalu upload.</li></ol></div>
-                    <div class="mb-3"><a href="index.php?page=admin_mahasiswa&download_template=1" class="btn btn-outline-success w-100"><i class="fas fa-download me-2"></i>Download Template CSV</a></div><hr>
+                    <div class="alert alert-info p-3">
+                        <h6 class="alert-heading fw-bold"><i class="fas fa-info-circle me-2"></i>Petunjuk Penting!</h6>
+                        <strong>Petunjuk:</strong>
+                        <ol class="mb-0 mt-2 small">
+                            <li>Jika file Anda dalam format Excel (<strong>.xlsx</strong>), buka file tersebut, lalu pilih <strong>File > Save As</strong>.</li>
+                            <li>Pada bagian "Save as type", pilih <strong>CSV (Comma delimited) (*.csv)</strong> atau <strong>CSV (Pemisah titik koma)</strong>.</li>
+                            <li>Pastikan file CSV yang disimpan memiliki kolom header: <strong>NIM</strong> dan <strong>Nama</strong> (wajib).</li>
+                            <li>Kolom opsional: `Kode Kelas`, `Program Studi`, `No HP`, `Password`.</li>
+                            <li>Urutan kolom tidak menjadi masalah. <a href="index.php?page=admin_mahasiswa&download_template=1" class="fw-bold">Download template</a> untuk contoh.</li>
+                        </ol>
+                    </div>
                     <div class="mb-3"><label class="form-label">Pilih File CSV</label><input type="file" name="file_import" class="form-control" accept=".csv" required></div>
                     <div class="mb-3">
                         <label class="form-label">Tgl & Waktu Mulai Aktif <span class="text-danger">*</span></label>
@@ -482,7 +583,6 @@ if (isset($_GET['ajax_search'])) {
                         </div>
                         <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Mahasiswa bisa ikut jadwal sejak waktu ini.</small>
                     </div>
-                    <div class="alert alert-warning mb-0"><i class="fas fa-exclamation-triangle me-2"></i><strong>Format:</strong><div class="small mt-1"><code>NIM;Nama;Kd_Kelas;Prodi;NoHP;Pass</code></div><small class="text-muted d-block mt-1">* NIM & Nama wajib. Pass default: 123456</small></div>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-success"><i class="fas fa-upload me-1"></i>Import Data</button></div>
             </form>

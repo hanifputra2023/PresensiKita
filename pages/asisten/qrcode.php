@@ -41,15 +41,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
     $jadwal_id = (int)$_POST['jadwal_id'];
     $qr_code = generate_qr_code();
     
-    // Ambil jam selesai jadwal untuk expired time
-    $jadwal_info = mysqli_fetch_assoc(mysqli_query($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id = '$jadwal_id'"));
+    // Ambil jam selesai jadwal untuk expired time - prepared statement
+    $stmt_jadwal_info = mysqli_prepare($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id = ?");
+    mysqli_stmt_bind_param($stmt_jadwal_info, "i", $jadwal_id);
+    mysqli_stmt_execute($stmt_jadwal_info);
+    $jadwal_info = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal_info));
     $expired = $jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_selesai']; // Expired saat jadwal selesai
     
-    // Cek apakah ini jadwal sebagai pengganti
-    $cek_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
-                                                               WHERE jadwal_id = '$jadwal_id' 
-                                                               AND pengganti = '$kode_asisten'
-                                                               AND status IN ('izin', 'sakit')"));
+    // Cek apakah ini jadwal sebagai pengganti - prepared statement
+    $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
+                                                               WHERE jadwal_id = ? 
+                                                               AND pengganti = ?
+                                                               AND status IN ('izin', 'sakit')");
+    mysqli_stmt_bind_param($stmt_cek_pg, "is", $jadwal_id, $kode_asisten);
+    mysqli_stmt_execute($stmt_cek_pg);
+    $cek_pengganti = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_pg));
     $is_pengganti_gen = $cek_pengganti ? true : false;
     
     // CATAT HADIR ASISTEN saat Generate QR (bukan saat buka halaman)
@@ -58,10 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
     // INIT presensi 'belum' untuk semua mahasiswa di jadwal ini
     init_presensi_jadwal($jadwal_id);
     
-    // Hapus QR session lama untuk jadwal ini
-    mysqli_query($conn, "DELETE FROM qr_code_session WHERE jadwal_id = '$jadwal_id'");
+    // Hapus QR session lama untuk jadwal ini - prepared statement
+    $stmt_del_qr = mysqli_prepare($conn, "DELETE FROM qr_code_session WHERE jadwal_id = ?");
+    mysqli_stmt_bind_param($stmt_del_qr, "i", $jadwal_id);
+    mysqli_stmt_execute($stmt_del_qr);
     
-    mysqli_query($conn, "INSERT INTO qr_code_session (jadwal_id, qr_code, expired_at) VALUES ('$jadwal_id', '$qr_code', '$expired')");
+    // Insert QR session baru - prepared statement
+    $stmt_ins_qr = mysqli_prepare($conn, "INSERT INTO qr_code_session (jadwal_id, qr_code, expired_at) VALUES (?, ?, ?)");
+    mysqli_stmt_bind_param($stmt_ins_qr, "iss", $jadwal_id, $qr_code, $expired);
+    mysqli_stmt_execute($stmt_ins_qr);
     
     log_aktivitas($_SESSION['user_id'], 'GENERATE_QR', 'qr_code_session', mysqli_insert_id($conn), "QR Code untuk jadwal #$jadwal_id, expired: $expired");
     

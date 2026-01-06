@@ -116,19 +116,16 @@ $riwayat = mysqli_query($conn, "
 ");
 
 // Greeting berdasarkan waktu
-$hour = date('H');
-if ($hour < 12) {
-    $greeting = 'Selamat Pagi';
-} elseif ($hour < 15) {
-    $greeting = 'Selamat Siang';
-} elseif ($hour < 18) {
-    $greeting = 'Selamat Sore';
-} else {
-    $greeting = 'Selamat Malam';
-}
+$greeting = sapaan_waktu();
 
 $total_kehadiran = ($stat_hadir['hadir'] ?? 0) + ($stat_hadir['izin'] ?? 0) + ($stat_hadir['sakit'] ?? 0) + ($stat_hadir['alpha'] ?? 0);
 $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $total_kehadiran) * 100) : 0;
+
+// Fetch Pengumuman Terbaru (3 Teratas)
+$pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman 
+                                        WHERE target_role IN ('semua', 'asisten')
+                                        AND status = 'active' 
+                                        ORDER BY created_at DESC LIMIT 3");
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -137,6 +134,108 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
 .dashboard-content {
     padding: 24px;
     max-width: 1600px;
+}
+
+/* Announcement Style */
+.announcement-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.announcement-item {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+.announcement-item.alert {
+    margin-bottom: 0;
+}
+.announcement-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border-color: #0066cc;
+}
+.announcement-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #0066cc 0%, #00ccff 100%);
+}
+.announcement-icon-box {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.announcement-content {
+    flex: 1;
+    padding-right: 20px;
+}
+.announcement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.announcement-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+.announcement-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.announcement-body {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.announcement-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.2s;
+    z-index: 2;
+}
+.announcement-close:hover {
+    opacity: 1;
+    color: #ef4444;
+    transform: rotate(90deg);
+}
+[data-theme="dark"] .announcement-icon-box {
+    background: rgba(2, 132, 199, 0.2);
+    color: #38bdf8;
 }
 
 /* Welcome Banner */
@@ -1445,6 +1544,33 @@ $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $tot
             <div class="dashboard-content">
                 <?= show_alert() ?>
                 
+                             <!-- Pengumuman Section -->
+                <?php if (mysqli_num_rows($pengumuman_list) > 0): ?>
+                    <div class="announcement-wrapper">
+                        <?php while($p = mysqli_fetch_assoc($pengumuman_list)): ?>
+                        <div class="announcement-item alert fade show" role="alert">
+                            <div class="announcement-icon-box">
+                                <i class="fas fa-bullhorn"></i>
+                            </div>
+                            <div class="announcement-content">
+                                <div class="announcement-header">
+                                    <h5 class="announcement-title"><?= htmlspecialchars($p['judul']) ?></h5>
+                                    <span class="announcement-time">
+                                        <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <div class="announcement-body">
+                                    <?= nl2br(htmlspecialchars($p['isi'])) ?>
+                                </div>
+                            </div>
+                            <button type="button" class="announcement-close" data-bs-dismiss="alert" aria-label="Close">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <?php endwhile; ?>
+                    </div>
+                <?php endif; ?>
+
                 <!-- Welcome Banner -->
                 <div class="welcome-banner">
                     <div class="welcome-content">

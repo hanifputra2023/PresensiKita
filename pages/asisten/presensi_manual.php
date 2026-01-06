@@ -9,23 +9,33 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $nim = escape($_POST['nim']);
     $status = escape($_POST['status']);
     
-    // Cek apakah ini jadwal sebagai pengganti untuk catat hadir asisten
-    $cek_pengganti_post = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
-                                                               WHERE jadwal_id = '$jadwal_id' 
-                                                               AND pengganti = '$kode_asisten'
-                                                               AND status IN ('izin', 'sakit')"));
+    // Cek apakah ini jadwal sebagai pengganti untuk catat hadir asisten - prepared statement
+    $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
+                                                               WHERE jadwal_id = ? 
+                                                               AND pengganti = ?
+                                                               AND status IN ('izin', 'sakit')");
+    mysqli_stmt_bind_param($stmt_cek_pg, "is", $jadwal_id, $kode_asisten);
+    mysqli_stmt_execute($stmt_cek_pg);
+    $cek_pengganti_post = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_pg));
     $is_pengganti_post = $cek_pengganti_post ? true : false;
     
     // CATAT HADIR ASISTEN saat melakukan presensi manual pertama kali
     catat_hadir_asisten($kode_asisten, $jadwal_id, $is_pengganti_post);
     
-    // Cek sudah ada presensi
-    $cek = mysqli_query($conn, "SELECT * FROM presensi_mahasiswa WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'");
+    // Cek sudah ada presensi - prepared statement
+    $stmt_cek = mysqli_prepare($conn, "SELECT * FROM presensi_mahasiswa WHERE jadwal_id = ? AND nim = ?");
+    mysqli_stmt_bind_param($stmt_cek, "is", $jadwal_id, $nim);
+    mysqli_stmt_execute($stmt_cek);
+    $cek = mysqli_stmt_get_result($stmt_cek);
     
     if (mysqli_num_rows($cek) > 0) {
-        mysqli_query($conn, "UPDATE presensi_mahasiswa SET status = '$status', metode = 'manual', validated_by = '$kode_asisten' WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'");
+        $stmt_upd = mysqli_prepare($conn, "UPDATE presensi_mahasiswa SET status = ?, metode = 'manual', validated_by = ? WHERE jadwal_id = ? AND nim = ?");
+        mysqli_stmt_bind_param($stmt_upd, "ssis", $status, $kode_asisten, $jadwal_id, $nim);
+        mysqli_stmt_execute($stmt_upd);
     } else {
-        mysqli_query($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, validated_by) VALUES ('$jadwal_id', '$nim', '$status', 'manual', '$kode_asisten')");
+        $stmt_ins = mysqli_prepare($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, validated_by) VALUES (?, ?, ?, 'manual', ?)");
+        mysqli_stmt_bind_param($stmt_ins, "isss", $jadwal_id, $nim, $status, $kode_asisten);
+        mysqli_stmt_execute($stmt_ins);
     }
     
     log_aktivitas($_SESSION['user_id'], 'PRESENSI_MANUAL', 'presensi_mahasiswa', $jadwal_id, "Presensi manual: $nim - $status");

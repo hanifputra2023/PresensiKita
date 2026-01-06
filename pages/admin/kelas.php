@@ -11,11 +11,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $prodi = escape($_POST['program_studi']);
         $tahun = escape($_POST['tahun_ajaran']);
         
-        $cek = mysqli_query($conn, "SELECT * FROM kelas WHERE kode_kelas = '$kode'");
+        // Prepared statement
+        $stmt_cek = mysqli_prepare($conn, "SELECT * FROM kelas WHERE kode_kelas = ?");
+        mysqli_stmt_bind_param($stmt_cek, "s", $kode);
+        mysqli_stmt_execute($stmt_cek);
+        $cek = mysqli_stmt_get_result($stmt_cek);
         if (mysqli_num_rows($cek) > 0) {
             set_alert('danger', 'Kode kelas sudah ada!');
         } else {
-            mysqli_query($conn, "INSERT INTO kelas VALUES ('$kode', '$nama', '$prodi', '$tahun')");
+            $stmt_ins = mysqli_prepare($conn, "INSERT INTO kelas VALUES (?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_ins, "ssss", $kode, $nama, $prodi, $tahun);
+            mysqli_stmt_execute($stmt_ins);
             set_alert('success', 'Kelas berhasil ditambahkan!');
         }
     } elseif ($aksi == 'edit') {
@@ -24,11 +30,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $prodi = escape($_POST['program_studi']);
         $tahun = escape($_POST['tahun_ajaran']);
         
-        mysqli_query($conn, "UPDATE kelas SET nama_kelas='$nama', program_studi='$prodi', tahun_ajaran='$tahun' WHERE kode_kelas='$kode'");
+        $stmt_upd = mysqli_prepare($conn, "UPDATE kelas SET nama_kelas=?, program_studi=?, tahun_ajaran=? WHERE kode_kelas=?");
+        mysqli_stmt_bind_param($stmt_upd, "ssss", $nama, $prodi, $tahun, $kode);
+        mysqli_stmt_execute($stmt_upd);
         set_alert('success', 'Kelas berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
         $kode = escape($_POST['kode_kelas']);
-        mysqli_query($conn, "DELETE FROM kelas WHERE kode_kelas = '$kode'");
+        $stmt_del = mysqli_prepare($conn, "DELETE FROM kelas WHERE kode_kelas = ?");
+        mysqli_stmt_bind_param($stmt_del, "s", $kode);
+        mysqli_stmt_execute($stmt_del);
         set_alert('success', 'Kelas berhasil dihapus!');
     }
     
@@ -36,28 +46,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     exit;
 }
 
-// Search
+// Search - prepared statement
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
-$where_sql = '';
-if ($search) {
-    $where_sql = "WHERE k.nama_kelas LIKE '%$search%' OR k.kode_kelas LIKE '%$search%' OR k.program_studi LIKE '%$search%'";
-}
+$search_param = '%' . $search . '%';
 
 // Pagination
 $per_page = 9;
 $current_page = get_current_page();
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM kelas k $where_sql");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+if ($search) {
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM kelas k WHERE k.nama_kelas LIKE ? OR k.kode_kelas LIKE ? OR k.program_studi LIKE ?");
+    mysqli_stmt_bind_param($stmt_count, "sss", $search_param, $search_param, $search_param);
+    mysqli_stmt_execute($stmt_count);
+    $count_result = mysqli_stmt_get_result($stmt_count);
+} else {
+    $count_result = mysqli_query($conn, "SELECT COUNT(*) as total FROM kelas");
+}
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-// Ambil data kelas
-$kelas = mysqli_query($conn, "SELECT k.*, 
+// Ambil data kelas - prepared statement
+if ($search) {
+    $stmt_kelas = mysqli_prepare($conn, "SELECT k.*, 
                               (SELECT COUNT(*) FROM mahasiswa m WHERE m.kode_kelas = k.kode_kelas) as jml_mahasiswa
                               FROM kelas k 
-                              $where_sql
-                              ORDER BY k.kode_kelas LIMIT $offset, $per_page");
+                              WHERE k.nama_kelas LIKE ? OR k.kode_kelas LIKE ? OR k.program_studi LIKE ?
+                              ORDER BY k.kode_kelas LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_kelas, "sssii", $search_param, $search_param, $search_param, $offset, $per_page);
+    mysqli_stmt_execute($stmt_kelas);
+    $kelas = mysqli_stmt_get_result($stmt_kelas);
+} else {
+    $stmt_kelas = mysqli_prepare($conn, "SELECT k.*, 
+                              (SELECT COUNT(*) FROM mahasiswa m WHERE m.kode_kelas = k.kode_kelas) as jml_mahasiswa
+                              FROM kelas k 
+                              ORDER BY k.kode_kelas LIMIT ?, ?");
+    mysqli_stmt_bind_param($stmt_kelas, "ii", $offset, $per_page);
+    mysqli_stmt_execute($stmt_kelas);
+    $kelas = mysqli_stmt_get_result($stmt_kelas);
+}
 
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {

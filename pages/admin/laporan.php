@@ -877,7 +877,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
 <div class="modal fade" id="modalDetail" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-info text-white">
+            <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-history me-2"></i>Rincian Kehadiran</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>

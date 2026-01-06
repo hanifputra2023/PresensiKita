@@ -8,28 +8,36 @@ if (!isset($_GET['jadwal']) || !is_numeric($_GET['jadwal'])) {
 }
 $jadwal_id = (int)$_GET['jadwal'];
 
-// --- FETCH JADWAL (Admin can access any schedule) ---
-$jadwal_query = mysqli_query($conn, "SELECT j.*, k.nama_kelas, mk.nama_mk 
+// --- FETCH JADWAL (Admin can access any schedule) --- prepared statement
+$stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, mk.nama_mk 
                                     FROM jadwal j 
                                     JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                    WHERE j.id = $jadwal_id");
-$jadwal = mysqli_fetch_assoc($jadwal_query);
+                                    WHERE j.id = ?");
+mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
+mysqli_stmt_execute($stmt_jadwal);
+$jadwal = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
 
 if (!$jadwal) {
     echo '<div class="alert alert-danger m-4">Jadwal tidak ditemukan.</div>';
     return;
 }
 
-// --- LOGIC: HANDLE DELETE ---
+// --- LOGIC: HANDLE DELETE --- prepared statement
 if (isset($_GET['hapus']) && is_numeric($_GET['hapus'])) {
     $id_materi_hapus = (int)$_GET['hapus'];
-    $materi_hapus_q = mysqli_query($conn, "SELECT * FROM materi_perkuliahan WHERE id_materi = $id_materi_hapus AND id_jadwal = $jadwal_id");
-    if ($materi_hapus = mysqli_fetch_assoc($materi_hapus_q)) {
+    $stmt_hapus = mysqli_prepare($conn, "SELECT * FROM materi_perkuliahan WHERE id_materi = ? AND id_jadwal = ?");
+    mysqli_stmt_bind_param($stmt_hapus, "ii", $id_materi_hapus, $jadwal_id);
+    mysqli_stmt_execute($stmt_hapus);
+    $materi_hapus = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_hapus));
+    
+    if ($materi_hapus) {
         if ($materi_hapus['path_file'] && file_exists($materi_hapus['path_file'])) {
             unlink($materi_hapus['path_file']);
         }
-        mysqli_query($conn, "DELETE FROM materi_perkuliahan WHERE id_materi = $id_materi_hapus");
+        $stmt_del = mysqli_prepare($conn, "DELETE FROM materi_perkuliahan WHERE id_materi = ?");
+        mysqli_stmt_bind_param($stmt_del, "i", $id_materi_hapus);
+        mysqli_stmt_execute($stmt_del);
         header("Location: index.php?page=admin_materi&jadwal=$jadwal_id&status=hapus_sukses");
         exit;
     } else {
@@ -95,16 +103,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_materi'])) {
             $upload_error = 'Tipe materi tidak valid.';
         }
 
-        // If no error so far, proceed to insert
+        // If no error so far, proceed to insert - prepared statement
         if (empty($upload_error)) {
-            $deskripsi_val = ($tipe_materi === 'teks' || !empty($deskripsi)) ? "'$deskripsi'" : "NULL";
-            $nama_file_val = $nama_file ? "'$nama_file'" : "NULL";
-            $path_file_val = $path_file ? "'$path_file'" : "NULL";
+            $deskripsi_val = ($tipe_materi === 'teks' || !empty($deskripsi)) ? $deskripsi : null;
 
-            $sql_insert = "INSERT INTO materi_perkuliahan (id_jadwal, judul_materi, deskripsi, nama_file, path_file, uploader_id) 
-                           VALUES ($jadwal_id, '$judul_materi', $deskripsi_val, $nama_file_val, $path_file_val, $uploader_id)";
+            $stmt_insert = mysqli_prepare($conn, "INSERT INTO materi_perkuliahan (id_jadwal, judul_materi, deskripsi, nama_file, path_file, uploader_id) 
+                           VALUES (?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_insert, "issssi", $jadwal_id, $judul_materi, $deskripsi_val, $nama_file, $path_file, $uploader_id);
             
-            if (mysqli_query($conn, $sql_insert)) {
+            if (mysqli_stmt_execute($stmt_insert)) {
                  header("Location: index.php?page=admin_materi&jadwal=$jadwal_id&status=upload_sukses");
                  exit;
             } else {
@@ -117,8 +124,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_materi'])) {
     }
 }
 
-// --- FETCH MATERI LIST ---
-$materi_list_q = mysqli_query($conn, "SELECT mp.*, u.username as uploader_name FROM materi_perkuliahan mp JOIN users u ON mp.uploader_id = u.id WHERE mp.id_jadwal = $jadwal_id ORDER BY mp.tgl_upload DESC");
+// --- FETCH MATERI LIST --- prepared statement
+$stmt_materi = mysqli_prepare($conn, "SELECT mp.*, u.username as uploader_name FROM materi_perkuliahan mp JOIN users u ON mp.uploader_id = u.id WHERE mp.id_jadwal = ? ORDER BY mp.tgl_upload DESC");
+mysqli_stmt_bind_param($stmt_materi, "i", $jadwal_id);
+mysqli_stmt_execute($stmt_materi);
+$materi_list_q = mysqli_stmt_get_result($stmt_materi);
 
 // Handle status messages from redirects
 if (isset($_GET['status'])) {

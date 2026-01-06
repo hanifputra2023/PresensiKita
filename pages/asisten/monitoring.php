@@ -7,20 +7,26 @@ $jadwal_id = isset($_GET['jadwal']) ? (int)$_GET['jadwal'] : 0;
 $jadwal_aktif = null;
 
 if ($jadwal_id) {
-    $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
+    $stmt_jadwal_aktif = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
                                                              FROM jadwal j 
                                                              LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                                              LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                                              LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                                             WHERE j.id = '$jadwal_id'"));
+                                                             WHERE j.id = ?");
+    mysqli_stmt_bind_param($stmt_jadwal_aktif, "i", $jadwal_id);
+    mysqli_stmt_execute($stmt_jadwal_aktif);
+    $jadwal_aktif = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal_aktif));
     
     // Cek apakah ini jadwal sebagai pengganti
     $is_pengganti = false;
     if ($jadwal_aktif) {
-        $cek_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
-                                                                   WHERE jadwal_id = '$jadwal_id' 
-                                                                   AND pengganti = '$kode_asisten'
-                                                                   AND status IN ('izin', 'sakit')"));
+        $stmt_cek_pengganti = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
+                                                                   WHERE jadwal_id = ? 
+                                                                   AND pengganti = ?
+                                                                   AND status IN ('izin', 'sakit')");
+        mysqli_stmt_bind_param($stmt_cek_pengganti, "is", $jadwal_id, $kode_asisten);
+        mysqli_stmt_execute($stmt_cek_pengganti);
+        $cek_pengganti = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_pengganti));
         $is_pengganti = $cek_pengganti ? true : false;
     }
     
@@ -40,31 +46,41 @@ if ($jadwal_aktif) {
     // FIX: Query diubah untuk hanya menampilkan mahasiswa yang pengajuan izin/sakitnya disetujui (approved)
     // dan terdaftar untuk jadwal inhall ini.
     if ($jenis_jadwal == 'inhall') {
-        $total_mhs_query = "SELECT COUNT(pi.id) as total 
+        $stmt_total_inhall = mysqli_prepare($conn, "SELECT COUNT(pi.id) as total 
                             FROM penggantian_inhall pi
-                            WHERE pi.jadwal_inhall_id = '$jadwal_id'
-                            AND pi.status_approval = 'approved'";
-        $total_mhs = mysqli_fetch_assoc(mysqli_query($conn, $total_mhs_query))['total'];
+                            WHERE pi.jadwal_inhall_id = ?
+                            AND pi.status_approval = 'approved'");
+        mysqli_stmt_bind_param($stmt_total_inhall, "i", $jadwal_id);
+        mysqli_stmt_execute($stmt_total_inhall);
+        $total_mhs = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_total_inhall))['total'];
         
         // List presensi untuk INHALL - hanya mahasiswa yang pengajuannya disetujui untuk jadwal inhall ini
-        $presensi_list_query = "SELECT m.nim, m.nama, p.status, p.waktu_presensi, p.metode
+        $stmt_presensi_inhall = mysqli_prepare($conn, "SELECT m.nim, m.nama, p.status, p.waktu_presensi, p.metode
                                 FROM penggantian_inhall pi
                                 JOIN mahasiswa m ON pi.nim = m.nim
-                                LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
-                                WHERE pi.jadwal_inhall_id = '$jadwal_id'
+                                LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = ?
+                                WHERE pi.jadwal_inhall_id = ?
                                 AND pi.status_approval = 'approved'
-                                ORDER BY p.waktu_presensi DESC, m.nama";
-        $presensi_list = mysqli_query($conn, $presensi_list_query);
+                                ORDER BY p.waktu_presensi DESC, m.nama");
+        mysqli_stmt_bind_param($stmt_presensi_inhall, "ii", $jadwal_id, $jadwal_id);
+        mysqli_stmt_execute($stmt_presensi_inhall);
+        $presensi_list = mysqli_stmt_get_result($stmt_presensi_inhall);
     } else {
         // Untuk MATERI dan UJIKOM: semua mahasiswa di kelas
-        $total_mhs = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = '$kelas'"))['total'];
+        $stmt_total_mhs = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = ?");
+        mysqli_stmt_bind_param($stmt_total_mhs, "s", $kelas);
+        mysqli_stmt_execute($stmt_total_mhs);
+        $total_mhs = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_total_mhs))['total'];
         
         // List presensi
-        $presensi_list = mysqli_query($conn, "SELECT m.nim, m.nama, p.status, p.waktu_presensi, p.metode
+        $stmt_presensi_list = mysqli_prepare($conn, "SELECT m.nim, m.nama, p.status, p.waktu_presensi, p.metode
                                                FROM mahasiswa m 
-                                               LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
-                                               WHERE m.kode_kelas = '$kelas'
+                                               LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = ?
+                                               WHERE m.kode_kelas = ?
                                                ORDER BY p.waktu_presensi DESC, m.nama");
+        mysqli_stmt_bind_param($stmt_presensi_list, "is", $jadwal_id, $kelas);
+        mysqli_stmt_execute($stmt_presensi_list);
+        $presensi_list = mysqli_stmt_get_result($stmt_presensi_list);
     }
 }
 
@@ -74,21 +90,27 @@ if ($jadwal_aktif) {
 $kode_asisten = $asisten['kode_asisten'];
 
 // Query jadwal reguler - gunakan fungsi waktu MySQL
-$jadwal_reguler = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 0 as is_pengganti FROM jadwal j 
+$stmt_jadwal_reguler = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, 0 as is_pengganti FROM jadwal j 
                                      LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                      WHERE j.tanggal = CURDATE() 
-                                     AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                     AND (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
                                      AND j.jam_selesai >= CURTIME()
                                      ORDER BY j.jam_mulai");
+mysqli_stmt_bind_param($stmt_jadwal_reguler, "ss", $kode_asisten, $kode_asisten);
+mysqli_stmt_execute($stmt_jadwal_reguler);
+$jadwal_reguler = mysqli_stmt_get_result($stmt_jadwal_reguler);
 
 // Query jadwal sebagai pengganti
-$jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 1 as is_pengganti FROM jadwal j 
+$stmt_jadwal_pengganti = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, 1 as is_pengganti FROM jadwal j 
                                           LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
-                                          INNER JOIN absen_asisten aa ON aa.jadwal_id = j.id AND aa.pengganti = '$kode_asisten'
+                                          INNER JOIN absen_asisten aa ON aa.jadwal_id = j.id AND aa.pengganti = ?
                                           WHERE j.tanggal = CURDATE() 
                                           AND aa.status IN ('izin', 'sakit')
                                           AND j.jam_selesai >= CURTIME()
                                           ORDER BY j.jam_mulai");
+mysqli_stmt_bind_param($stmt_jadwal_pengganti, "s", $kode_asisten);
+mysqli_stmt_execute($stmt_jadwal_pengganti);
+$jadwal_pengganti = mysqli_stmt_get_result($stmt_jadwal_pengganti);
 
 // Gabungkan jadwal
 $jadwal_list = [];

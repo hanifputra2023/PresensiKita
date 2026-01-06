@@ -1,13 +1,18 @@
+<?php
+// Set header untuk Service Worker
+header('Content-Type: application/javascript');
+header('Service-Worker-Allowed: /');
+header('Cache-Control: no-cache, no-store, must-revalidate');
+?>
 // service-worker.js
 // PWA Service Worker untuk Sistem Presensi Kampus
 
-const CACHE_NAME = 'presensi-app-v4';
+const CACHE_NAME = 'presensi-app-v5';
 const urlsToCache = [
   './',
   './index.php',
   './includes/icon-192.png',
-  './includes/icon-512.png',
-  './manifest.json'
+  './includes/icon-512.png'
 ];
 
 // Event Install: Cache file penting saat pertama kali install

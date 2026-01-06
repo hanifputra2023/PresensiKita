@@ -8,11 +8,13 @@ $kelas = $mahasiswa['kode_kelas'];
 if (isset($_GET['hapus'])) {
     $hapus_id = (int)$_GET['hapus'];
     
-    // Cek apakah pengajuan milik mahasiswa ini dan masih pending
-    $cek_pengajuan = mysqli_fetch_assoc(mysqli_query($conn, 
-        "SELECT pi.*, j.id as jadwal_id FROM penggantian_inhall pi 
+    // Cek apakah pengajuan milik mahasiswa ini dan masih pending - prepared statement
+    $stmt_cek = mysqli_prepare($conn, "SELECT pi.*, j.id as jadwal_id FROM penggantian_inhall pi 
          JOIN jadwal j ON pi.jadwal_asli_id = j.id 
-         WHERE pi.id = '$hapus_id' AND pi.nim = '$nim' AND pi.status_approval = 'pending'"));
+         WHERE pi.id = ? AND pi.nim = ? AND pi.status_approval = 'pending'");
+    mysqli_stmt_bind_param($stmt_cek, "is", $hapus_id, $nim);
+    mysqli_stmt_execute($stmt_cek);
+    $cek_pengajuan = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek));
     
     if ($cek_pengajuan) {
         // Hapus file bukti jika ada
@@ -23,13 +25,16 @@ if (isset($_GET['hapus'])) {
             }
         }
         
-        // Hapus record presensi yang terkait (jika statusnya masih 'belum')
-        mysqli_query($conn, "DELETE FROM presensi_mahasiswa 
-                             WHERE jadwal_id = '{$cek_pengajuan['jadwal_asli_id']}' 
-                             AND nim = '$nim' AND status = 'belum'");
+        // Hapus record presensi yang terkait (jika statusnya masih 'belum') - prepared statement
+        $stmt_del_presensi = mysqli_prepare($conn, "DELETE FROM presensi_mahasiswa 
+                             WHERE jadwal_id = ? AND nim = ? AND status = 'belum'");
+        mysqli_stmt_bind_param($stmt_del_presensi, "is", $cek_pengajuan['jadwal_asli_id'], $nim);
+        mysqli_stmt_execute($stmt_del_presensi);
         
-        // Hapus pengajuan
-        mysqli_query($conn, "DELETE FROM penggantian_inhall WHERE id = '$hapus_id'");
+        // Hapus pengajuan - prepared statement
+        $stmt_del_pengajuan = mysqli_prepare($conn, "DELETE FROM penggantian_inhall WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_del_pengajuan, "i", $hapus_id);
+        mysqli_stmt_execute($stmt_del_pengajuan);
         
         log_aktivitas($_SESSION['user_id'], 'HAPUS_PENGAJUAN', 'penggantian_inhall', $hapus_id, 
                       "Mahasiswa $nim menghapus pengajuan izin/sakit");
@@ -48,8 +53,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $status = escape($_POST['status']); // izin atau sakit
     $alasan = escape($_POST['alasan']);
     
-    // Cek sudah ada presensi
-    $cek = mysqli_fetch_assoc(mysqli_query($conn, "SELECT * FROM presensi_mahasiswa WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'"));
+    // Cek sudah ada presensi - prepared statement
+    $stmt_cek_presensi = mysqli_prepare($conn, "SELECT * FROM presensi_mahasiswa WHERE jadwal_id = ? AND nim = ?");
+    mysqli_stmt_bind_param($stmt_cek_presensi, "is", $jadwal_id, $nim);
+    mysqli_stmt_execute($stmt_cek_presensi);
+    $cek = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_presensi));
     
     // Jika sudah ada record dan bukan status 'belum', tolak
     if ($cek && $cek['status'] != 'belum') {
@@ -81,18 +89,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         
-        // Update atau insert presensi dengan status LANGSUNG izin/sakit
+        // Update atau insert presensi dengan status LANGSUNG izin/sakit - prepared statement
         if ($cek && $cek['status'] == 'belum') {
             // Update record yang sudah ada
-            mysqli_query($conn, "UPDATE presensi_mahasiswa SET status = '$status', waktu_presensi = NOW(), metode = 'manual' WHERE jadwal_id = '$jadwal_id' AND nim = '$nim'");
+            $stmt_upd = mysqli_prepare($conn, "UPDATE presensi_mahasiswa SET status = ?, waktu_presensi = NOW(), metode = 'manual' WHERE jadwal_id = ? AND nim = ?");
+            mysqli_stmt_bind_param($stmt_upd, "sis", $status, $jadwal_id, $nim);
+            mysqli_stmt_execute($stmt_upd);
         } else {
             // Insert record baru dengan status izin/sakit
-            mysqli_query($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, waktu_presensi) VALUES ('$jadwal_id', '$nim', '$status', 'manual', NOW())");
+            $stmt_ins = mysqli_prepare($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, waktu_presensi) VALUES (?, ?, ?, 'manual', NOW())");
+            mysqli_stmt_bind_param($stmt_ins, "iss", $jadwal_id, $nim, $status);
+            mysqli_stmt_execute($stmt_ins);
         }
         
-        // Simpan ke penggantian_inhall dengan status pending (untuk approval asisten)
-        $bukti_sql = $bukti_file ? "'$bukti_file'" : "NULL";
-        mysqli_query($conn, "INSERT INTO penggantian_inhall (nim, jadwal_asli_id, alasan_izin, bukti_file, status_approval, materi_diulang) VALUES ('$nim', '$jadwal_id', '$alasan', $bukti_sql, 'pending', '$status')");
+        // Simpan ke penggantian_inhall dengan status pending (untuk approval asisten) - prepared statement
+        $stmt_inhall = mysqli_prepare($conn, "INSERT INTO penggantian_inhall (nim, jadwal_asli_id, alasan_izin, bukti_file, status_approval, materi_diulang) VALUES (?, ?, ?, ?, 'pending', ?)");
+        mysqli_stmt_bind_param($stmt_inhall, "sisss", $nim, $jadwal_id, $alasan, $bukti_file, $status);
+        mysqli_stmt_execute($stmt_inhall);
         
         $last_id = mysqli_insert_id($conn);
         
@@ -105,37 +118,46 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 }
 
 // Jadwal yang bisa diajukan izin (hari ini atau besok)
-// Exclude jadwal yang sudah ada status selain 'belum'
+// Exclude jadwal yang sudah ada status selain 'belum' - prepared statement
 $today = date('Y-m-d');
 $tomorrow = date('Y-m-d', strtotime('+1 day'));
-$jadwal_available = mysqli_query($conn, "SELECT j.*, mk.nama_mk FROM jadwal j 
+$stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, mk.nama_mk FROM jadwal j 
                                           LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                          LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = '$nim'
-                                          WHERE j.kode_kelas = '$kelas' 
-                                          AND j.tanggal BETWEEN '$today' AND '$tomorrow'
+                                          LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = ?
+                                          WHERE j.kode_kelas = ? 
+                                          AND j.tanggal BETWEEN ? AND ?
                                           AND (p.status IS NULL OR p.status = 'belum')
                                           ORDER BY j.tanggal, j.jam_mulai");
+mysqli_stmt_bind_param($stmt_jadwal, "ssss", $nim, $kelas, $today, $tomorrow);
+mysqli_stmt_execute($stmt_jadwal);
+$jadwal_available = mysqli_stmt_get_result($stmt_jadwal);
 
-// Pagination untuk riwayat izin
+// Pagination untuk riwayat izin - prepared statement
 $per_page = 10;
 $current_page = get_current_page();
 
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM penggantian_inhall WHERE nim = '$nim'");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+$stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM penggantian_inhall WHERE nim = ?");
+mysqli_stmt_bind_param($stmt_count, "s", $nim);
+mysqli_stmt_execute($stmt_count);
+$count_result = mysqli_stmt_get_result($stmt_count);
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-// Riwayat izin (termasuk yang pending)
-$riwayat_izin = mysqli_query($conn, "SELECT p.*, j.tanggal, j.materi, mk.nama_mk, 
+// Riwayat izin (termasuk yang pending) - prepared statement
+$stmt_riwayat = mysqli_prepare($conn, "SELECT p.*, j.tanggal, j.materi, mk.nama_mk, 
                                       pi.id as pengajuan_id, pi.alasan_izin, pi.status as inhall_status,
                                       pi.status_approval, pi.alasan_reject, pi.materi_diulang as jenis_pengajuan
                                       FROM penggantian_inhall pi
                                       JOIN jadwal j ON pi.jadwal_asli_id = j.id
                                       LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                       LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = pi.nim
-                                      WHERE pi.nim = '$nim'
+                                      WHERE pi.nim = ?
                                       ORDER BY pi.tanggal_daftar DESC
-                                      LIMIT $offset, $per_page");
+                                      LIMIT ?, ?");
+mysqli_stmt_bind_param($stmt_riwayat, "sii", $nim, $offset, $per_page);
+mysqli_stmt_execute($stmt_riwayat);
+$riwayat_izin = mysqli_stmt_get_result($stmt_riwayat);
 ?>
 <?php include 'includes/header.php'; ?>
 

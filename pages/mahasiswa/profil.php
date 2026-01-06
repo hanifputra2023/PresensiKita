@@ -5,12 +5,15 @@ cek_login();
 cek_role(['mahasiswa']);
 $user_id = $_SESSION['user_id'];
 
-$query = "SELECT m.*, k.nama_kelas, u.username, u.password as current_hash 
+// Prepared statement untuk fetch user data
+$stmt_user = mysqli_prepare($conn, "SELECT m.*, k.nama_kelas, u.username, u.password as current_hash 
           FROM mahasiswa m 
           JOIN users u ON m.user_id = u.id 
           LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
-          WHERE u.id = '$user_id'";
-$result = mysqli_query($conn, $query);
+          WHERE u.id = ?");
+mysqli_stmt_bind_param($stmt_user, "i", $user_id);
+mysqli_stmt_execute($stmt_user);
+$result = mysqli_stmt_get_result($stmt_user);
 $data = mysqli_fetch_assoc($result);
 
 if (!$data) {
@@ -26,7 +29,8 @@ $no_hp = $data['no_hp'];
 $tanggal_daftar = $data['tanggal_daftar'];
 $kode_kelas = $data['kode_kelas'];
 
-$query_presensi = "SELECT 
+// Prepared statement untuk statistik presensi
+$stmt_stat = mysqli_prepare($conn, "SELECT 
     COUNT(j.id) as total_jadwal,
     SUM(CASE WHEN pm.status = 'hadir' THEN 1 ELSE 0 END) as total_hadir,
     SUM(CASE WHEN pm.status = 'izin' THEN 1 ELSE 0 END) as total_izin,
@@ -45,12 +49,14 @@ $query_presensi = "SELECT
         ELSE 0 
     END) as total_completed
     FROM jadwal j
-    LEFT JOIN presensi_mahasiswa pm ON j.id = pm.jadwal_id AND pm.nim = '$nim'
-    JOIN mahasiswa m ON m.nim = '$nim'
-    WHERE j.kode_kelas = '$kode_kelas'
+    LEFT JOIN presensi_mahasiswa pm ON j.id = pm.jadwal_id AND pm.nim = ?
+    JOIN mahasiswa m ON m.nim = ?
+    WHERE j.kode_kelas = ?
     AND j.jenis != 'inhall'
-    AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)";
-$stat_result = mysqli_query($conn, $query_presensi);
+    AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)");
+mysqli_stmt_bind_param($stmt_stat, "sss", $nim, $nim, $kode_kelas);
+mysqli_stmt_execute($stmt_stat);
+$stat_result = mysqli_stmt_get_result($stmt_stat);
 $stat_data = mysqli_fetch_assoc($stat_result);
 
 $total_completed = $stat_data['total_completed'] ?? 0;
@@ -89,8 +95,13 @@ if (isset($_POST['upload_foto'])) {
                 unlink($foto_profil);
             }
             
-            if (move_uploaded_file($file_tmp, $upload_path)) {
-                $update = mysqli_query($conn, "UPDATE mahasiswa SET foto = '$upload_path' WHERE nim = '$nim'");
+            // [PERBAIKAN] Ganti move_uploaded_file dengan fungsi optimasi
+            // Ukuran 300x300px sudah cukup untuk foto profil
+            if (optimize_and_save_image($file_tmp, $upload_path, 300, 300, 75)) {
+                 // Prepared statement untuk update foto
+                 $stmt_foto = mysqli_prepare($conn, "UPDATE mahasiswa SET foto = ? WHERE nim = ?");
+                 mysqli_stmt_bind_param($stmt_foto, "ss", $upload_path, $nim);
+                 $update = mysqli_stmt_execute($stmt_foto);
                 if ($update) {
                     set_alert('success', 'Foto profil berhasil diupload!');
                     echo "<meta http-equiv='refresh' content='1'>";
@@ -110,12 +121,23 @@ if (isset($_POST['hapus_foto'])) {
     if ($foto_profil && file_exists($foto_profil)) {
         unlink($foto_profil);
     }
-    mysqli_query($conn, "UPDATE mahasiswa SET foto = NULL WHERE nim = '$nim'");
+    // Prepared statement untuk hapus foto
+    $stmt_hapus_foto = mysqli_prepare($conn, "UPDATE mahasiswa SET foto = NULL WHERE nim = ?");
+    mysqli_stmt_bind_param($stmt_hapus_foto, "s", $nim);
+    mysqli_stmt_execute($stmt_hapus_foto);
     set_alert('success', 'Foto profil berhasil dihapus!');
     echo "<meta http-equiv='refresh' content='1'>";
 }
 
-$data = mysqli_fetch_assoc(mysqli_query($conn, $query));
+// Refresh data - prepared statement
+$stmt_refresh = mysqli_prepare($conn, "SELECT m.*, k.nama_kelas, u.username, u.password as current_hash 
+          FROM mahasiswa m 
+          JOIN users u ON m.user_id = u.id 
+          LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+          WHERE u.id = ?");
+mysqli_stmt_bind_param($stmt_refresh, "i", $user_id);
+mysqli_stmt_execute($stmt_refresh);
+$data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_refresh));
 $foto_profil = $data['foto'] ?? null;
 
 if (isset($_POST['update_profil'])) {
@@ -124,7 +146,10 @@ if (isset($_POST['update_profil'])) {
     if (!is_numeric($new_hp)) {
         set_alert('danger', 'Nomor HP harus berupa angka!');
     } else {
-        $update = mysqli_query($conn, "UPDATE mahasiswa SET no_hp = '$new_hp' WHERE nim = '$nim'");
+        // Prepared statement untuk update no_hp
+        $stmt_hp = mysqli_prepare($conn, "UPDATE mahasiswa SET no_hp = ? WHERE nim = ?");
+        mysqli_stmt_bind_param($stmt_hp, "ss", $new_hp, $nim);
+        $update = mysqli_stmt_execute($stmt_hp);
         if ($update) {
             set_alert('success', 'Informasi kontak berhasil diperbarui!');
             echo "<meta http-equiv='refresh' content='1'>";
@@ -140,7 +165,7 @@ if (isset($_POST['ganti_password'])) {
     $konfirmasi = $_POST['konfirmasi_password'];
     $password_db = $data['current_hash'];
 
-    if ($pass_lama !== $password_db) {
+    if (!password_verify($pass_lama, $password_db)) {
         set_alert('danger', 'Password lama salah!');
     } else {
         if ($pass_baru !== $konfirmasi) {
@@ -148,7 +173,11 @@ if (isset($_POST['ganti_password'])) {
         } elseif (strlen($pass_baru) < 6) {
             set_alert('danger', 'Password minimal 6 karakter!');
         } else {
-            $update_pass = mysqli_query($conn, "UPDATE users SET password = '$pass_baru' WHERE id = '$user_id'");
+            $hashed_pass_baru = password_hash($pass_baru, PASSWORD_DEFAULT);
+            // Prepared statement untuk update password
+            $stmt_pass = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_pass, "si", $hashed_pass_baru, $user_id);
+            $update_pass = mysqli_stmt_execute($stmt_pass);
             if ($update_pass) {
                 set_alert('success', 'Password berhasil diubah! Silakan login ulang nanti.');
             } else {
@@ -1367,7 +1396,7 @@ $avatar_color = get_avatar_color($nim);
                     <i class="fas fa-camera"></i>
                     <?= $foto_profil ? 'Ganti Foto Profil' : 'Upload Foto Profil' ?>
                 </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" enctype="multipart/form-data" id="formUploadFoto">
                 <div class="modal-body">

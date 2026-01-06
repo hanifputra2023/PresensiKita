@@ -21,7 +21,9 @@ if (!$jadwal_id) {
 $qr_code = generate_qr_code();
 $expired = date('Y-m-d H:i:s', strtotime('+' . QR_DURASI . ' hours'));
 
-mysqli_query($conn, "INSERT INTO qr_code_session (jadwal_id, qr_code, expired_at) VALUES ('$jadwal_id', '$qr_code', '$expired')");
+$stmt_ins = mysqli_prepare($conn, "INSERT INTO qr_code_session (jadwal_id, qr_code, expired_at) VALUES (?, ?, ?)");
+mysqli_stmt_bind_param($stmt_ins, "iss", $jadwal_id, $qr_code, $expired);
+mysqli_stmt_execute($stmt_ins);
 
 echo json_encode([
     'success' => true,

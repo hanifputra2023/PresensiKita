@@ -40,9 +40,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_foto'])) {
                 unlink($foto_profil);
             }
             
-            if (move_uploaded_file($file_tmp, $upload_path)) {
-                $id_asisten = $asisten['id'];
-                $update = mysqli_query($conn, "UPDATE asisten SET foto = '$upload_path' WHERE id = '$id_asisten'");
+            // [PERBAIKAN] Ganti move_uploaded_file dengan fungsi optimasi
+            // Ukuran 300x300px sudah cukup untuk foto profil
+            if (optimize_and_save_image($file_tmp, $upload_path, 300, 300, 75)) {
+                 $id_asisten = $asisten['id'];
+                // Prepared statement untuk update foto
+                $stmt_foto = mysqli_prepare($conn, "UPDATE asisten SET foto = ? WHERE id = ?");
+                mysqli_stmt_bind_param($stmt_foto, "si", $upload_path, $id_asisten);
+                $update = mysqli_stmt_execute($stmt_foto);
                 if ($update) {
                     set_alert('success', 'Foto profil berhasil diupload!');
                 } else {
@@ -65,7 +70,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_foto'])) {
         unlink($foto_profil);
     }
     $id_asisten = $asisten['id'];
-    mysqli_query($conn, "UPDATE asisten SET foto = NULL WHERE id = '$id_asisten'");
+    // Prepared statement untuk hapus foto
+    $stmt_hapus = mysqli_prepare($conn, "UPDATE asisten SET foto = NULL WHERE id = ?");
+    mysqli_stmt_bind_param($stmt_hapus, "i", $id_asisten);
+    mysqli_stmt_execute($stmt_hapus);
     set_alert('success', 'Foto profil berhasil dihapus!');
     header("Location: index.php?page=asisten_profil");
     exit;
@@ -77,7 +85,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $no_hp = escape($_POST['no_hp']);
         $id_asisten = $asisten['id'];
         
-        mysqli_query($conn, "UPDATE asisten SET no_hp = '$no_hp' WHERE id = '$id_asisten'");
+        // Prepared statement untuk update no_hp
+        $stmt_hp = mysqli_prepare($conn, "UPDATE asisten SET no_hp = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt_hp, "si", $no_hp, $id_asisten);
+        mysqli_stmt_execute($stmt_hp);
         set_alert('success', 'Profil berhasil diperbarui!');
         header("Location: index.php?page=asisten_profil");
         exit;
@@ -89,15 +100,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $konfirmasi = $_POST['konfirmasi_password'];
         
         // Cek password lama
-        if ($password_lama != $user['password'] && !password_verify($password_lama, $user['password'])) {
+        if (!password_verify($password_lama, $user['password'])) {
             set_alert('danger', 'Password lama salah!');
         } elseif ($password_baru != $konfirmasi) {
             set_alert('danger', 'Konfirmasi password tidak cocok!');
         } elseif (strlen($password_baru) < 6) {
             set_alert('danger', 'Password minimal 6 karakter!');
         } else {
+            $hashed_password_baru = password_hash($password_baru, PASSWORD_DEFAULT);
             $user_id = $user['id'];
-            mysqli_query($conn, "UPDATE users SET password = '$password_baru' WHERE id = '$user_id'");
+            // Prepared statement untuk update password
+            $stmt_pass = mysqli_prepare($conn, "UPDATE users SET password = ? WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_pass, "si", $hashed_password_baru, $user_id);
+            mysqli_stmt_execute($stmt_pass);
             set_alert('success', 'Password berhasil diubah!');
         }
         header("Location: index.php?page=asisten_profil");

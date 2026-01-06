@@ -3,25 +3,32 @@ $page = 'mahasiswa_riwayat';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 
-// Pagination
+// Pagination - prepared statement
 $per_page = 10;
 $current_page = get_current_page();
 
 // Hitung total (exclude status 'belum' karena itu jadwal yang masih berjalan)
-$count_query = mysqli_query($conn, "SELECT COUNT(*) as total FROM presensi_mahasiswa WHERE nim = '$nim' AND status != 'belum'");
-$total_data = mysqli_fetch_assoc($count_query)['total'];
+$stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM presensi_mahasiswa WHERE nim = ? AND status != 'belum'");
+mysqli_stmt_bind_param($stmt_count, "s", $nim);
+mysqli_stmt_execute($stmt_count);
+$count_result = mysqli_stmt_get_result($stmt_count);
+$total_data = mysqli_fetch_assoc($count_result)['total'];
 $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
-$riwayat = mysqli_query($conn, "SELECT p.*, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, j.jenis,
+// Prepared statement untuk fetch riwayat
+$stmt_riwayat = mysqli_prepare($conn, "SELECT p.*, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, j.jenis,
                                  l.nama_lab, mk.nama_mk
                                  FROM presensi_mahasiswa p
                                  JOIN jadwal j ON p.jadwal_id = j.id
                                  LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                  LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                 WHERE p.nim = '$nim' AND p.status != 'belum'
+                                 WHERE p.nim = ? AND p.status != 'belum'
                                  ORDER BY j.tanggal DESC, j.jam_mulai DESC
-                                 LIMIT $offset, $per_page");
+                                 LIMIT ?, ?");
+mysqli_stmt_bind_param($stmt_riwayat, "sii", $nim, $offset, $per_page);
+mysqli_stmt_execute($stmt_riwayat);
+$riwayat = mysqli_stmt_get_result($stmt_riwayat);
 ?>
 <?php include 'includes/header.php'; ?>
 

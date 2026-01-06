@@ -4,8 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= APP_NAME ?></title>
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="includes/08.12.2025_08.44.59_REC.png">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="manifest.php">
+    <meta name="theme-color" content="#0066cc">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Presensi">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="Sistem Presensi Kampus">
+    
+    <!-- Favicon & Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="includes/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="includes/icon-512.png">
+    <link rel="apple-touch-icon" href="includes/icon-192.png">
+    
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
@@ -193,6 +206,14 @@
         .stat-card.warning { border-left-color: var(--warning-color); }
         .stat-card.danger { border-left-color: var(--danger-color); }
         
+        /* Global Alert Styling (Modern Look for Announcements) */
+        .alert-info {
+            background-color: #f0fcff;
+            border: 0;
+            border-left: 5px solid #0dcaf0 !important;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+        }
+
         /* Responsive button width */
         @media (min-width: 768px) {
             .w-md-auto { width: auto !important; }
@@ -471,9 +492,9 @@
         
         /* Dark Mode Alert Fixes (Global) */
         [data-theme="dark"] .alert-info {
-            background-color: rgba(13, 202, 240, 0.15);
-            border-color: rgba(13, 202, 240, 0.3);
-            color: #6edff6;
+            background-color: rgba(13, 202, 240, 0.15) !important;
+            border-left-color: #0dcaf0 !important;
+            color: #6edff6 !important;
         }
         [data-theme="dark"] .alert-info .text-muted {
             color: rgba(255,255,255,0.6) !important;

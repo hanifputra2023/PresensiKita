@@ -1,8 +1,10 @@
 <?php
-// Logout - hapus remember token
+// Logout - hapus remember token dengan prepared statement
 if (isset($_SESSION['user_id'])) {
     $user_id = $_SESSION['user_id'];
-    mysqli_query($conn, "UPDATE users SET remember_token = NULL, token_expires = NULL WHERE id = '$user_id'");
+    $stmt = mysqli_prepare($conn, "UPDATE users SET remember_token = NULL, token_expires = NULL WHERE id = ?");
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
 }
 
 // Hapus cookies

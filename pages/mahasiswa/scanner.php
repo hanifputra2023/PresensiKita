@@ -276,34 +276,55 @@ function submitPresensi(qrCode) {
     document.getElementById('result-message').innerHTML = 'Memproses presensi...';
     document.getElementById('result-detail').innerHTML = '';
     
-    // Send to server
+    // [FITUR BARU] Ambil Lokasi GPS untuk mencegah scan dari rumah
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+            sendPresensiData(qrCode, position.coords.latitude, position.coords.longitude);
+        }, function(error) {
+            // Handle error lokasi
+            let msg = "Gagal mengambil lokasi.";
+            if (error.code == error.PERMISSION_DENIED) {
+                msg = "Wajib mengizinkan akses lokasi untuk presensi!";
+            }
+            document.getElementById('result-icon').innerHTML = '<i class="fas fa-map-marker-alt fa-5x text-warning"></i>';
+            document.getElementById('result-message').innerHTML = '<span class="text-warning">Lokasi Diperlukan</span>';
+            document.getElementById('result-detail').innerHTML = msg + '<br>Silakan refresh dan izinkan lokasi.';
+        });
+    } else {
+        document.getElementById('result-detail').innerHTML = 'Browser tidak mendukung Geolocation.';
+    }
+}
+
+function sendPresensiData(qrCode, lat, long) {
     fetch('api/scan_qr.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            qr_code: qrCode,
-            nim: '<?= $mahasiswa['nim'] ?>'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                qr_code: qrCode,
+                nim: '<?= $mahasiswa['nim'] ?>',
+                latitude: lat,
+                longitude: long
+            })
+            })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('result-icon').innerHTML = '<i class="fas fa-check-circle fa-5x text-success"></i>';
+                document.getElementById('result-message').innerHTML = '<span class="text-success">Presensi Berhasil!</span>';
+                document.getElementById('result-detail').innerHTML = data.message;
+            } else {
+                document.getElementById('result-icon').innerHTML = '<i class="fas fa-times-circle fa-5x text-danger"></i>';
+                document.getElementById('result-message').innerHTML = '<span class="text-danger">Presensi Gagal!</span>';
+                document.getElementById('result-detail').innerHTML = data.message;
+            }
         })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            document.getElementById('result-icon').innerHTML = '<i class="fas fa-check-circle fa-5x text-success"></i>';
-            document.getElementById('result-message').innerHTML = '<span class="text-success">Presensi Berhasil!</span>';
-            document.getElementById('result-detail').innerHTML = data.message;
-        } else {
-            document.getElementById('result-icon').innerHTML = '<i class="fas fa-times-circle fa-5x text-danger"></i>';
-            document.getElementById('result-message').innerHTML = '<span class="text-danger">Presensi Gagal!</span>';
-            document.getElementById('result-detail').innerHTML = data.message;
-        }
-    })
-    .catch(error => {
-        document.getElementById('result-icon').innerHTML = '<i class="fas fa-exclamation-circle fa-5x text-warning"></i>';
-        document.getElementById('result-message').innerHTML = '<span class="text-warning">Terjadi Kesalahan!</span>';
-        document.getElementById('result-detail').innerHTML = 'Tidak dapat terhubung ke server.';
-    });
+        .catch(error => {
+            document.getElementById('result-icon').innerHTML = '<i class="fas fa-exclamation-circle fa-5x text-warning"></i>';
+            document.getElementById('result-message').innerHTML = '<span class="text-warning">Terjadi Kesalahan!</span>';
+            document.getElementById('result-detail').innerHTML = 'Tidak dapat terhubung ke server.';
+        });
 }
 
 document.addEventListener('DOMContentLoaded', function() {

@@ -1,7 +1,18 @@
 <?php
 // Pastikan tidak ada output sebelum JSON
 if (ob_get_length()) ob_clean();
+header('Cache-Control: no-cache, no-store, must-revalidate');
+header('Pragma: no-cache');
+header('Expires: 0');
 header('Content-Type: application/json');
+
+// Include koneksi database
+require_once '../config/koneksi.php';
+
+// Pastikan session dimulai
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Cek sesi
 if (!isset($_SESSION['user_id'])) {
@@ -22,8 +33,11 @@ $waktu_sekarang = date('H:i:s');
 $tanggal_hari_ini = date('Y-m-d');
 
 if ($role == 'mahasiswa') {
-    // 1. Ambil kode kelas mahasiswa
-    $cek_mhs = mysqli_query($conn, "SELECT kode_kelas FROM mahasiswa WHERE nim = '$username'");
+    // 1. Ambil kode kelas mahasiswa - prepared statement
+    $stmt_cek_mhs = mysqli_prepare($conn, "SELECT kode_kelas FROM mahasiswa WHERE nim = ?");
+    mysqli_stmt_bind_param($stmt_cek_mhs, "s", $username);
+    mysqli_stmt_execute($stmt_cek_mhs);
+    $cek_mhs = mysqli_stmt_get_result($stmt_cek_mhs);
     
     if ($cek_mhs && mysqli_num_rows($cek_mhs) > 0) {
         $mhs = mysqli_fetch_assoc($cek_mhs);
@@ -38,23 +52,24 @@ if ($role == 'mahasiswa') {
         // - Waktu sesuai (Upcoming / Ongoing)
         // - Belum melakukan presensi (status 'hadir')
         
-        $query = "SELECT j.*, mk.nama_mk, l.nama_lab 
+        $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, mk.nama_mk, l.nama_lab 
                   FROM jadwal j 
                   JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                   LEFT JOIN lab l ON j.kode_lab = l.kode_lab
-                  WHERE j.kode_kelas = '$kode_kelas' 
-                  AND j.tanggal = '$tanggal_hari_ini'
+                  WHERE j.kode_kelas = ? 
+                  AND j.tanggal = ?
                   AND (
-                      (j.jam_mulai > '$waktu_sekarang' AND j.jam_mulai <= ADDTIME('$waktu_sekarang', '00:30:00'))
+                      (j.jam_mulai > ? AND j.jam_mulai <= ADDTIME(?, '00:30:00'))
                       OR
-                      (j.jam_mulai <= '$waktu_sekarang' AND j.jam_selesai > '$waktu_sekarang')
+                      (j.jam_mulai <= ? AND j.jam_selesai > ?)
                   )
                   AND NOT EXISTS (
                       SELECT 1 FROM presensi_mahasiswa p 
-                      WHERE p.jadwal_id = j.id AND p.nim = '$username' AND p.status = 'hadir'
-                  )";
-                  
-        $result = mysqli_query($conn, $query);
+                      WHERE p.jadwal_id = j.id AND p.nim = ? AND p.status IN ('hadir', 'izin', 'sakit', 'alpha')
+                  )");
+        mysqli_stmt_bind_param($stmt_jadwal, "sssssss", $kode_kelas, $tanggal_hari_ini, $waktu_sekarang, $waktu_sekarang, $waktu_sekarang, $waktu_sekarang, $username);
+        mysqli_stmt_execute($stmt_jadwal);
+        $result = mysqli_stmt_get_result($stmt_jadwal);
         while ($row = mysqli_fetch_assoc($result)) {
             $jam_mulai_ts = strtotime($row['jam_mulai']);
             $jam_selesai_ts = strtotime($row['jam_selesai']);
