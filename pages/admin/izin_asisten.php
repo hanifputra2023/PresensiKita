@@ -161,11 +161,13 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
         background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
         color: white;
         border-bottom: none;
+        border-radius: var(--bs-modal-inner-border-radius) var(--bs-modal-inner-border-radius) 0 0;
     }
     .modal-header.custom-gradient-danger {
         background: linear-gradient(135deg, #dc3545 0%, #ff6b6b 100%);
         color: white;
         border-bottom: none;
+        border-radius: var(--bs-modal-inner-border-radius) var(--bs-modal-inner-border-radius) 0 0;
     }
     .info-row {
         display: flex;
@@ -508,13 +510,13 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                 <div class="modal fade" id="modalReject<?= $r['id'] ?>" tabindex="-1">
                                                     <div class="modal-dialog modal-dialog-centered">
                                                         <div class="modal-content">
+                                                            <div class="modal-header custom-gradient-danger">
+                                                                <h5 class="modal-title text-white">
+                                                                    <i class="fas fa-times-circle me-2"></i>Tolak Pengajuan
+                                                                </h5>
+                                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                                            </div>
                                                             <form method="POST">
-                                                                <div class="modal-header custom-gradient-danger">
-                                                                    <h5 class="modal-title text-white">
-                                                                        <i class="fas fa-times-circle me-2"></i>Tolak Pengajuan
-                                                                    </h5>
-                                                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                                                </div>
                                                                 <div class="modal-body">
                                                                     <input type="hidden" name="id" value="<?= $r['id'] ?>">
                                                                     
