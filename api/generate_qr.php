@@ -4,6 +4,12 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../includes/fungsi.php';
 
+// Authorization check - hanya asisten yang bisa generate QR
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'asisten') {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: Hanya asisten yang bisa generate QR']);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] != 'POST') {
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
     exit;
@@ -17,9 +23,20 @@ if (!$jadwal_id) {
     exit;
 }
 
+// Ambil info jadwal untuk expired time
+$stmt_jadwal = mysqli_prepare($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id = ?");
+mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
+mysqli_stmt_execute($stmt_jadwal);
+$jadwal_info = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
+
+if (!$jadwal_info) {
+    echo json_encode(['success' => false, 'message' => 'Jadwal tidak ditemukan']);
+    exit;
+}
+
 // Generate QR code baru
 $qr_code = generate_qr_code();
-$expired = date('Y-m-d H:i:s', strtotime('+' . QR_DURASI . ' hours'));
+$expired = $jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_selesai']; // Expired saat jadwal selesai
 
 $stmt_ins = mysqli_prepare($conn, "INSERT INTO qr_code_session (jadwal_id, qr_code, expired_at) VALUES (?, ?, ?)");
 mysqli_stmt_bind_param($stmt_ins, "iss", $jadwal_id, $qr_code, $expired);

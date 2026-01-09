@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 22 Des 2025 pada 16.40
+-- Waktu pembuatan: 06 Jan 2026 pada 05.36
 -- Versi server: 10.4.32-MariaDB
 -- Versi PHP: 8.2.12
 
@@ -35,15 +35,20 @@ CREATE TABLE `absen_asisten` (
   `jam_masuk` time DEFAULT NULL,
   `jam_keluar` time DEFAULT NULL,
   `pengganti` varchar(10) DEFAULT NULL,
-  `catatan` text DEFAULT NULL
+  `catatan` text DEFAULT NULL,
+  `status_approval` enum('pending','approved','rejected') DEFAULT 'pending',
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_at` datetime DEFAULT NULL,
+  `alasan_reject` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data untuk tabel `absen_asisten`
 --
 
-INSERT INTO `absen_asisten` (`id`, `jadwal_id`, `kode_asisten`, `status`, `jam_masuk`, `jam_keluar`, `pengganti`, `catatan`) VALUES
-(66, 902, '231064013', 'hadir', '21:25:13', NULL, NULL, NULL);
+INSERT INTO `absen_asisten` (`id`, `jadwal_id`, `kode_asisten`, `status`, `jam_masuk`, `jam_keluar`, `pengganti`, `catatan`, `status_approval`, `approved_by`, `approved_at`, `alasan_reject`) VALUES
+(74, 968, '231064013', 'hadir', '08:21:12', NULL, NULL, NULL, 'pending', NULL, NULL, NULL),
+(76, 959, '231064013', 'sakit', NULL, NULL, '123456789', 'saya sakit habis jatuh dari motor tolong ya gantiin saya mengajar', 'approved', 38, '2026-01-06 11:26:23', NULL);
 
 -- --------------------------------------------------------
 
@@ -67,7 +72,7 @@ CREATE TABLE `asisten` (
 --
 
 INSERT INTO `asisten` (`id`, `kode_asisten`, `user_id`, `nama`, `no_hp`, `foto`, `kode_mk`, `status`) VALUES
-(6, '231064013', 57, 'AVOREY BIAS AGUNG V.D', '-', NULL, 'STP2503', 'aktif'),
+(6, '231064013', 57, 'AVOREY BIAS AGUNG V.D', '-', 'uploads/profil/ast_231064013_1767079909.png', 'STP2503', 'aktif'),
 (7, '231064018', 58, 'DEFAULLO A.R BENGE', '-', NULL, 'STP2503', 'aktif'),
 (8, '23108012', 59, 'AGUSTINUS KAROL SANI', '-', NULL, 'STP2503', 'aktif'),
 (9, '123456789', 68, 'Mulyono', '081234567890', NULL, 'MK003', 'aktif');
@@ -100,9 +105,9 @@ CREATE TABLE `jadwal` (
 --
 
 INSERT INTO `jadwal` (`id`, `pertemuan_ke`, `tanggal`, `jam_mulai`, `jam_selesai`, `kode_lab`, `kode_kelas`, `kode_mk`, `materi`, `kode_asisten_1`, `kode_asisten_2`, `jenis`, `keterangan`, `created_at`) VALUES
-(902, 1, '2025-12-22', '21:17:00', '22:00:00', 'LAB001', 'B', 'MK002', 'Pertemuan 1 - Pengenalan', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
-(903, 2, '2025-12-29', '21:17:00', '22:00:00', 'LAB002', 'B', 'MK002', 'Pertemuan 2 - Dasar', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
-(904, 3, '2026-01-05', '21:17:00', '22:00:00', 'LAB001', 'B', 'MK002', 'Pertemuan 3 - Lanjutan I', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
+(902, 1, '2025-12-22', '21:17:00', '22:00:00', 'LAB001', 'B', 'MK002', 'Pertemuan 1 - Pengenalan Bahasa Pemrograman', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
+(903, 2, '2025-12-29', '13:33:00', '17:00:00', 'LAB002', 'B', 'MK002', 'Pertemuan 2 - Dasar', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
+(904, 3, '2026-01-05', '15:17:00', '22:00:00', 'LAB001', 'B', 'MK002', 'Pertemuan 3 - Lanjutan I', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
 (905, 4, '2026-01-12', '21:17:00', '22:00:00', 'LAB002', 'B', 'MK002', 'Pertemuan 4 - Lanjutan II', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
 (906, 5, '2026-01-19', '21:17:00', '22:00:00', 'LAB001', 'B', 'MK002', 'Pertemuan 5 - Praktik I', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
 (907, 6, '2026-01-26', '21:17:00', '22:00:00', 'LAB002', 'B', 'MK002', 'Pertemuan 6 - Praktik II', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
@@ -110,7 +115,30 @@ INSERT INTO `jadwal` (`id`, `pertemuan_ke`, `tanggal`, `jam_mulai`, `jam_selesai
 (909, 8, '2026-02-09', '21:17:00', '22:00:00', 'LAB002', 'B', 'MK002', 'Pertemuan 8 - Review', '231064013', NULL, 'materi', NULL, '2025-12-22 14:18:02'),
 (910, 9, '2026-02-16', '21:17:00', '22:00:00', 'LAB001', 'B', 'MK002', 'Praresponsi', '231064013', NULL, 'praresponsi', NULL, '2025-12-22 14:18:02'),
 (911, 9, '2026-02-16', '22:00:00', '22:43:00', 'LAB001', 'B', 'MK002', 'Inhall', '231064013', NULL, 'inhall', NULL, '2025-12-22 14:18:02'),
-(912, 10, '2026-02-23', '21:17:00', '22:00:00', 'LAB002', 'B', 'MK002', 'Responsi', '231064013', NULL, 'responsi', NULL, '2025-12-22 14:18:02');
+(912, 10, '2026-02-23', '21:17:00', '22:00:00', 'LAB002', 'B', 'MK002', 'Responsi', '231064013', NULL, 'responsi', NULL, '2025-12-22 14:18:02'),
+(924, 1, '2025-12-23', '10:22:00', '12:00:00', 'LAB001', 'E', 'STP2503', 'Pertemuan 1 - Pengenalan', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(925, 2, '2025-12-30', '10:22:00', '12:00:00', 'LAB002', 'E', 'STP2503', 'Pertemuan 2 - Dasar', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(926, 3, '2026-01-06', '10:22:00', '12:00:00', 'LAB001', 'E', 'STP2503', 'Pertemuan 3 - Lanjutan I', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(927, 4, '2026-01-13', '10:22:00', '12:00:00', 'LAB002', 'E', 'STP2503', 'Pertemuan 4 - Lanjutan II', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(928, 5, '2026-01-20', '10:22:00', '12:00:00', 'LAB001', 'E', 'STP2503', 'Pertemuan 5 - Praktik I', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(929, 6, '2026-01-27', '10:22:00', '12:00:00', 'LAB002', 'E', 'STP2503', 'Pertemuan 6 - Praktik II', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(930, 7, '2026-02-03', '10:22:00', '12:00:00', 'LAB001', 'E', 'STP2503', 'Pertemuan 7 - Praktik III', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(931, 8, '2026-02-10', '10:22:00', '12:00:00', 'LAB002', 'E', 'STP2503', 'Pertemuan 8 - Review', '23108012', '231064018', 'materi', NULL, '2025-12-23 03:22:16'),
+(932, 9, '2026-02-17', '10:22:00', '12:00:00', 'LAB001', 'E', 'STP2503', 'Praresponsi', '23108012', '231064018', 'praresponsi', NULL, '2025-12-23 03:22:16'),
+(933, 9, '2026-02-17', '12:00:00', '13:38:00', 'LAB001', 'E', 'STP2503', 'Inhall', '23108012', '231064018', 'inhall', NULL, '2025-12-23 03:22:16'),
+(934, 10, '2026-02-24', '10:22:00', '12:00:00', 'LAB002', 'E', 'STP2503', 'Responsi', '23108012', '231064018', 'responsi', NULL, '2025-12-23 03:22:16'),
+(957, 1, '2025-12-23', '10:22:00', '15:00:00', 'LAB002', 'A', 'MK002', 'Pertemuan 1 - Pengenalan', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(958, 2, '2025-12-30', '10:22:00', '12:00:00', 'LAB001', 'A', 'MK002', 'Pertemuan 2 - Dasar', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(959, 3, '2026-01-06', '10:22:00', '12:00:00', 'LAB002', 'A', 'MK002', 'Pertemuan 3 - Lanjutan I', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(960, 4, '2026-01-13', '10:22:00', '12:00:00', 'LAB001', 'A', 'MK002', 'Pertemuan 4 - Lanjutan II', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(961, 5, '2026-01-20', '10:22:00', '12:00:00', 'LAB002', 'A', 'MK002', 'Pertemuan 5 - Praktik I', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(962, 6, '2026-01-27', '10:22:00', '12:00:00', 'LAB001', 'A', 'MK002', 'Pertemuan 6 - Praktik II', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(963, 7, '2026-02-03', '10:22:00', '12:00:00', 'LAB002', 'A', 'MK002', 'Pertemuan 7 - Praktik III', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(964, 8, '2026-02-10', '10:22:00', '12:00:00', 'LAB001', 'A', 'MK002', 'Pertemuan 8 - Review', '231064013', NULL, 'materi', NULL, '2025-12-23 06:16:20'),
+(965, 9, '2026-02-17', '10:22:00', '12:00:00', 'LAB002', 'A', 'MK002', 'Praresponsi', '231064013', NULL, 'praresponsi', NULL, '2025-12-23 06:16:20'),
+(966, 9, '2026-02-17', '12:00:00', '13:38:00', 'LAB002', 'A', 'MK002', 'Inhall', '231064013', NULL, 'inhall', NULL, '2025-12-23 06:16:20'),
+(967, 10, '2026-02-24', '10:22:00', '12:00:00', 'LAB001', 'A', 'MK002', 'Responsi', '231064013', NULL, 'responsi', NULL, '2025-12-23 06:16:20'),
+(968, 2, '2025-12-31', '08:19:00', '12:19:00', 'LAB001', 'B', 'MK002', 'Pertemuan 2 - Dasar Pemrograman PHP', '231064013', NULL, 'materi', NULL, '2025-12-31 01:19:54');
 
 -- --------------------------------------------------------
 
@@ -148,18 +176,20 @@ CREATE TABLE `lab` (
   `nama_lab` varchar(50) DEFAULT NULL,
   `kapasitas` int(11) DEFAULT NULL,
   `lokasi` varchar(100) DEFAULT NULL,
-  `status` enum('active','maintenance') DEFAULT 'active'
+  `status` enum('active','maintenance') DEFAULT 'active',
+  `latitude` varchar(50) DEFAULT NULL,
+  `longitude` varchar(50) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data untuk tabel `lab`
 --
 
-INSERT INTO `lab` (`id`, `kode_lab`, `nama_lab`, `kapasitas`, `lokasi`, `status`) VALUES
-(1, 'LAB001', 'Laboratorium Basis Data', 30, 'Gedung A Lantai 1', 'active'),
-(2, 'LAB002', 'Laboratorium Pemrograman', 30, 'Gedung A Lantai 3', 'active'),
-(3, 'LAB003', 'Laboratorium Jaringan', 25, 'Gedung B Lantai 1', 'active'),
-(4, 'LAB004', 'Laboratorium Statistika', 20, 'Gedung B Lantai 2', 'active');
+INSERT INTO `lab` (`id`, `kode_lab`, `nama_lab`, `kapasitas`, `lokasi`, `status`, `latitude`, `longitude`) VALUES
+(1, 'LAB001', 'Laboratorium Basis Data', 30, 'Gedung A Lantai 1', 'active', '-7.787231895737355', '110.3885152626932'),
+(2, 'LAB002', 'Laboratorium Pemrograman', 30, 'Gedung A Lantai 3', 'active', '-7.787231895737355', '110.3885152626932'),
+(3, 'LAB003', 'Laboratorium Jaringan', 25, 'Gedung B Lantai 1', 'active', '-7.787231895737355', '110.3885152626932'),
+(4, 'LAB004', 'Laboratorium Statistika', 20, 'Gedung B Lantai 2', 'active', '-7.787231895737355', '110.3885152626932');
 
 -- --------------------------------------------------------
 
@@ -177,8 +207,8 @@ CREATE TABLE `lab_matakuliah` (
 --
 
 INSERT INTO `lab_matakuliah` (`id_lab`, `kode_mk`) VALUES
+(1, 'MK001'),
 (1, 'MK002'),
-(1, 'STP2503'),
 (2, 'MK002'),
 (2, 'STP2503'),
 (3, 'MK003'),
@@ -207,12 +237,38 @@ CREATE TABLE `log_presensi` (
 --
 
 INSERT INTO `log_presensi` (`id`, `user_id`, `aksi`, `tabel`, `id_record`, `detail`, `created_at`) VALUES
-(533, 57, 'LOGIN', 'users', 57, 'User login berhasil sebagai asisten', '2025-12-22 14:19:03'),
-(534, 66, 'LOGIN', 'users', 66, 'User login berhasil sebagai mahasiswa', '2025-12-22 14:19:20'),
-(535, 57, 'GENERATE_QR', 'qr_code_session', 117, 'QR Code untuk jadwal #902, expired: 2025-12-22 22:00:00', '2025-12-22 14:19:56'),
-(536, 0, 'PRESENSI_QR', 'presensi_mahasiswa', 902, 'Mahasiswa 070771 presensi via QR di Laboratorium Basis Data', '2025-12-22 14:20:06'),
-(537, 57, 'GENERATE_QR', 'qr_code_session', 118, 'QR Code untuk jadwal #902, expired: 2025-12-22 22:00:00', '2025-12-22 14:25:13'),
-(538, 0, 'PRESENSI_QR', 'presensi_mahasiswa', 902, 'Mahasiswa 070771 presensi via QR di Laboratorium Basis Data', '2025-12-22 14:25:20');
+(626, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2025-12-30 07:50:25'),
+(627, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2025-12-31 01:10:43'),
+(628, 57, 'GENERATE_QR', 'qr_code_session', 128, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:21:12'),
+(629, 69, 'LOGIN', 'users', 69, 'User login berhasil sebagai mahasiswa', '2025-12-31 01:21:53'),
+(630, 0, 'PRESENSI_QR', 'presensi_mahasiswa', 968, 'Mahasiswa 11112222 presensi via QR di Laboratorium Basis Data', '2025-12-31 01:22:08'),
+(631, 66, 'LOGIN', 'users', 66, 'User login berhasil sebagai mahasiswa', '2025-12-31 01:23:58'),
+(632, 57, 'GENERATE_QR', 'qr_code_session', 129, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:26:03'),
+(633, 57, 'GENERATE_QR', 'qr_code_session', 130, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:26:04'),
+(634, 57, 'GENERATE_QR', 'qr_code_session', 131, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:26:06'),
+(635, 57, 'GENERATE_QR', 'qr_code_session', 132, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:26:08'),
+(636, 57, 'GENERATE_QR', 'qr_code_session', 133, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:26:15'),
+(637, 57, 'GENERATE_QR', 'qr_code_session', 134, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:28:35'),
+(638, 57, 'GENERATE_QR', 'qr_code_session', 135, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:28:37'),
+(639, 57, 'GENERATE_QR', 'qr_code_session', 136, 'QR Code untuk jadwal #968, expired: 2025-12-31 12:19:00', '2025-12-31 01:28:39'),
+(640, 0, 'PRESENSI_QR', 'presensi_mahasiswa', 968, 'Mahasiswa 070771 presensi via QR di Laboratorium Basis Data', '2025-12-31 01:29:02'),
+(641, 0, 'PRESENSI_QR', 'presensi_mahasiswa', 968, 'Mahasiswa 11112222 presensi via QR di Laboratorium Basis Data', '2025-12-31 03:53:43'),
+(642, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-05 04:05:53'),
+(643, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-05 05:46:54'),
+(644, 60, 'LOGIN', 'users', 60, 'User login berhasil sebagai mahasiswa', '2026-01-05 05:50:08'),
+(645, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-05 06:02:06'),
+(646, 60, 'LOGIN', 'users', 60, 'User login berhasil sebagai mahasiswa', '2026-01-05 06:05:30'),
+(647, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-05 06:10:01'),
+(648, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-05 06:20:46'),
+(649, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-05 06:41:54'),
+(650, 38, 'LOGIN', 'users', 38, 'User login berhasil sebagai admin', '2026-01-06 01:17:04'),
+(651, 59, 'LOGIN', 'users', 59, 'User login berhasil sebagai asisten', '2026-01-06 01:18:56'),
+(652, 57, 'LOGIN', 'users', 57, 'User login berhasil sebagai asisten', '2026-01-06 01:19:45'),
+(653, 57, 'IZIN_ASISTEN', 'absen_asisten', 959, 'Asisten 231064013 mengajukan sakit', '2026-01-06 01:21:08'),
+(654, 58, 'LOGIN', 'users', 58, 'User login berhasil sebagai asisten', '2026-01-06 01:21:58'),
+(655, 57, 'LOGIN', 'users', 57, 'User login berhasil sebagai asisten', '2026-01-06 01:24:25'),
+(656, 57, 'IZIN_ASISTEN', 'absen_asisten', 959, 'Asisten 231064013 mengajukan sakit (menunggu approval admin)', '2026-01-06 02:02:02'),
+(657, 38, 'APPROVE_IZIN_ASISTEN', 'absen_asisten', 76, 'Admin menyetujui izin asisten AVOREY BIAS AGUNG V.D', '2026-01-06 04:26:23');
 
 -- --------------------------------------------------------
 
@@ -261,7 +317,8 @@ INSERT INTO `mahasiswa` (`id`, `nim`, `user_id`, `nama`, `kode_kelas`, `prodi`, 
 (49, '9532753', 63, 'gggg', 'E', 'Statistik S1', '', NULL, '2025-12-15 07:15:00'),
 (50, '12345678', 64, 'Muhammad Iniesta Wildan Bromo Putra', 'A', 'Pemrogaman', '24356786576', 'uploads/profil/mhs_12345678_1765910430.jpg', '2025-12-16 16:00:00'),
 (51, '12072010', 65, 'Anik Yuliana', 'A', 'Pemrogaman', '-', NULL, '2025-12-17 02:10:00'),
-(52, '070771', 66, 'Muhammad Iniesta Wildan Bromo Putra', 'B', 'Teknik Informatika', '083841426422', NULL, '2025-12-19 05:38:00');
+(52, '070771', 66, 'Muhammad Iniesta Wildan Bromo Putra', 'B', 'Teknik Informatika', '083841426422', 'uploads/profil/mhs_070771_1766543709.jpg', '2025-12-19 05:38:00'),
+(53, '11112222', 69, 'Massayu Sekar Anindita', 'B', 'Stastatika', '085727662393', NULL, '2025-12-29 06:33:00');
 
 -- --------------------------------------------------------
 
@@ -329,6 +386,29 @@ CREATE TABLE `penggantian_inhall` (
 -- --------------------------------------------------------
 
 --
+-- Struktur dari tabel `pengumuman`
+--
+
+CREATE TABLE `pengumuman` (
+  `id` int(11) NOT NULL,
+  `judul` varchar(255) NOT NULL,
+  `isi` text NOT NULL,
+  `target_role` enum('semua','mahasiswa','asisten') NOT NULL DEFAULT 'semua',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` int(11) NOT NULL,
+  `status` enum('active','inactive') DEFAULT 'active'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data untuk tabel `pengumuman`
+--
+
+INSERT INTO `pengumuman` (`id`, `judul`, `isi`, `target_role`, `created_at`, `created_by`, `status`) VALUES
+(4, 'Fix Bug and Optimalisation System ', 'The system will be under maintenance from January 1 to January 3, so the server cannot be accessed during this time', 'semua', '2025-12-30 06:32:03', 38, 'inactive');
+
+-- --------------------------------------------------------
+
+--
 -- Struktur dari tabel `presensi_mahasiswa`
 --
 
@@ -351,7 +431,62 @@ CREATE TABLE `presensi_mahasiswa` (
 --
 
 INSERT INTO `presensi_mahasiswa` (`id`, `jadwal_id`, `nim`, `status`, `waktu_presensi`, `metode`, `validated_by`, `location_lab`, `device_id`, `ip_address`, `verified_by_system`) VALUES
-(624, 902, '070771', 'izin', '2025-12-22 15:39:43', 'qr', NULL, 'Laboratorium Basis Data', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Sa', '::1', 1);
+(720, 924, '251062022', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(721, 924, '251062025', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(722, 924, '251062026', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(723, 924, '241064001', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(724, 924, '241064002', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(725, 924, '241064004', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(726, 924, '241064007', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(727, 924, '241064008', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(728, 924, '241064009', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(729, 924, '241064013', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(730, 924, '241064014', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(731, 924, '241067010', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(732, 924, '241067011', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(733, 924, '241068005', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(734, 924, '241068006', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(735, 924, '242062001', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(736, 924, '242062004', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(737, 924, '211063024', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(738, 924, '24346554', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(739, 924, '765434567', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(740, 924, '9532753', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(746, 925, '251062022', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(747, 925, '251062025', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(748, 925, '251062026', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(749, 925, '241064001', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(750, 925, '241064002', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(751, 925, '241064004', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(752, 925, '241064007', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(753, 925, '241064008', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(754, 925, '241064009', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(755, 925, '241064013', 'alpha', '2025-12-30 05:43:41', 'auto', NULL, NULL, NULL, NULL, 1),
+(756, 925, '241064014', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(757, 925, '241067010', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(758, 925, '241067011', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(759, 925, '241068005', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(760, 925, '241068006', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(761, 925, '242062001', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(762, 925, '242062004', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(763, 925, '211063024', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(764, 925, '24346554', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(765, 925, '765434567', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(766, 925, '9532753', 'alpha', '2025-12-30 05:43:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(767, 903, '11112222', 'hadir', '2025-12-30 06:00:35', 'manual', NULL, NULL, NULL, NULL, 0),
+(768, 902, '070771', 'hadir', '2025-12-30 06:00:44', 'manual', NULL, NULL, NULL, NULL, 0),
+(769, 903, '070771', 'hadir', '2025-12-30 06:00:47', 'manual', NULL, NULL, NULL, NULL, 0),
+(770, 957, '12072010', 'hadir', '2025-12-30 06:00:52', 'manual', NULL, NULL, NULL, NULL, 0),
+(771, 958, '12072010', 'hadir', '2025-12-30 06:00:54', 'manual', NULL, NULL, NULL, NULL, 0),
+(772, 957, '12345678', 'hadir', '2025-12-30 06:01:01', 'manual', NULL, NULL, NULL, NULL, 0),
+(773, 958, '12345678', 'hadir', '2025-12-30 06:01:06', 'manual', NULL, NULL, NULL, NULL, 0),
+(774, 957, '230607', 'hadir', '2025-12-30 06:01:12', 'manual', NULL, NULL, NULL, NULL, 0),
+(775, 958, '230607', 'hadir', '2025-12-30 06:01:14', 'manual', NULL, NULL, NULL, NULL, 0),
+(778, 968, '11112222', 'hadir', '2025-12-31 03:53:43', 'qr', NULL, 'Laboratorium Basis Data', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Sa', '::1', 1),
+(779, 968, '070771', 'alpha', '2025-12-31 05:19:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(780, 968, '070771', 'alpha', '2025-12-31 05:19:42', 'auto', NULL, NULL, NULL, NULL, 1),
+(781, 904, '070771', 'alpha', '2026-01-06 01:17:04', 'auto', NULL, NULL, NULL, NULL, 1),
+(782, 904, '11112222', 'alpha', '2026-01-06 01:17:04', 'auto', NULL, NULL, NULL, NULL, 1);
 
 -- --------------------------------------------------------
 
@@ -372,7 +507,7 @@ CREATE TABLE `qr_code_session` (
 --
 
 INSERT INTO `qr_code_session` (`id`, `jadwal_id`, `qr_code`, `expired_at`, `created_at`) VALUES
-(118, 902, '712bcdd1403ea1ed28572aeff5c80f86_1766413513', '2025-12-22 22:00:00', '2025-12-22 14:25:13');
+(136, 968, '54e24550d26af83110a1bcfcdac91515_1767144519', '2025-12-31 12:19:00', '2025-12-31 01:28:39');
 
 -- --------------------------------------------------------
 
@@ -395,7 +530,7 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `username`, `password`, `role`, `created_at`, `remember_token`, `token_expires`) VALUES
-(38, 'admin', 'admin', 'admin', '2025-12-12 03:52:26', NULL, NULL),
+(38, 'admin', '$2y$10$Zgoeh1cedR/dfuM6mHF4ZOcCugxck/tJt5bltIVUpPWLJY5ZeyHwO', 'admin', '2025-12-12 03:52:26', NULL, NULL),
 (39, '251062022', '1234567', 'mahasiswa', '2025-12-12 03:55:18', NULL, NULL),
 (40, '251062025', '1234567', 'mahasiswa', '2025-12-12 03:55:18', NULL, NULL),
 (41, '251062026', '1234567', 'mahasiswa', '2025-12-12 03:55:18', NULL, NULL),
@@ -414,17 +549,18 @@ INSERT INTO `users` (`id`, `username`, `password`, `role`, `created_at`, `rememb
 (54, '242062001', '1234567', 'mahasiswa', '2025-12-12 03:55:18', NULL, NULL),
 (55, '242062004', '1234567', 'mahasiswa', '2025-12-12 03:55:18', NULL, NULL),
 (56, '211063024', '1234567', 'mahasiswa', '2025-12-12 03:55:19', NULL, NULL),
-(57, '231064013', 'asisten123', 'asisten', '2025-12-12 04:24:41', NULL, NULL),
-(58, '231064018', 'asisten123', 'asisten', '2025-12-12 04:25:17', NULL, NULL),
-(59, '23108012', 'asisten123', 'asisten', '2025-12-12 04:25:41', NULL, NULL),
-(60, '230607', 'admin123', 'mahasiswa', '2025-12-15 03:32:47', NULL, NULL),
-(61, '24346554', '123456', 'mahasiswa', '2025-12-15 07:01:20', NULL, NULL),
+(57, '231064013', '$2y$10$6Viv7759evphGlbd/MUF/.Dg0FuUhtagsSMxPE9zg8x6ytOj3U/xW', 'asisten', '2025-12-12 04:24:41', NULL, NULL),
+(58, '231064018', '$2y$10$jZtqUTrZZ8ChjVlOz1s39OABAEPEwPXzkuhyTpyUYoM5gCZI.HBwy', 'asisten', '2025-12-12 04:25:17', NULL, NULL),
+(59, '23108012', '$2y$10$7.3eVX20PSp5grtZN4W2iORYW8yj4nYEI7OysKFIKSXH9yFI1DDqa', 'asisten', '2025-12-12 04:25:41', NULL, NULL),
+(60, '230607', '$2y$10$2E1rNMxwXdMrz/mL7uOpWecU38O4Er7AntBVBGo/3O9xT6.aiy7P2', 'mahasiswa', '2025-12-15 03:32:47', NULL, NULL),
+(61, '24346554', '$2y$10$F1.bV5KRPlRj7Dpx8v1e9u6N2v5e4K6N/9nhLdt5Zbu/k2OHM/8cm', 'mahasiswa', '2025-12-15 07:01:20', NULL, NULL),
 (62, '765434567', '123456', 'mahasiswa', '2025-12-15 07:15:18', NULL, NULL),
 (63, '9532753', '123456', 'mahasiswa', '2025-12-15 07:15:30', NULL, NULL),
-(64, '12345678', '123456', 'mahasiswa', '2025-12-16 16:01:14', NULL, NULL),
-(65, '12072010', '123456', 'mahasiswa', '2025-12-17 02:10:31', NULL, NULL),
-(66, '070771', '1234567', 'mahasiswa', '2025-12-19 05:39:22', NULL, NULL),
-(68, '123456789', 'asisten123', 'asisten', '2025-12-19 06:09:07', NULL, NULL);
+(64, '12345678', '$2y$10$mBP4PK0drPux3ReoHLBqneG66RwuGAc07psKbFkj09CPRJojZ8Yt2', 'mahasiswa', '2025-12-16 16:01:14', NULL, NULL),
+(65, '12072010', '$2y$10$CdPpmzBPKyZNCZtCHS2Wp.fFucesbMdcq9gC0IOIGAlADQtncYDmW', 'mahasiswa', '2025-12-17 02:10:31', NULL, NULL),
+(66, '070771', '$2y$10$gkBEq7zNQj30iyVI/3ukUuRJVpXV9dTjBSzgV9ieVfWYDjTdCRLIC', 'mahasiswa', '2025-12-19 05:39:22', NULL, NULL),
+(68, '123456789', 'asisten123', 'asisten', '2025-12-19 06:09:07', NULL, NULL),
+(69, '11112222', '$2y$10$rVl2TpeIjgxWoz0xBHPDPeP9lM.n6.WPwgcsEEA1s39h1LrGO3rQa', 'mahasiswa', '2025-12-29 06:34:56', NULL, NULL);
 
 --
 -- Indexes for dumped tables
@@ -437,7 +573,8 @@ ALTER TABLE `absen_asisten`
   ADD PRIMARY KEY (`id`),
   ADD KEY `jadwal_id` (`jadwal_id`),
   ADD KEY `kode_asisten` (`kode_asisten`),
-  ADD KEY `pengganti` (`pengganti`);
+  ADD KEY `pengganti` (`pengganti`),
+  ADD KEY `fk_absen_asisten_approved_by` (`approved_by`);
 
 --
 -- Indeks untuk tabel `asisten`
@@ -521,6 +658,12 @@ ALTER TABLE `penggantian_inhall`
   ADD KEY `fk_approved_by` (`approved_by`);
 
 --
+-- Indeks untuk tabel `pengumuman`
+--
+ALTER TABLE `pengumuman`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indeks untuk tabel `presensi_mahasiswa`
 --
 ALTER TABLE `presensi_mahasiswa`
@@ -554,7 +697,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT untuk tabel `absen_asisten`
 --
 ALTER TABLE `absen_asisten`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=67;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
 
 --
 -- AUTO_INCREMENT untuk tabel `asisten`
@@ -566,7 +709,7 @@ ALTER TABLE `asisten`
 -- AUTO_INCREMENT untuk tabel `jadwal`
 --
 ALTER TABLE `jadwal`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=913;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=969;
 
 --
 -- AUTO_INCREMENT untuk tabel `lab`
@@ -578,43 +721,49 @@ ALTER TABLE `lab`
 -- AUTO_INCREMENT untuk tabel `log_presensi`
 --
 ALTER TABLE `log_presensi`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=539;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=658;
 
 --
 -- AUTO_INCREMENT untuk tabel `mahasiswa`
 --
 ALTER TABLE `mahasiswa`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
 
 --
 -- AUTO_INCREMENT untuk tabel `materi_perkuliahan`
 --
 ALTER TABLE `materi_perkuliahan`
-  MODIFY `id_materi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id_materi` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT untuk tabel `penggantian_inhall`
 --
 ALTER TABLE `penggantian_inhall`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+
+--
+-- AUTO_INCREMENT untuk tabel `pengumuman`
+--
+ALTER TABLE `pengumuman`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT untuk tabel `presensi_mahasiswa`
 --
 ALTER TABLE `presensi_mahasiswa`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=625;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=783;
 
 --
 -- AUTO_INCREMENT untuk tabel `qr_code_session`
 --
 ALTER TABLE `qr_code_session`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=119;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=137;
 
 --
 -- AUTO_INCREMENT untuk tabel `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=70;
 
 --
 -- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)
@@ -626,7 +775,8 @@ ALTER TABLE `users`
 ALTER TABLE `absen_asisten`
   ADD CONSTRAINT `absen_asisten_ibfk_1` FOREIGN KEY (`jadwal_id`) REFERENCES `jadwal` (`id`),
   ADD CONSTRAINT `absen_asisten_ibfk_2` FOREIGN KEY (`kode_asisten`) REFERENCES `asisten` (`kode_asisten`),
-  ADD CONSTRAINT `absen_asisten_ibfk_3` FOREIGN KEY (`pengganti`) REFERENCES `asisten` (`kode_asisten`);
+  ADD CONSTRAINT `absen_asisten_ibfk_3` FOREIGN KEY (`pengganti`) REFERENCES `asisten` (`kode_asisten`),
+  ADD CONSTRAINT `fk_absen_asisten_approved_by` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
 -- Ketidakleluasaan untuk tabel `asisten`

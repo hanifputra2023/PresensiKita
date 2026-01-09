@@ -22,8 +22,17 @@ $filter_lab = isset($_GET['lab']) ? escape($_GET['lab']) : '';
 $where_kelas = $filter_kelas ? "AND j.kode_kelas = '$filter_kelas'" : '';
 $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
 $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
-// Filter hanya jadwal yang diajar asisten ini
-$where_asisten = "AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')";
+
+// Helper clause: asisten bisa lihat jadwal sendiri ATAU jadwal yang digantikan/menggantikan
+// - Jadwal sendiri: kode_asisten_1 atau kode_asisten_2
+// - Jadwal asli yang diizinkan: dari absen_asisten.kode_asisten (asisten yang izin tetap bisa lihat)
+// - Jadwal pengganti: dari absen_asisten.pengganti dengan status_approval = 'approved'
+$jadwal_asisten_clause = "(
+    (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE kode_asisten = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+)";
+$where_asisten = "AND $jadwal_asisten_clause";
 
 // Determine status condition and build the query
 $base_from = "
@@ -44,9 +53,9 @@ $base_where = "
       $where_lab
 ";
 
-// For alpha, we must only look at past schedules. For other statuses, we can see the record anytime.
+// For alpha, we must only look at past schedules OR already saved as alpha. For other statuses, we can see the record anytime.
 if ($status == 'alpha') {
-    $status_condition = "AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit'))";
+    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
 } else {
     $status_condition = "AND p.status = '$status'";
 }

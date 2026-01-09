@@ -1,6 +1,13 @@
 <?php
 $page = 'asisten_presensi_manual';
 $asisten = get_asisten_login();
+
+// Validasi data asisten
+if (!$asisten) {
+    echo '<div class="alert alert-danger m-4">Data asisten tidak ditemukan. Pastikan akun Anda sudah terdaftar sebagai asisten.</div>';
+    return;
+}
+
 $kode_asisten = $asisten['kode_asisten'];
 
 // Proses presensi manual
@@ -13,7 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
                                                                WHERE jadwal_id = ? 
                                                                AND pengganti = ?
-                                                               AND status IN ('izin', 'sakit')");
+                                                               AND status IN ('izin', 'sakit')
+                                                               AND status_approval = 'approved'");
     mysqli_stmt_bind_param($stmt_cek_pg, "is", $jadwal_id, $kode_asisten);
     mysqli_stmt_execute($stmt_cek_pg);
     $cek_pengganti_post = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_pg));
@@ -47,32 +55,51 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
 $jadwal_id = isset($_GET['jadwal']) ? (int)$_GET['jadwal'] : 0;
 
-// Jadwal hari ini (yang belum selesai) - termasuk jadwal reguler dan jadwal pengganti
-// Jadwal hilang tepat setelah jam_selesai (tanpa toleransi)
+// Jadwal hari ini - termasuk jadwal reguler dan jadwal pengganti
+// Jadwal tetap muncul SEPANJANG HARI agar asisten bisa set status (termasuk alpha) kapan saja
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 
-// Query jadwal reguler
+// Query jadwal reguler - SEMUA jadwal hari ini (tanpa filter jam_selesai)
 $jadwal_reguler = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 0 as is_pengganti FROM jadwal j 
                                      LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                      WHERE j.tanggal = '$today' 
                                      AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
-                                     AND j.jam_selesai >= '$now_time'
                                      ORDER BY j.jam_mulai");
 
-// Query jadwal sebagai pengganti
+// Query jadwal sebagai pengganti (hanya yang sudah disetujui admin) - SEMUA jadwal hari ini
 $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 1 as is_pengganti FROM jadwal j 
                                           LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                           INNER JOIN absen_asisten aa ON aa.jadwal_id = j.id AND aa.pengganti = '$kode_asisten'
                                           WHERE j.tanggal = '$today' 
                                           AND aa.status IN ('izin', 'sakit')
-                                          AND j.jam_selesai >= '$now_time'
+                                          AND aa.status_approval = 'approved'
                                           ORDER BY j.jam_mulai");
 
-// Gabungkan jadwal
+// Gabungkan jadwal (hindari duplikasi)
 $jadwal_list = [];
-while ($row = mysqli_fetch_assoc($jadwal_reguler)) { $jadwal_list[] = $row; }
-while ($row = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $row; }
+$jadwal_ids = [];
+
+while ($row = mysqli_fetch_assoc($jadwal_reguler)) {
+    // Skip jika jadwal ini adalah jadwal yang kita gantikan (sudah di-update oleh admin)
+    $cek_sbg_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
+                                                                  WHERE jadwal_id = '{$row['id']}' 
+                                                                  AND pengganti = '$kode_asisten' 
+                                                                  AND status IN ('izin', 'sakit')
+                                                                  AND status_approval = 'approved'"));
+    if ($cek_sbg_pengganti) {
+        continue; // Akan diambil dari query pengganti
+    }
+    $jadwal_list[] = $row;
+    $jadwal_ids[] = $row['id'];
+}
+
+while ($row = mysqli_fetch_assoc($jadwal_pengganti)) {
+    if (!in_array($row['id'], $jadwal_ids)) {
+        $jadwal_list[] = $row;
+        $jadwal_ids[] = $row['id'];
+    }
+}
 
 $jadwal_aktif = null;
 $mahasiswa_list = null;
@@ -81,11 +108,12 @@ if ($jadwal_id) {
                                                              LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                                              WHERE j.id = '$jadwal_id'"));
     if ($jadwal_aktif) {
-        // Cek apakah ini jadwal sebagai pengganti
+        // Cek apakah ini jadwal sebagai pengganti (hanya yang sudah approved)
         $cek_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
                                                                    WHERE jadwal_id = '$jadwal_id' 
                                                                    AND pengganti = '$kode_asisten'
-                                                                   AND status IN ('izin', 'sakit')"));
+                                                                   AND status IN ('izin', 'sakit')
+                                                                   AND status_approval = 'approved'"));
         $is_pengganti = $cek_pengganti ? true : false;
         
         // TIDAK otomatis catat hadir saat buka halaman
@@ -149,12 +177,17 @@ if ($jadwal_id) {
                             <div class="card-header">Pilih Jadwal</div>
                             <div class="card-body p-2">
                                 <div class="d-flex flex-wrap gap-2">
-                                    <?php foreach ($jadwal_list as $j): ?>
+                                    <?php foreach ($jadwal_list as $j): 
+                                        $jadwal_selesai = ($j['jam_selesai'] < $now_time);
+                                    ?>
                                         <a href="index.php?page=asisten_presensi_manual&jadwal=<?= $j['id'] ?>" 
-                                           class="btn btn-sm <?= $jadwal_id == $j['id'] ? 'btn-primary' : 'btn-outline-primary' ?>">
+                                           class="btn btn-sm <?= $jadwal_id == $j['id'] ? 'btn-primary' : ($jadwal_selesai ? 'btn-outline-secondary' : 'btn-outline-primary') ?>">
                                             <?= $j['nama_kelas'] ?>
                                             <?php if (!empty($j['is_pengganti'])): ?>
                                                 <span class="badge bg-info">P</span>
+                                            <?php endif; ?>
+                                            <?php if ($jadwal_selesai): ?>
+                                                <span class="badge bg-secondary">Selesai</span>
                                             <?php endif; ?>
                                         </a>
                                     <?php endforeach; ?>
@@ -169,7 +202,9 @@ if ($jadwal_id) {
                             <div class="card-header">Pilih Jadwal</div>
                             <div class="card-body p-0">
                                 <div class="list-group list-group-flush">
-                                    <?php foreach ($jadwal_list as $j): ?>
+                                    <?php foreach ($jadwal_list as $j): 
+                                        $jadwal_selesai = ($j['jam_selesai'] < $now_time);
+                                    ?>
                                         <a href="index.php?page=asisten_presensi_manual&jadwal=<?= $j['id'] ?>" 
                                            class="list-group-item list-group-item-action <?= $jadwal_id == $j['id'] ? 'active' : '' ?>">
                                             <strong>
@@ -177,8 +212,11 @@ if ($jadwal_id) {
                                                 <?php if (!empty($j['is_pengganti'])): ?>
                                                     <span class="badge bg-info">Pengganti</span>
                                                 <?php endif; ?>
+                                                <?php if ($jadwal_selesai): ?>
+                                                    <span class="badge bg-secondary">Selesai</span>
+                                                <?php endif; ?>
                                             </strong>
-                                            <br><small><?= format_waktu($j['jam_mulai']) ?></small>
+                                            <br><small><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></small>
                                         </a>
                                     <?php endforeach; ?>
                                 </div>

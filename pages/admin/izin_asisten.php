@@ -1,9 +1,12 @@
 <?php
 $page = 'admin_izin_asisten';
 
-// Proses Approve
-if (isset($_GET['approve'])) {
-    $id = (int)$_GET['approve'];
+// Proses Approve - HARUS via POST dengan CSRF token
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['approve'])) {
+    // Validasi CSRF token
+    validate_csrf_token(); // Fungsi ini otomatis cek $_POST['csrf_token'] dan die() jika gagal
+    
+    $id = (int)$_POST['approve'];
     
     $stmt = mysqli_prepare($conn, "UPDATE absen_asisten 
                                    SET status_approval = 'approved', 
@@ -17,14 +20,38 @@ if (isset($_GET['approve'])) {
                                                           FROM absen_asisten aa 
                                                           JOIN asisten a ON aa.kode_asisten = a.kode_asisten 
                                                           WHERE aa.id = $id"));
+        
+        // [LOGIKA BARU] Update tabel jadwal jika ada pengganti
+        if (!empty($detail['pengganti'])) {
+            $jadwal_id = $detail['jadwal_id'];
+            $asisten_lama = $detail['kode_asisten'];
+            $asisten_baru = $detail['pengganti'];
+
+            // Cek posisi asisten lama di jadwal (apakah Asisten 1 atau Asisten 2)
+            $cek_jadwal = mysqli_query($conn, "SELECT kode_asisten_1, kode_asisten_2 FROM jadwal WHERE id = '$jadwal_id'");
+            if ($row_j = mysqli_fetch_assoc($cek_jadwal)) {
+                $col_update = '';
+                if ($row_j['kode_asisten_1'] == $asisten_lama) {
+                    $col_update = 'kode_asisten_1';
+                } elseif ($row_j['kode_asisten_2'] == $asisten_lama) {
+                    $col_update = 'kode_asisten_2';
+                }
+
+                if ($col_update) {
+                    // Update jadwal: Ganti asisten lama dengan pengganti
+                    mysqli_query($conn, "UPDATE jadwal SET $col_update = '$asisten_baru' WHERE id = '$jadwal_id'");
+                }
+            }
+        }
+
         log_aktivitas($_SESSION['user_id'], 'APPROVE_IZIN_ASISTEN', 'absen_asisten', $id, 
                       "Admin menyetujui izin asisten {$detail['nama']}");
-        set_alert('success', 'Pengajuan izin berhasil disetujui!');
+        set_alert('success', 'Pengajuan izin disetujui dan jadwal telah diperbarui dengan asisten pengganti!');
     } else {
         set_alert('danger', 'Gagal menyetujui pengajuan izin!');
     }
     
-    header("Location: index.php?page=admin_izin_asisten&tab=" . ($_GET['tab'] ?? 'pending'));
+    header("Location: index.php?page=admin_izin_asisten&tab=" . ($_POST['tab'] ?? 'pending'));
     exit;
 }
 
@@ -380,11 +407,14 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                 <td class="text-center pe-3">
                                                     <?php if ($r['status_approval'] == 'pending'): ?>
                                                         <div class="btn-group">
-                                                            <a href="index.php?page=admin_izin_asisten&approve=<?= $r['id'] ?>&tab=<?= $active_tab ?>" 
-                                                               class="btn btn-success btn-sm btn-action"
-                                                               onclick="return confirm('Setujui pengajuan izin dari <?= $r['nama_asisten'] ?>?')">
-                                                                <i class="fas fa-check"></i>
-                                                            </a>
+                                                            <form method="POST" style="display:inline;" onsubmit="return confirm('Setujui pengajuan izin dari <?= $r['nama_asisten'] ?>?')">
+                                                                <?= csrf_field() ?>
+                                                                <input type="hidden" name="approve" value="<?= $r['id'] ?>">
+                                                                <input type="hidden" name="tab" value="<?= $active_tab ?>">
+                                                                <button type="submit" class="btn btn-success btn-sm btn-action">
+                                                                    <i class="fas fa-check"></i>
+                                                                </button>
+                                                            </form>
                                                             <button class="btn btn-danger btn-sm btn-action" data-bs-toggle="modal" 
                                                                     data-bs-target="#modalReject<?= $r['id'] ?>">
                                                                 <i class="fas fa-times"></i>
@@ -490,11 +520,14 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                         </div>
                                                         <div class="modal-footer">
                                                             <?php if ($r['status_approval'] == 'pending'): ?>
-                                                                <a href="index.php?page=admin_izin_asisten&approve=<?= $r['id'] ?>&tab=<?= $active_tab ?>" 
-                                                                   class="btn btn-success"
-                                                                   onclick="return confirm('Setujui pengajuan izin ini?')">
-                                                                    <i class="fas fa-check me-1"></i>Setujui
-                                                                </a>
+                                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Setujui pengajuan izin ini?')">
+                                                                    <?= csrf_field() ?>
+                                                                    <input type="hidden" name="approve" value="<?= $r['id'] ?>">
+                                                                    <input type="hidden" name="tab" value="<?= $active_tab ?>">
+                                                                    <button type="submit" class="btn btn-success">
+                                                                        <i class="fas fa-check me-1"></i>Setujui
+                                                                    </button>
+                                                                </form>
                                                                 <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalReject<?= $r['id'] ?>" data-bs-dismiss="modal">
                                                                     <i class="fas fa-times me-1"></i>Tolak
                                                                 </button>
@@ -520,7 +553,7 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                                 <div class="modal-body">
                                                                     <input type="hidden" name="id" value="<?= $r['id'] ?>">
                                                                     
-                                                                    <div class="alert alert-light border mb-3">
+                                                                    <div class="alert bg-white border mb-3">
                                                                         <div class="d-flex align-items-center gap-2 mb-2">
                                                                             <div class="avatar-circle bg-primary text-white" style="width: 45px; height: 45px;">
                                                                                 <?php if ($r['foto_asisten'] && file_exists($r['foto_asisten'])): ?>
@@ -631,11 +664,14 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                     <!-- Actions -->
                                     <?php if ($r['status_approval'] == 'pending'): ?>
                                         <div class="d-flex gap-2">
-                                            <a href="index.php?page=admin_izin_asisten&approve=<?= $r['id'] ?>&tab=<?= $active_tab ?>" 
-                                               class="btn btn-success btn-sm flex-fill btn-action justify-content-center"
-                                               onclick="return confirm('Setujui pengajuan izin ini?')">
-                                                <i class="fas fa-check"></i> Setujui
-                                            </a>
+                                            <form method="POST" class="flex-fill" onsubmit="return confirm('Setujui pengajuan izin ini?')">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="approve" value="<?= $r['id'] ?>">
+                                                <input type="hidden" name="tab" value="<?= $active_tab ?>">
+                                                <button type="submit" class="btn btn-success btn-sm w-100 btn-action justify-content-center">
+                                                    <i class="fas fa-check"></i> Setujui
+                                                </button>
+                                            </form>
                                             <button class="btn btn-danger btn-sm flex-fill btn-action justify-content-center" 
                                                     data-bs-toggle="modal" data-bs-target="#modalRejectMobile<?= $r['id'] ?>">
                                                 <i class="fas fa-times"></i> Tolak

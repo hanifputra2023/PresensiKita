@@ -1,6 +1,13 @@
 <?php
 $page = 'asisten_qrcode';
 $asisten = get_asisten_login();
+
+// Validasi data asisten
+if (!$asisten) {
+    echo '<div class="alert alert-danger m-4">Data asisten tidak ditemukan. Pastikan akun Anda sudah terdaftar sebagai asisten.</div>';
+    return;
+}
+
 $kode_asisten = $asisten['kode_asisten'];
 
 // Jika ada jadwal yang dipilih
@@ -19,11 +26,12 @@ if ($jadwal_id) {
     // Cek apakah ini jadwal sebagai pengganti
     $is_pengganti = false;
     if ($jadwal_aktif) {
-        // Cek apakah asisten ini sebagai pengganti di jadwal ini
+        // Cek apakah asisten ini sebagai pengganti di jadwal ini (hanya yang sudah approved)
         $cek_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
                                                                    WHERE jadwal_id = '$jadwal_id' 
                                                                    AND pengganti = '$kode_asisten'
-                                                                   AND status IN ('izin', 'sakit')"));
+                                                                   AND status IN ('izin', 'sakit')
+                                                                   AND status_approval = 'approved'"));
         $is_pengganti = $cek_pengganti ? true : false;
     }
     
@@ -52,7 +60,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
     $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
                                                                WHERE jadwal_id = ? 
                                                                AND pengganti = ?
-                                                               AND status IN ('izin', 'sakit')");
+                                                               AND status IN ('izin', 'sakit')
+                                                               AND status_approval = 'approved'");
     mysqli_stmt_bind_param($stmt_cek_pg, "is", $jadwal_id, $kode_asisten);
     mysqli_stmt_execute($stmt_cek_pg);
     $cek_pengganti = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_pg));
@@ -96,7 +105,7 @@ $jadwal_sendiri = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.
                                      AND j.jam_selesai >= '$now_time'
                                      ORDER BY j.jam_mulai");
 
-// Jadwal sebagai pengganti
+// Jadwal sebagai pengganti (hanya yang sudah disetujui admin)
 $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'pengganti' as tipe_jadwal, a.nama as asisten_asli
                                           FROM absen_asisten aa
                                           JOIN jadwal j ON aa.jadwal_id = j.id
@@ -106,14 +115,35 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, m
                                           LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                           WHERE aa.pengganti = '$kode_asisten'
                                           AND aa.status IN ('izin', 'sakit')
+                                          AND aa.status_approval = 'approved'
                                           AND j.tanggal = '$today'
                                           AND j.jam_selesai >= '$now_time'
                                           ORDER BY j.jam_mulai");
 
-// Gabungkan
+// Gabungkan jadwal (hindari duplikasi)
 $jadwal_list = [];
-while ($j = mysqli_fetch_assoc($jadwal_sendiri)) { $jadwal_list[] = $j; }
-while ($j = mysqli_fetch_assoc($jadwal_pengganti)) { $jadwal_list[] = $j; }
+$jadwal_ids = [];
+
+while ($j = mysqli_fetch_assoc($jadwal_sendiri)) {
+    // Skip jika jadwal ini adalah jadwal yang kita gantikan (sudah di-update oleh admin)
+    $cek_sbg_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
+                                                                  WHERE jadwal_id = '{$j['id']}' 
+                                                                  AND pengganti = '$kode_asisten' 
+                                                                  AND status IN ('izin', 'sakit')
+                                                                  AND status_approval = 'approved'"));
+    if ($cek_sbg_pengganti) {
+        continue; // Akan diambil dari query pengganti
+    }
+    $jadwal_list[] = $j;
+    $jadwal_ids[] = $j['id'];
+}
+
+while ($j = mysqli_fetch_assoc($jadwal_pengganti)) {
+    if (!in_array($j['id'], $jadwal_ids)) {
+        $jadwal_list[] = $j;
+        $jadwal_ids[] = $j['id'];
+    }
+}
 ?>
 <?php include 'includes/header.php'; ?>
 

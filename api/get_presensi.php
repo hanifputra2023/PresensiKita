@@ -4,6 +4,12 @@ header('Content-Type: application/json');
 
 require_once __DIR__ . '/../includes/fungsi.php';
 
+// Authorization check - hanya asisten dan admin yang bisa akses
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'asisten'])) {
+    echo json_encode(['success' => false, 'message' => 'Unauthorized: Akses ditolak']);
+    exit;
+}
+
 $jadwal_id = isset($_GET['jadwal_id']) ? (int)$_GET['jadwal_id'] : 0;
 
 if (!$jadwal_id) {

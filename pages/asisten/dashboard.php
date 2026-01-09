@@ -2,9 +2,23 @@
 $page = 'asisten_dashboard';
 $asisten = get_asisten_login();
 
+// Validasi data asisten
+if (!$asisten) {
+    echo '<div class="alert alert-danger m-4">Data asisten tidak ditemukan. Pastikan akun Anda sudah terdaftar sebagai asisten.</div>';
+    return;
+}
+
 // Jadwal hari ini (yang belum selesai)
 // Gunakan CURDATE() dan CURTIME() MySQL agar konsisten dengan timezone
 $kode_asisten = $asisten['kode_asisten'];
+
+// Helper clause: asisten bisa lihat jadwal sendiri ATAU jadwal yang digantikan
+// Konsisten dengan rekap.php
+$jadwal_asisten_clause = "(
+    (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE kode_asisten = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+)";
 
 // Jadwal sendiri - hilang tepat setelah jam_selesai
 $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'sendiri' as tipe_jadwal, NULL as asisten_asli
@@ -17,7 +31,7 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk
                                          AND j.jam_selesai > CURTIME()
                                          ORDER BY j.jam_mulai");
 
-// Jadwal sebagai pengganti (dari asisten lain yang izin)
+// Jadwal sebagai pengganti (dari asisten lain yang izin - hanya yang sudah disetujui)
 $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'pengganti' as tipe_jadwal, a.nama as asisten_asli
                                           FROM absen_asisten aa
                                           JOIN jadwal j ON aa.jadwal_id = j.id
@@ -27,26 +41,47 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, m
                                           LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                           WHERE aa.pengganti = '$kode_asisten'
                                           AND aa.status IN ('izin', 'sakit')
+                                          AND aa.status_approval = 'approved'
                                           AND j.tanggal = CURDATE()
                                           AND j.jam_selesai > CURTIME()
                                           ORDER BY j.jam_mulai");
 
-// Gabungkan jadwal
+// Gabungkan jadwal (hindari duplikasi berdasarkan jadwal_id)
 $all_jadwal = [];
+$jadwal_ids = []; // Track jadwal yang sudah dimasukkan
+
 while ($j = mysqli_fetch_assoc($jadwal_hari_ini)) {
+    // Skip jika jadwal ini adalah jadwal yang kita gantikan (sudah di-update oleh admin)
+    // Cek apakah ada record izin approved dimana kita sebagai pengganti untuk jadwal ini
+    $cek_sbg_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM absen_asisten 
+                                                                  WHERE jadwal_id = '{$j['id']}' 
+                                                                  AND pengganti = '$kode_asisten' 
+                                                                  AND status IN ('izin', 'sakit')
+                                                                  AND status_approval = 'approved'"));
+    if ($cek_sbg_pengganti) {
+        // Ini jadwal pengganti, skip dari jadwal sendiri (akan diambil dari query pengganti)
+        continue;
+    }
+    
     $all_jadwal[] = $j;
+    $jadwal_ids[] = $j['id'];
 }
+
 while ($j = mysqli_fetch_assoc($jadwal_pengganti)) {
-    $all_jadwal[] = $j;
+    // Hindari duplikat (seharusnya tidak terjadi, tapi untuk jaga-jaga)
+    if (!in_array($j['id'], $jadwal_ids)) {
+        $all_jadwal[] = $j;
+        $jadwal_ids[] = $j['id'];
+    }
 }
 
 // Statistik minggu ini
 $week_start = date('Y-m-d', strtotime('monday this week'));
 $week_end = date('Y-m-d', strtotime('sunday this week'));
 
-$stat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal 
-                                                  WHERE tanggal BETWEEN '$week_start' AND '$week_end'
-                                                  AND (kode_asisten_1 = '$kode_asisten' OR kode_asisten_2 = '$kode_asisten')"));
+$stat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal j
+                                                  WHERE j.tanggal BETWEEN '$week_start' AND '$week_end'
+                                                  AND $jadwal_asisten_clause"));
 
 // Hitung jadwal pengganti minggu ini
 $stat_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total 
@@ -56,27 +91,28 @@ $stat_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                                            AND aa.status IN ('izin', 'sakit')
                                                            AND j.tanggal BETWEEN '$week_start' AND '$week_end'"));
 
-// Statistik kehadiran MAHASISWA bulan ini (di jadwal yang diajar asisten ini), dengan perhitungan alpha yang akurat
+// Statistik kehadiran MAHASISWA bulan ini (di jadwal yang diajar asisten ini)
+// Menggunakan logika yang sama dengan rekap.php untuk konsistensi
 $start_month = date('Y-m-01');
 $end_month = date('Y-m-t');
 $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT 
-        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
         SUM(CASE 
-            WHEN (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) 
+            WHEN j.jenis != 'inhall' 
+                 AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) 
                  AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
-                 AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) 
+                 AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))
             THEN 1 
             ELSE 0 
         END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim
-    WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    WHERE $jadwal_asisten_clause
     AND j.tanggal BETWEEN '$start_month' AND '$end_month'
-    AND j.jenis != 'inhall'
 "));
 
 // Total presensi mahasiswa bulan ini (di jadwal asisten)
@@ -84,7 +120,7 @@ $total_jadwal_bulan = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) as total FROM presensi_mahasiswa pm
     JOIN jadwal j ON pm.jadwal_id = j.id
     WHERE j.tanggal BETWEEN '$start_month' AND '$end_month'
-    AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    AND $jadwal_asisten_clause
     AND pm.status != 'belum'
 "))['total'];
 
@@ -95,7 +131,7 @@ $recent_presensi = mysqli_query($conn, "
     JOIN mahasiswa m ON pm.nim = m.nim
     JOIN jadwal j ON pm.jadwal_id = j.id
     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-    WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    WHERE $jadwal_asisten_clause
     ORDER BY pm.waktu_presensi DESC
     LIMIT 6
 ");
@@ -109,7 +145,7 @@ $riwayat = mysqli_query($conn, "
     LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
     LEFT JOIN lab l ON j.kode_lab = l.kode_lab
     LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-    WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    WHERE $jadwal_asisten_clause
     AND j.tanggal <= CURDATE()
     ORDER BY j.tanggal DESC, j.jam_mulai DESC
     LIMIT 5
@@ -1655,7 +1691,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <i class="fas fa-calendar-week"></i>
                         </div>
                         <div class="stat-info">
-                            <h3><?= $stat['total'] ?></h3>
+                            <h3 id="stat-jadwal-minggu"><?= $stat['total'] ?></h3>
                             <p>Jadwal Minggu Ini</p>
                         </div>
                     </div>
@@ -1664,7 +1700,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <i class="fas fa-clipboard-check"></i>
                         </div>
                         <div class="stat-info">
-                            <h3><?= $total_jadwal_bulan ?></h3>
+                            <h3 id="stat-jadwal-bulan"><?= $total_jadwal_bulan ?></h3>
                             <p>Jadwal Bulan Ini</p>
                         </div>
                     </div>
@@ -1735,36 +1771,36 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <div class="card-header-custom">
                                 <h3><i class="fas fa-chart-pie"></i> Kehadiran Bulan Ini</h3>
                             </div>
-                            <div class="card-body-custom">
+                            <div class="card-body-custom" id="kehadiran-container">
                                 <div class="ring-container">
                                     <div class="ring-chart">
                                         <svg viewBox="0 0 160 160">
                                             <circle class="ring-bg" cx="80" cy="80" r="68"/>
-                                            <circle class="ring-progress" cx="80" cy="80" r="68" 
+                                            <circle class="ring-progress" id="ring-progress" cx="80" cy="80" r="68" 
                                                     stroke-dasharray="427" 
                                                     stroke-dashoffset="<?= 427 - (427 * $persen_hadir / 100) ?>"/>
                                         </svg>
                                         <div class="ring-text">
-                                            <span class="persen"><?= $persen_hadir ?>%</span>
+                                            <span class="persen" id="persen-hadir"><?= $persen_hadir ?>%</span>
                                             <span class="label">Hadir</span>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="presensi-grid">
                                     <div class="presensi-item hadir">
-                                        <div class="num"><?= $stat_hadir['hadir'] ?? 0 ?></div>
+                                        <div class="num" id="stat-hadir"><?= $stat_hadir['hadir'] ?? 0 ?></div>
                                         <div class="lbl">Hadir</div>
                                     </div>
                                     <div class="presensi-item izin">
-                                        <div class="num"><?= $stat_hadir['izin'] ?? 0 ?></div>
+                                        <div class="num" id="stat-izin"><?= $stat_hadir['izin'] ?? 0 ?></div>
                                         <div class="lbl">Izin</div>
                                     </div>
                                     <div class="presensi-item sakit">
-                                        <div class="num"><?= $stat_hadir['sakit'] ?? 0 ?></div>
+                                        <div class="num" id="stat-sakit"><?= $stat_hadir['sakit'] ?? 0 ?></div>
                                         <div class="lbl">Sakit</div>
                                     </div>
                                     <div class="presensi-item alpha">
-                                        <div class="num"><?= $stat_hadir['alpha'] ?? 0 ?></div>
+                                        <div class="num" id="stat-alpha"><?= $stat_hadir['alpha'] ?? 0 ?></div>
                                         <div class="lbl">Alpha</div>
                                     </div>
                                 </div>
@@ -1776,9 +1812,9 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <div class="card-header-custom">
                                 <h3><i class="fas fa-history"></i> Presensi Terbaru</h3>
                             </div>
-                            <div class="card-body-custom">
+                            <div class="card-body-custom" id="recent-presensi-container">
                                 <?php if (mysqli_num_rows($recent_presensi) > 0): ?>
-                                    <div class="activity-list">
+                                    <div class="activity-list" id="activity-list">
                                         <?php while ($act = mysqli_fetch_assoc($recent_presensi)): ?>
                                             <div class="activity-item">
                                                 <div class="activity-avatar <?= $act['status'] ?>">
@@ -1795,7 +1831,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                         <?php endwhile; ?>
                                     </div>
                                 <?php else: ?>
-                                    <div class="empty-state">
+                                    <div class="empty-state" id="empty-presensi">
                                         <i class="fas fa-inbox"></i>
                                         <p>Belum ada data presensi</p>
                                     </div>
@@ -1891,5 +1927,146 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
         </div>
     </div>
 </div>
+
+<script>
+// Real-time dashboard update - Polling setiap 5 detik
+(function() {
+    const REFRESH_INTERVAL = 5000; // 5 detik
+    let refreshTimer = null;
+    
+    function updateDashboard() {
+        fetch('api/get_dashboard_asisten.php')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateStats(data.data);
+                    updateRecentPresensi(data.data.recent_presensi);
+                }
+            })
+            .catch(err => console.log('Dashboard refresh error:', err));
+    }
+    
+    function updateStats(data) {
+        // Update statistik cards
+        const jadwalMinggu = document.getElementById('stat-jadwal-minggu');
+        const jadwalBulan = document.getElementById('stat-jadwal-bulan');
+        
+        if (jadwalMinggu) jadwalMinggu.textContent = data.jadwal_minggu_ini;
+        if (jadwalBulan) jadwalBulan.textContent = data.total_jadwal_bulan;
+        
+        // Update ring chart
+        const ringProgress = document.getElementById('ring-progress');
+        const persenHadir = document.getElementById('persen-hadir');
+        
+        if (ringProgress) {
+            const offset = 427 - (427 * data.persen_hadir / 100);
+            ringProgress.style.transition = 'stroke-dashoffset 0.5s ease';
+            ringProgress.setAttribute('stroke-dashoffset', offset);
+        }
+        if (persenHadir) persenHadir.textContent = data.persen_hadir + '%';
+        
+        // Update presensi grid
+        const statHadir = document.getElementById('stat-hadir');
+        const statIzin = document.getElementById('stat-izin');
+        const statSakit = document.getElementById('stat-sakit');
+        const statAlpha = document.getElementById('stat-alpha');
+        
+        if (statHadir) animateNumber(statHadir, parseInt(statHadir.textContent), data.stat_hadir.hadir);
+        if (statIzin) animateNumber(statIzin, parseInt(statIzin.textContent), data.stat_hadir.izin);
+        if (statSakit) animateNumber(statSakit, parseInt(statSakit.textContent), data.stat_hadir.sakit);
+        if (statAlpha) animateNumber(statAlpha, parseInt(statAlpha.textContent), data.stat_hadir.alpha);
+    }
+    
+    function animateNumber(element, from, to) {
+        if (from === to) return;
+        
+        const duration = 300;
+        const startTime = performance.now();
+        
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            const current = Math.round(from + (to - from) * progress);
+            element.textContent = current;
+            
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            }
+        }
+        
+        requestAnimationFrame(update);
+    }
+    
+    function updateRecentPresensi(recentList) {
+        const container = document.getElementById('recent-presensi-container');
+        if (!container) return;
+        
+        if (recentList.length === 0) {
+            container.innerHTML = `
+                <div class="empty-state" id="empty-presensi">
+                    <i class="fas fa-inbox"></i>
+                    <p>Belum ada data presensi</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="activity-list" id="activity-list">';
+        recentList.forEach(act => {
+            const initials = act.nama_mhs.substring(0, 2).toUpperCase();
+            const statusCapitalized = act.status.charAt(0).toUpperCase() + act.status.slice(1);
+            
+            html += `
+                <div class="activity-item">
+                    <div class="activity-avatar ${act.status}">
+                        ${initials}
+                    </div>
+                    <div class="activity-info">
+                        <h4>${act.nama_mhs}</h4>
+                        <p>${act.nama_mk} - ${statusCapitalized}</p>
+                    </div>
+                    <div class="activity-time">
+                        ${act.waktu_presensi}
+                    </div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        container.innerHTML = html;
+    }
+    
+    // Start polling saat halaman ready
+    function startPolling() {
+        // Jalankan sekali setelah delay awal
+        refreshTimer = setInterval(updateDashboard, REFRESH_INTERVAL);
+    }
+    
+    function stopPolling() {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+    }
+    
+    // Pause polling ketika tab tidak aktif untuk hemat resource
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            stopPolling();
+        } else {
+            updateDashboard(); // Langsung update saat kembali
+            startPolling();
+        }
+    });
+    
+    // Start polling saat DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startPolling);
+    } else {
+        startPolling();
+    }
+})();
+</script>
 
 <?php include 'includes/footer.php'; ?>

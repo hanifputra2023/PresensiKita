@@ -28,7 +28,7 @@ $today_stats_query = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim

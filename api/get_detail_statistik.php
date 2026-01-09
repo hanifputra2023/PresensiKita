@@ -2,9 +2,9 @@
 require_once '../config/koneksi.php';
 require_once '../includes/fungsi.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    die('Unauthorized');
+// Check if user is logged in AND is admin
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
+    die('Unauthorized: Hanya admin yang bisa mengakses halaman ini');
 }
 
 // Get parameters
@@ -25,11 +25,11 @@ $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 
 // Determine status condition
 if ($status == 'alpha') {
-    // Alpha: Jadwal sudah lewat, mahasiswa sudah terdaftar, dan tidak ada status hadir/izin/sakit
+    // Alpha: Status tersimpan sebagai alpha ATAU jadwal sudah lewat dan tidak ada status hadir/izin/sakit
     $status_condition = "j.id IS NOT NULL 
-                         AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
+                         AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
                          AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-                         AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit'))";
+                         AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
 } elseif ($status == 'belum') {
     $status_condition = "(p.status IS NULL OR p.status = 'belum')";
 } else {

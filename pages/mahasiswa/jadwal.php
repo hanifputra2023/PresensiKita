@@ -118,47 +118,70 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 <?php include 'includes/header.php'; ?>
 
 <style>
-/* Fix Hover Table di Dark Mode */
-[data-theme="dark"] .table-hover tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+/* Fix Hover Table di Dark Mode - Override Bootstrap table-hover */
+[data-theme="dark"] .table-hover > tbody > tr:hover {
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.08);
+    --bs-table-accent-bg: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="dark"] .table-hover > tbody > tr:hover > * {
+    background-color: rgba(255, 255, 255, 0.08) !important;
     color: var(--text-main, #e2e8f0);
 }
 
 /* Override Bootstrap Contextual Classes for Dark Mode */
-[data-theme="dark"] .table-success {
+[data-theme="dark"] .table-success,
+[data-theme="dark"] .table-success > * {
+    --bs-table-bg: rgba(25, 135, 84, 0.15);
     background-color: rgba(25, 135, 84, 0.15) !important;
     color: #75b798 !important;
     border-color: rgba(25, 135, 84, 0.2);
 }
-[data-theme="dark"] .table-hover .table-success:hover,
-[data-theme="dark"] .table-hover .table-success:hover > * {
-    background-color: rgba(25, 135, 84, 0.25) !important;
-    color: #75b798 !important;
-    --bs-table-accent-bg: rgba(25, 135, 84, 0.25) !important;
+[data-theme="dark"] .table-hover > tbody > tr.table-success:hover,
+[data-theme="dark"] .table-hover > tbody > tr.table-success:hover > * {
+    --bs-table-hover-bg: rgba(25, 135, 84, 0.3);
+    --bs-table-accent-bg: rgba(25, 135, 84, 0.3);
+    background-color: rgba(25, 135, 84, 0.3) !important;
+    color: #a3cfbb !important;
 }
 
-[data-theme="dark"] .table-warning {
+[data-theme="dark"] .table-warning,
+[data-theme="dark"] .table-warning > * {
+    --bs-table-bg: rgba(255, 193, 7, 0.1);
     background-color: rgba(255, 193, 7, 0.1) !important;
     color: #ffda6a !important;
     border-color: rgba(255, 193, 7, 0.2);
 }
-[data-theme="dark"] .table-hover .table-warning:hover,
-[data-theme="dark"] .table-hover .table-warning:hover > * {
-    background-color: rgba(255, 193, 7, 0.2) !important;
-    color: #ffda6a !important;
-    --bs-table-accent-bg: rgba(255, 193, 7, 0.2) !important;
+[data-theme="dark"] .table-hover > tbody > tr.table-warning:hover,
+[data-theme="dark"] .table-hover > tbody > tr.table-warning:hover > * {
+    --bs-table-hover-bg: rgba(255, 193, 7, 0.25);
+    --bs-table-accent-bg: rgba(255, 193, 7, 0.25);
+    background-color: rgba(255, 193, 7, 0.25) !important;
+    color: #ffe69c !important;
 }
 
-[data-theme="dark"] .table-primary {
+[data-theme="dark"] .table-primary,
+[data-theme="dark"] .table-primary > * {
+    --bs-table-bg: rgba(13, 110, 253, 0.1);
     background-color: rgba(13, 110, 253, 0.1) !important;
     color: #6ea8fe !important;
     border-color: rgba(13, 110, 253, 0.2);
 }
-[data-theme="dark"] .table-hover .table-primary:hover,
-[data-theme="dark"] .table-hover .table-primary:hover > * {
-    background-color: rgba(13, 110, 253, 0.2) !important;
-    color: #6ea8fe !important;
-    --bs-table-accent-bg: rgba(13, 110, 253, 0.2) !important;
+[data-theme="dark"] .table-hover > tbody > tr.table-primary:hover,
+[data-theme="dark"] .table-hover > tbody > tr.table-primary:hover > * {
+    --bs-table-hover-bg: rgba(13, 110, 253, 0.25);
+    --bs-table-accent-bg: rgba(13, 110, 253, 0.25);
+    background-color: rgba(13, 110, 253, 0.25) !important;
+    color: #9ec5fe !important;
+}
+
+/* Row with text-muted (past/ended schedules) hover */
+[data-theme="dark"] .table-hover > tbody > tr.text-muted:hover,
+[data-theme="dark"] .table-hover > tbody > tr.text-muted:hover > * {
+    --bs-table-hover-bg: rgba(255, 255, 255, 0.05);
+    --bs-table-accent-bg: rgba(255, 255, 255, 0.05);
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #94a3b8 !important;
 }
 
 /* Fix text muted in dark mode table */
@@ -223,12 +246,13 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
                                     </select>
                                 </div>
                                 <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-muted d-none d-md-block">&nbsp;</label>
                                     <div class="d-flex gap-2">
                                         <button type="submit" class="btn btn-primary flex-grow-1">
                                             <i class="fas fa-filter me-1"></i>Filter
                                         </button>
-                                        <a href="index.php?page=mahasiswa_jadwal" class="btn btn-outline-secondary">
-                                            <i class="fas fa-sync-alt"></i>
+                                        <a href="index.php?page=mahasiswa_jadwal" class="btn btn-outline-secondary d-flex align-items-center justify-content-center" title="Reset Filter" style="width: 38px; height: 38px;">
+                                            <i class="fas fa-redo"></i>
                                         </a>
                                     </div>
                                 </div>

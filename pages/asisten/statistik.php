@@ -1,7 +1,24 @@
 <?php
 $page = 'asisten_statistik';
 $asisten = get_asisten_login();
+
+// Validasi data asisten
+if (!$asisten) {
+    echo '<div class="alert alert-danger m-4">Data asisten tidak ditemukan. Pastikan akun Anda sudah terdaftar sebagai asisten.</div>';
+    return;
+}
+
 $kode_asisten = $asisten['kode_asisten'];
+
+// Helper clause: asisten bisa lihat jadwal sendiri ATAU jadwal yang digantikan
+// - Jadwal sendiri: kode_asisten_1 atau kode_asisten_2
+// - Jadwal asli yang diizinkan: dari absen_asisten.kode_asisten (asisten yang izin tetap bisa lihat)
+// - Jadwal pengganti: dari absen_asisten.pengganti dengan status_approval = 'approved'
+$jadwal_asisten_clause = "(
+    (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE kode_asisten = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+)";
 
 // Export Excel (CSV format)
 if (isset($_GET['export'])) {
@@ -13,7 +30,7 @@ if (isset($_GET['export'])) {
     $view_exp = isset($_GET['view']) ? escape($_GET['view']) : 'kelas';
 
     $where_exp = $filter_kelas_exp ? "AND j.kode_kelas = '$filter_kelas_exp'" : '';
-    $where_asisten_exp = "AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')";
+    $where_asisten_exp = "AND $jadwal_asisten_clause";
 
     $filename = 'statistik_presensi_' . $view_exp . '_' . date('Y-m-d_His') . '.csv';
     header('Content-Type: text/csv; charset=utf-8');
@@ -44,7 +61,7 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN kelas k ON j.kode_kelas = k.kode_kelas
             JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -70,7 +87,7 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
             JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -96,7 +113,7 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN lab l ON j.kode_lab = l.kode_lab
             JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -127,25 +144,25 @@ $view = isset($_GET['view']) ? escape($_GET['view']) : 'kelas'; // kelas, mk, la
 $where_kelas = $filter_kelas ? "AND j.kode_kelas = '$filter_kelas'" : '';
 $where_mk = $filter_mk ? "AND j.kode_mk = '$filter_mk'" : '';
 $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
-$where_asisten = "AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')";
+$where_asisten = "AND $jadwal_asisten_clause";
 
-// Ambil jadwal yang pernah diajar
+// Ambil jadwal yang pernah diajar (termasuk jadwal yang digantikan)
 $jadwal_diajar = mysqli_query($conn, "SELECT DISTINCT j.kode_kelas, k.nama_kelas 
                                        FROM jadwal j 
                                        JOIN kelas k ON j.kode_kelas = k.kode_kelas
-                                       WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
+                                       WHERE $jadwal_asisten_clause");
 
-// Ambil mata kuliah yang pernah diajar (Fix untuk dropdown filter)
+// Ambil mata kuliah yang pernah diajar (termasuk jadwal yang digantikan)
 $mk_list = mysqli_query($conn, "SELECT DISTINCT j.kode_mk, mk.nama_mk 
                                   FROM jadwal j 
                                   JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                  WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
+                                  WHERE $jadwal_asisten_clause");
 
-// Ambil lab yang pernah diajar (Fix untuk dropdown filter)
+// Ambil lab yang pernah diajar (termasuk jadwal yang digantikan)
 $lab_list = mysqli_query($conn, "SELECT DISTINCT j.kode_lab, l.nama_lab 
                                    FROM jadwal j 
                                    JOIN lab l ON j.kode_lab = l.kode_lab
-                                   WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
+                                   WHERE $jadwal_asisten_clause");
 
 // Hitung range tanggal untuk optimasi query
 $start_date = $filter_bulan . '-01';
@@ -170,7 +187,7 @@ $stat_per_kelas = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN kelas k ON j.kode_kelas = k.kode_kelas
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -187,7 +204,7 @@ $stat_per_mk = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -204,7 +221,7 @@ $stat_per_lab = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN lab l ON j.kode_lab = l.kode_lab
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -219,7 +236,7 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim

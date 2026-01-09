@@ -1,7 +1,31 @@
 <?php
 $page = 'asisten_rekap';
 $asisten = get_asisten_login();
+
+// Validasi data asisten
+if (!$asisten) {
+    echo '<div class="alert alert-danger m-4">Data asisten tidak ditemukan. Pastikan akun Anda sudah terdaftar sebagai asisten.</div>';
+    return;
+}
+
 $kode_asisten = $asisten['kode_asisten'];
+
+// Helper clause: asisten bisa lihat jadwal sendiri ATAU jadwal yang digantikan
+// - Jadwal sendiri: kode_asisten_1 atau kode_asisten_2
+// - Jadwal asli yang diizinkan: dari absen_asisten.kode_asisten (asisten yang izin tetap bisa lihat)
+// - Jadwal pengganti: dari absen_asisten.pengganti dengan status_approval = 'approved'
+$jadwal_asisten_clause = "(
+    (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE kode_asisten = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+    OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+)";
+
+// Versi dengan alias j2 untuk subquery
+$jadwal_asisten_clause_j2 = "(
+    (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')
+    OR j2.id IN (SELECT jadwal_id FROM absen_asisten WHERE kode_asisten = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+    OR j2.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
+)";
 
 $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $filter_lab = isset($_GET['lab']) ? escape($_GET['lab']) : '';
@@ -31,7 +55,7 @@ if (isset($_GET['ajax_detail'])) {
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
                                          WHERE j.kode_kelas = '$kelas' 
-                                         AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                         AND $jadwal_asisten_clause
                                          AND j.tanggal BETWEEN '$start_date_detail' AND '$end_date_detail'
                                          $mk_condition
                                          $lab_condition
@@ -100,7 +124,7 @@ if (isset($_GET['export_detail_mhs'])) {
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
                                          WHERE j.kode_kelas = '$kelas' 
-                                         AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                         AND $jadwal_asisten_clause
                                          AND j.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp'
                                          $mk_condition
                                          $lab_condition
@@ -144,23 +168,23 @@ if (isset($_GET['export_detail_mhs'])) {
     exit;
 }
 
-// Ambil jadwal yang pernah diajar
+// Ambil jadwal yang pernah diajar (termasuk jadwal yang digantikan)
 $jadwal_diajar = mysqli_query($conn, "SELECT DISTINCT j.kode_kelas, k.nama_kelas 
                                        FROM jadwal j 
                                        JOIN kelas k ON j.kode_kelas = k.kode_kelas
-                                       WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
+                                       WHERE $jadwal_asisten_clause");
 
-// Ambil lab yang pernah diajar
+// Ambil lab yang pernah diajar (termasuk jadwal yang digantikan)
 $lab_diajar = mysqli_query($conn, "SELECT DISTINCT j.kode_lab, l.nama_lab 
                                    FROM jadwal j 
                                    JOIN lab l ON j.kode_lab = l.kode_lab
-                                   WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
+                                   WHERE $jadwal_asisten_clause");
 
-// Ambil mata kuliah yang pernah diajar
+// Ambil mata kuliah yang pernah diajar (termasuk jadwal yang digantikan)
 $mk_diajar = mysqli_query($conn, "SELECT DISTINCT j.kode_mk, mk.nama_mk 
                                   FROM jadwal j 
                                   JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                                  WHERE j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten'");
+                                  WHERE $jadwal_asisten_clause");
 
 // Pagination
 $per_page = 20;
@@ -192,8 +216,8 @@ if (isset($_GET['export'])) {
                        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                        WHERE (SELECT COUNT(*) FROM jadwal j2 
                               WHERE j2.kode_kelas = m.kode_kelas 
-                              AND (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')) > 0
-                       AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                              AND $jadwal_asisten_clause_j2) > 0
+                       AND $jadwal_asisten_clause
                        AND j.tanggal BETWEEN '$start_date' AND '$end_date' 
                        $where_kelas $where_lab $where_mk
                        AND j.jenis != 'inhall'
@@ -254,18 +278,18 @@ if (isset($_GET['export'])) {
                        SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                        SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                        SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as alpha,
+                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))) THEN 1 ELSE 0 END) as alpha,
                        SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as belum
                        FROM mahasiswa m
                        JOIN kelas k ON m.kode_kelas = k.kode_kelas
                        LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date'
-                           AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                           AND $jadwal_asisten_clause
                        LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                        LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = j.id
                        WHERE (SELECT COUNT(*) FROM jadwal j2 
                               WHERE j2.kode_kelas = m.kode_kelas 
-                              AND (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')) > 0 
+                              AND $jadwal_asisten_clause_j2) > 0 
                               $where_kelas $where_lab $where_mk
                        GROUP BY m.nim, m.nama, k.nama_kelas
                        ORDER BY k.nama_kelas, m.nama";
@@ -308,11 +332,11 @@ $count_sql = "SELECT COUNT(*) as total FROM (
                 SELECT 1
                 FROM mahasiswa m
                 JOIN kelas k ON m.kode_kelas = k.kode_kelas
-                LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND $jadwal_asisten_clause
                     AND j.tanggal BETWEEN '$start_date' AND '$end_date'
                 LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                 LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-                WHERE (SELECT COUNT(*) FROM jadwal j2 WHERE j2.kode_kelas = m.kode_kelas AND (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')) > 0
+                WHERE (SELECT COUNT(*) FROM jadwal j2 WHERE j2.kode_kelas = m.kode_kelas AND $jadwal_asisten_clause_j2) > 0
                 $where_kelas $where_lab $where_mk
                 GROUP BY m.nim
               ) as subquery";
@@ -330,19 +354,19 @@ $rekap = mysqli_query($conn, "SELECT m.nim, m.nama, k.nama_kelas, m.kode_kelas,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as alpha,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))) THEN 1 ELSE 0 END) as alpha,
                                SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as belum,
                                COUNT(DISTINCT CASE WHEN j.jenis != 'inhall' AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN j.id END) as total_pertemuan
                                FROM mahasiswa m
                                JOIN kelas k ON m.kode_kelas = k.kode_kelas
                                LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date'
-                                   AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                   AND $jadwal_asisten_clause
                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = j.id
                                WHERE (SELECT COUNT(*) FROM jadwal j2 
                                       WHERE j2.kode_kelas = m.kode_kelas 
-                                      AND (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')) > 0 
+                                      AND $jadwal_asisten_clause_j2) > 0 
                                       $where_kelas $where_lab $where_mk
                                GROUP BY m.nim, m.nama, k.nama_kelas, m.kode_kelas
                                ORDER BY k.nama_kelas, m.nama
@@ -354,18 +378,18 @@ $rekap_print = mysqli_query($conn, "SELECT m.nim, m.nama, k.nama_kelas,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as alpha,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))) THEN 1 ELSE 0 END) as alpha,
                                SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) THEN 1 ELSE 0 END) as belum
                                FROM mahasiswa m
                                JOIN kelas k ON m.kode_kelas = k.kode_kelas
                                LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date'
-                                   AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                   AND $jadwal_asisten_clause
                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = j.id
                                WHERE (SELECT COUNT(*) FROM jadwal j2 
                                       WHERE j2.kode_kelas = m.kode_kelas 
-                                      AND (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')) > 0 
+                                      AND $jadwal_asisten_clause_j2) > 0 
                                       $where_kelas $where_lab $where_mk
                                GROUP BY m.nim, m.nama, k.nama_kelas
                                ORDER BY k.nama_kelas, m.nama");
@@ -382,8 +406,8 @@ $detail_print_sql = "SELECT m.nim, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam
                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                WHERE (SELECT COUNT(*) FROM jadwal j2 
                       WHERE j2.kode_kelas = m.kode_kelas 
-                      AND (j2.kode_asisten_1 = '$kode_asisten' OR j2.kode_asisten_2 = '$kode_asisten')) > 0 
-               AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                      AND $jadwal_asisten_clause_j2) > 0 
+               AND $jadwal_asisten_clause
                AND j.tanggal BETWEEN '$start_date' AND '$end_date' 
                $where_kelas $where_lab $where_mk
                AND j.jenis != 'inhall'

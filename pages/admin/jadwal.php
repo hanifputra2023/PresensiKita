@@ -306,7 +306,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 foreach ($jadwal_temp as $jt) {
                     $stmt_gen = mysqli_prepare($conn, "INSERT INTO jadwal (pertemuan_ke, tanggal, jam_mulai, jam_selesai, kode_lab, kode_kelas, kode_mk, materi, jenis, kode_asisten_1, kode_asisten_2) 
                                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    mysqli_stmt_bind_param($stmt_gen, "isssssssss", $jt['pertemuan'], $jt['tanggal'], $jt['jam_mulai'], $jt['jam_selesai'], $jt['kode_lab'], $kelas, $mk, $jt['materi'], $jt['jenis'], $asisten1, $asisten2);
+                    mysqli_stmt_bind_param($stmt_gen, "issssssssss", $jt['pertemuan'], $jt['tanggal'], $jt['jam_mulai'], $jt['jam_selesai'], $jt['kode_lab'], $kelas, $mk, $jt['materi'], $jt['jenis'], $asisten1, $asisten2);
                     $q = mysqli_stmt_execute($stmt_gen);
                     if (!$q) throw new Exception("Gagal menyimpan jadwal ke database.");
                 }

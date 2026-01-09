@@ -1,6 +1,13 @@
 <?php
 $page = 'asisten_pengajuan_izin';
 $asisten = get_asisten_login();
+
+// Validasi data asisten
+if (!$asisten) {
+    echo '<div class="alert alert-danger m-4">Data asisten tidak ditemukan. Pastikan akun Anda sudah terdaftar sebagai asisten.</div>';
+    return;
+}
+
 $kode_asisten = $asisten['kode_asisten'];
 
 // Ambil daftar asisten lain untuk pengganti - prepared statement
