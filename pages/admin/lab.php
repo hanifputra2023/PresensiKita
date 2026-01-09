@@ -75,6 +75,22 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             mysqli_stmt_bind_param($stmt_del, "i", $id);
             mysqli_stmt_execute($stmt_del);
             set_alert('success', 'Lab berhasil dihapus!');
+        
+        } elseif ($aksi == 'hapus_banyak') {
+            if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+                $ids = $_POST['ids'];
+                $success_count = 0;
+                
+                $stmt_del = mysqli_prepare($conn, "DELETE FROM lab WHERE id = ?");
+                foreach ($ids as $id) {
+                    $safe_id = (int)$id;
+                    mysqli_stmt_bind_param($stmt_del, "i", $safe_id);
+                    if(mysqli_stmt_execute($stmt_del)){
+                        $success_count++;
+                    }
+                }
+                set_alert('success', $success_count . ' Lab berhasil dihapus!');
+            }
         }
         
         mysqli_commit($conn);
@@ -83,8 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         mysqli_rollback($conn);
         set_alert('danger', 'Terjadi kesalahan: ' . $e->getMessage());
     }
-    
-    header("Location: index.php?page=admin_lab");
+
+    echo "<script>window.location.href='index.php?page=admin_lab';</script>";
     exit;
 }
 
@@ -147,7 +163,12 @@ if (isset($_GET['ajax_search'])) {
         <?php if (mysqli_num_rows($labs) > 0): ?>
             <?php while ($l = mysqli_fetch_assoc($labs)): ?>
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card h-100 lab-card">
+                    <div class="card h-100 lab-card position-relative" id="card-<?= $l['id'] ?>">
+                        <div class="card-select-overlay">
+                            <input type="checkbox" class="form-check-input item-checkbox" 
+                                   value="<?= $l['id'] ?>" 
+                                   onchange="toggleSelection('<?= $l['id'] ?>')">
+                        </div>
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <div>
@@ -163,13 +184,11 @@ if (isset($_GET['ajax_search'])) {
                             <p class="text-muted mb-2"><i class="fas fa-book me-2"></i><?= htmlspecialchars($l['daftar_mata_kuliah'] ?: 'Belum diset') ?></p>
                             
                             <div class="mt-auto action-buttons">
-                                <?php
-                                $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk'] ?? ''));
-                                ?>
+                                <?php $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk'] ?? '')); ?>
                                 <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['latitude'] ?: 0 ?>', '<?= $l['longitude'] ?: 0 ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="hapusLab(<?= $l['id'] ?>)">
+                                <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $l['id'] ?>)">
                                     <i class="fas fa-trash me-1"></i>Hapus
                                 </button>
                             </div>
@@ -178,12 +197,7 @@ if (isset($_GET['ajax_search'])) {
                 </div>
             <?php endwhile; ?>
         <?php else: ?>
-            <div class="col-12">
-                <div class="alert alert-info text-center">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Data laboratorium tidak ditemukan.
-                </div>
-            </div>
+            <div class="col-12"><div class="alert alert-info text-center"><i class="fas fa-info-circle me-2"></i>Data laboratorium tidak ditemukan.</div></div>
         <?php endif; ?>
     </div>
     
@@ -202,47 +216,103 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 <?php include 'includes/header.php'; ?>
 
 <style>
-    .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
+    /* Styling Dasar Layout */
+    .page-header { border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .page-header h4 { font-weight: 700; color: var(--text-main); }
+    .page-header h4 i { color: var(--primary-color); }
+    
+    /* Card Styling & Selection */
+    .lab-card { transition: all 0.2s; border: 1px solid var(--border-color); background-color: var(--bg-card); }
+    .lab-card .card-title { font-weight: 600; color: var(--text-main); }
+    
+    .lab-card.selected { 
+        border-color: var(--primary-color); 
+        background-color: rgba(0, 102, 204, 0.05); 
+        box-shadow: 0 0 0 1px var(--primary-color);
     }
-    .page-header h4 {
-        font-weight: 700;
-        color: var(--text-main);
+    [data-theme="dark"] .lab-card.selected { background-color: rgba(0, 102, 204, 0.15); }
+
+    .card-select-overlay { 
+        position: absolute; top: 15px; left: 15px; z-index: 5; 
+        display: none; opacity: 0; transition: opacity 0.3s ease;
     }
-    .page-header h4 i {
-        color: var(--primary-color);
+    .select-mode .card-select-overlay { display: block; opacity: 1; }
+    
+    .item-checkbox { 
+        width: 22px; height: 22px; cursor: pointer; 
+        border: 2px solid var(--text-muted); border-radius: 50%;
+        -webkit-appearance: none; appearance: none;
+        transition: background-color 0.2s, border-color 0.2s; position: relative;
     }
-    .lab-card {
-        transition: all 0.3s ease;
-        border: none;
-        box-shadow: var(--card-shadow);
+    .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
+    .item-checkbox:checked::after {
+        content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900;
+        color: white; font-size: 12px; position: absolute;
+        top: 50%; left: 50%; transform: translate(-50%, -50%);
     }
-    .lab-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 2rem 0 rgba(0, 0, 0, 0.15);
-    }
-    .lab-card .card-title {
-        font-weight: 600;
-        color: var(--text-main);
-    }
+
+    /* Padding Card Body saat Select Mode agar tidak tertimpa Checkbox */
+    .lab-card .card-body { padding-top: 1.5rem; transition: padding-top 0.3s ease; }
+    .select-mode .lab-card .card-body { padding-top: 3.5rem; }
+
     .lab-card .action-buttons {
-        display: flex;
-        gap: 0.5rem;
-        margin-top: 1rem;
+        display: flex; gap: 0.5rem; margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 1rem;
+    }
+    .lab-card .action-buttons .btn { flex-grow: 1; }
+
+    /* Sticky Bottom Bar untuk Bulk Action */
+    #bulkActionBar {
+        position: fixed; bottom: -100px; left: 0; right: 0;
+        background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+        padding: 15px 30px; z-index: 1000;
+        transition: bottom 0.3s ease-in-out;
+        display: flex; justify-content: space-between; align-items: center;
         border-top: 1px solid var(--border-color);
-        padding-top: 1rem;
     }
-    .lab-card .action-buttons .btn {
-        flex-grow: 1;
+    #bulkActionBar.show { bottom: 0; }
+    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
+    
+    /* Penyesuaian agar konten tidak tertutup bar */
+    body { padding-bottom: 80px; } 
+
+    /* SLIDER CONFIRM STYLE */
+    .slider-container {
+        position: relative; width: 100%; height: 55px;
+        background: #f0f2f5; border-radius: 30px;
+        user-select: none; overflow: hidden;
+        box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
     }
-    .modal-header {
-        background: var(--banner-gradient);
-        color: #fff;
+    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
+
+    .slider-text {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 600; color: #888; font-size: 14px;
+        text-transform: uppercase; letter-spacing: 1px;
+        z-index: 1; pointer-events: none; transition: opacity 0.3s;
     }
-    @media (max-width: 575.98px) {
-        .content-wrapper.p-4 { padding: 1.25rem 1rem !important; }
+    [data-theme="dark"] .slider-text { color: var(--text-muted); }
+
+    .slider-handle {
+        position: absolute; top: 5px; left: 5px;
+        width: 45px; height: 45px;
+        background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        transition: transform 0.1s;
+    }
+    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
+    .slider-progress {
+        position: absolute; top: 0; left: 0; height: 100%;
+        background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0;
+    }
+    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
+    .slider-container.unlocked .slider-text { opacity: 0; }
+
+    @media (max-width: 576px) {
+        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
+        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
+        #bulkActionBar button { flex: 1; }
     }
 </style>
 
@@ -266,80 +336,93 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                 
                 <div class="card mb-4">
                     <div class="card-body">
-                        <form method="GET" class="row g-3">
+                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
                             <input type="hidden" name="page" value="admin_lab">
                             <div class="col-12 col-md">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
-                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari nama lab, kode, atau lokasi..." value="<?= htmlspecialchars($search) ?>">
-                                </div>
+                                <label for="searchInput" class="form-label small">Cari Nama/Kode Lab</label>
+                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
                             </div>
-                            <div class="col-12 col-md-auto">
-                                <button type="submit" class="btn btn-primary w-100 px-4"><i class="fas fa-search me-2"></i>Cari</button>
+                            <div class="col-12 col-md-auto d-flex align-items-end justify-content-start justify-content-md-end gap-2">
+                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
+                                    <i class="fas fa-check-square me-1"></i> Pilih
+                                </button>
+                                <div class="form-check d-none align-items-center mb-2" id="selectAllContainer">
+                                    <input class="form-check-input item-checkbox" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll">Semua</label>
+                                </div>
                             </div>
                         </form>
                     </div>
                 </div>
 
                 <div id="labContainer">
-                <div class="row">
-                    <?php if (mysqli_num_rows($labs) > 0): ?>
-                        <?php while ($l = mysqli_fetch_assoc($labs)): ?>
-                            <div class="col-lg-4 col-md-6 mb-4">
-                                <div class="card h-100 lab-card">
-                                    <div class="card-body d-flex flex-column">
-                                        <div class="d-flex justify-content-between align-items-start mb-3">
-                                            <div>
-                                                <span class="badge bg-primary mb-2"><?= htmlspecialchars($l['kode_lab']) ?></span>
-                                                <h5 class="card-title mb-1"><?= htmlspecialchars($l['nama_lab']) ?></h5>
-                                            </div>
-                                            <span class="badge <?= $l['status'] == 'active' ? 'bg-success' : 'bg-warning' ?> text-capitalize">
-                                                <?= htmlspecialchars($l['status']) ?>
-                                            </span>
+                    <div class="row">
+                        <?php if (mysqli_num_rows($labs) > 0): ?>
+                            <?php while ($l = mysqli_fetch_assoc($labs)): ?>
+                                <div class="col-lg-4 col-md-6 mb-4">
+                                    <div class="card h-100 lab-card position-relative" id="card-<?= $l['id'] ?>">
+                                        <div class="card-select-overlay">
+                                            <input type="checkbox" class="form-check-input item-checkbox" 
+                                                   value="<?= $l['id'] ?>" 
+                                                   onchange="toggleSelection('<?= $l['id'] ?>')">
                                         </div>
-                                        <p class="text-muted mb-2"><i class="fas fa-map-marker-alt me-2"></i><?= htmlspecialchars($l['lokasi']) ?></p>
-                                        <p class="text-muted mb-2"><i class="fas fa-users me-2"></i>Kapasitas: <?= htmlspecialchars($l['kapasitas']) ?> orang</p>
-                                        <p class="text-muted mb-2"><i class="fas fa-book me-2"></i><?= htmlspecialchars($l['daftar_mata_kuliah'] ?: 'Belum diset') ?></p>
-                                        
-                                        <div class="mt-auto action-buttons">
-                                            <?php
-                                            $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk'] ?? ''));
-                                            ?>
-                                            <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['latitude'] ?: 0 ?>', '<?= $l['longitude'] ?: 0 ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
-                                                <i class="fas fa-edit me-1"></i>Edit
-                                            </button>
-                                            <button class="btn btn-sm btn-danger" onclick="hapusLab(<?= $l['id'] ?>)">
-                                                <i class="fas fa-trash me-1"></i>Hapus
-                                            </button>
+                                        <div class="card-body d-flex flex-column">
+                                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                                <div>
+                                                    <span class="badge bg-primary mb-2"><?= htmlspecialchars($l['kode_lab']) ?></span>
+                                                    <h5 class="card-title mb-1"><?= htmlspecialchars($l['nama_lab']) ?></h5>
+                                                </div>
+                                                <span class="badge <?= $l['status'] == 'active' ? 'bg-success' : 'bg-warning' ?> text-capitalize">
+                                                    <?= htmlspecialchars($l['status']) ?>
+                                                </span>
+                                            </div>
+                                            <p class="text-muted mb-2"><i class="fas fa-map-marker-alt me-2"></i><?= htmlspecialchars($l['lokasi']) ?></p>
+                                            <p class="text-muted mb-2"><i class="fas fa-users me-2"></i>Kapasitas: <?= htmlspecialchars($l['kapasitas']) ?> orang</p>
+                                            <p class="text-muted mb-2"><i class="fas fa-book me-2"></i><?= htmlspecialchars($l['daftar_mata_kuliah'] ?: 'Belum diset') ?></p>
+                                            
+                                            <div class="mt-auto action-buttons">
+                                                <?php $daftar_kode_mk_json = json_encode(explode(',', $l['daftar_kode_mk'] ?? '')); ?>
+                                                <button class="btn btn-sm btn-warning" onclick="editLab(<?= $l['id'] ?>, '<?= htmlspecialchars($l['nama_lab'], ENT_QUOTES) ?>', <?= $l['kapasitas'] ?>, '<?= htmlspecialchars($l['lokasi'], ENT_QUOTES) ?>', '<?= $l['latitude'] ?: 0 ?>', '<?= $l['longitude'] ?: 0 ?>', '<?= $l['status'] ?>', <?= htmlspecialchars($daftar_kode_mk_json, ENT_QUOTES) ?>)">
+                                                    <i class="fas fa-edit me-1"></i> Edit
+                                                </button>
+                                                <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $l['id'] ?>)">
+                                                    <i class="fas fa-trash me-1"></i> Hapus
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        <?php endwhile; ?>
-                    <?php else: ?>
-                        <div class="col-12">
-                            <div class="alert alert-info text-center">
-                                <i class="fas fa-info-circle me-2"></i>
-                                Belum ada data laboratorium. Silakan tambahkan lab baru.
-                            </div>
-                        </div>
+                            <?php endwhile; ?>
+                        <?php else: ?>
+                            <div class="col-12"><div class="alert alert-info text-center"><i class="fas fa-info-circle me-2"></i>Belum ada data laboratorium.</div></div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php if ($total_data > 0): ?>
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+                        <?= render_pagination_info($current_page, $per_page, $total_data) ?>
+                        <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_lab', ['search' => $search]) ?>
+                    </div>
                     <?php endif; ?>
-                </div>
-                
-                <!-- Pagination -->
-                <?php if ($total_data > 0): ?>
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
-                    <?= render_pagination_info($current_page, $per_page, $total_data) ?>
-                    <?= render_pagination($current_page, $total_pages, 'index.php?page=admin_lab', ['search' => $search]) ?>
-                </div>
-                <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Modal Tambah -->
+<div id="bulkActionBar">
+    <div class="d-flex align-items-center">
+        <span class="badge bg-primary me-2" style="font-size: 1rem;"><span id="selectedCount">0</span></span>
+        <span class="text-dark fw-bold">Lab Dipilih</span>
+    </div>
+    <div>
+        <button class="btn btn-secondary me-2" onclick="toggleSelectMode()">Batal</button>
+        <button class="btn btn-danger" onclick="confirmSlideDelete('bulk')">
+            <i class="fas fa-trash-alt me-2"></i>Hapus Terpilih
+        </button>
+    </div>
+</div>
+
 <div class="modal fade" id="modalTambah" tabindex="-1" aria-labelledby="modalTambahLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -372,12 +455,10 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                             <input type="text" id="tambah_koordinat" class="form-control" placeholder="Paste koordinat dari Google Maps di sini" oninput="handleCoordinatePaste('tambah_koordinat', 'tambah_latitude', 'tambah_longitude')" required>
                             <a href="https://www.google.com/maps" target="_blank" class="btn btn-outline-secondary" title="Buka Google Maps"><i class="fas fa-map-marked-alt"></i></a>
                         </div>
-                        <!-- Hidden inputs to store the split values -->
                         <input type="hidden" name="latitude" id="tambah_latitude">
                         <input type="hidden" name="longitude" id="tambah_longitude">
                         <small class="text-muted" style="font-size: 0.75rem;">
                             <i class="fas fa-info-circle me-1"></i>Cara ambil: Buka Google Maps > Klik kanan lokasi Lab > Klik angka koordinat paling atas untuk copy.
-                            <br>Paste hasilnya ke sini (format: latitude, longitude).
                         </small>
                     </div>
                     <div class="mb-3">
@@ -390,10 +471,7 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                     <div class="mb-3">
                         <label class="form-label">Matakuliah yang Diizinkan</label>
                         <div class="border rounded p-2" style="height: 150px; overflow-y: auto;">
-                            <?php 
-                            mysqli_data_seek($mk_list, 0);
-                            while ($mk = mysqli_fetch_assoc($mk_list)): 
-                            ?>
+                            <?php mysqli_data_seek($mk_list, 0); while ($mk = mysqli_fetch_assoc($mk_list)): ?>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="kode_mk[]" value="<?= $mk['kode_mk'] ?>" id="tambah_mk_<?= $mk['kode_mk'] ?>">
                                 <label class="form-check-label" for="tambah_mk_<?= $mk['kode_mk'] ?>">
@@ -413,7 +491,6 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
     </div>
 </div>
 
-<!-- Modal Edit -->
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-labelledby="modalEditLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -443,12 +520,8 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                             <input type="text" id="edit_koordinat" class="form-control" placeholder="Paste koordinat dari Google Maps di sini" oninput="handleCoordinatePaste('edit_koordinat', 'edit_latitude_hidden', 'edit_longitude_hidden')" required>
                             <a href="https://www.google.com/maps" target="_blank" class="btn btn-outline-secondary" title="Buka Google Maps"><i class="fas fa-map-marked-alt"></i></a>
                         </div>
-                        <!-- Hidden inputs to store the split values -->
                         <input type="hidden" name="latitude" id="edit_latitude_hidden">
                         <input type="hidden" name="longitude" id="edit_longitude_hidden">
-                        <small class="text-muted" style="font-size: 0.75rem;">
-                            Klik kanan di Google Maps pada lokasi lab untuk menyalin koordinat.
-                        </small>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Status</label>
@@ -460,10 +533,7 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                     <div class="mb-3">
                         <label class="form-label">Matakuliah yang Diizinkan</label>
                         <div id="edit_kode_mk_container" class="border rounded p-2" style="height: 150px; overflow-y: auto;">
-                            <?php 
-                            mysqli_data_seek($mk_list, 0);
-                            while ($mk = mysqli_fetch_assoc($mk_list)): 
-                            ?>
+                            <?php mysqli_data_seek($mk_list, 0); while ($mk = mysqli_fetch_assoc($mk_list)): ?>
                             <div class="form-check">
                                 <input class="form-check-input" type="checkbox" name="kode_mk[]" value="<?= $mk['kode_mk'] ?>" id="edit_mk_<?= $mk['kode_mk'] ?>">
                                 <label class="form-check-label" for="edit_mk_<?= $mk['kode_mk'] ?>">
@@ -483,12 +553,129 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
     </div>
 </div>
 
-<form id="formHapus" method="POST" class="d-none">
+<div class="modal fade" id="modalSlideConfirm" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="mb-3 text-danger"><i class="fas fa-exclamation-triangle fa-3x"></i></div>
+                <h4 class="fw-bold text-danger mb-2">Konfirmasi Hapus</h4>
+                <p class="text-muted mb-4" id="slideConfirmMsg">Apakah Anda yakin? Data yang dihapus tidak dapat dikembalikan.</p>
+                
+                <div class="slider-container" id="deleteSlider">
+                    <div class="slider-progress" id="sliderProgress"></div>
+                    <div class="slider-text">GESER UNTUK MENGHAPUS >></div>
+                    <div class="slider-handle" id="sliderHandle"><i class="fas fa-trash"></i></div>
+                </div>
+                <button type="button" class="btn btn-link text-muted mt-3 text-decoration-none" data-bs-dismiss="modal" id="btnCancelSlide">Batal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="formHapusSingle" method="POST" class="d-none">
     <input type="hidden" name="aksi" value="hapus">
-    <input type="hidden" name="id" id="hapus_id">
+    <input type="hidden" name="id" id="hapus_id_single">
+</form>
+
+<form id="formHapusBulk" method="POST" class="d-none">
+    <input type="hidden" name="aksi" value="hapus_banyak">
+    <div id="bulkInputs"></div>
 </form>
 
 <script>
+// --- LOGIKA SELEKSI (CHECKBOX) - Diadaptasi dari kelas.php ---
+let selectedItems = new Set();
+let isSelectMode = false;
+
+function toggleSelectMode() {
+    isSelectMode = !isSelectMode;
+    const container = document.getElementById('labContainer');
+    const btn = document.getElementById('btnSelectMode');
+    const selectAllContainer = document.getElementById('selectAllContainer');
+    
+    if (isSelectMode) {
+        container.classList.add('select-mode');
+        btn.classList.replace('btn-outline-secondary', 'btn-secondary');
+        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
+        selectAllContainer.classList.remove('d-none');
+        selectAllContainer.classList.add('d-flex');
+    } else {
+        container.classList.remove('select-mode');
+        btn.classList.replace('btn-secondary', 'btn-outline-secondary');
+        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Pilih';
+        selectAllContainer.classList.add('d-none');
+        selectAllContainer.classList.remove('d-flex');
+        
+        // Reset selection
+        selectedItems.clear();
+        document.getElementById('selectAll').checked = false;
+        document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false);
+        document.querySelectorAll('.lab-card').forEach(c => c.classList.remove('selected'));
+        updateBulkUI();
+    }
+}
+
+function toggleSelection(id) {
+    const card = document.getElementById('card-' + id);
+    const checkbox = card.querySelector('.item-checkbox');
+    
+    // Pastikan ID diperlakukan sebagai string agar konsisten dengan Set
+    const idStr = String(id);
+    
+    if (checkbox.checked) {
+        selectedItems.add(idStr);
+        card.classList.add('selected');
+    } else {
+        selectedItems.delete(idStr);
+        card.classList.remove('selected');
+    }
+    updateBulkUI();
+}
+
+function toggleSelectAll() {
+    const masterCheck = document.getElementById('selectAll');
+    const isChecked = masterCheck.checked;
+    const itemCheckboxes = document.querySelectorAll('#labContainer .item-checkbox');
+
+    itemCheckboxes.forEach(cb => {
+        const id = String(cb.value);
+        const card = document.getElementById('card-' + id);
+
+        if (cb.checked !== isChecked) {
+            cb.checked = isChecked;
+            if (isChecked) {
+                selectedItems.add(id);
+                card.classList.add('selected');
+            } else {
+                selectedItems.delete(id);
+                card.classList.remove('selected');
+            }
+        }
+    });
+    updateBulkUI();
+}
+
+function updateBulkUI() {
+    const bar = document.getElementById('bulkActionBar');
+    const countSpan = document.getElementById('selectedCount');
+    const masterCheck = document.getElementById('selectAll');
+    const itemCheckboxes = document.querySelectorAll('#labContainer .item-checkbox');
+    
+    countSpan.innerText = selectedItems.size;
+    
+    if (selectedItems.size > 0) {
+        bar.classList.add('show');
+        if (itemCheckboxes.length > 0 && selectedItems.size === itemCheckboxes.length) {
+            masterCheck.checked = true;
+        } else {
+            masterCheck.checked = false;
+        }
+    } else {
+        bar.classList.remove('show');
+    }
+}
+
+// --- LOGIKA EDIT LAB ---
 function editLab(id, nama, kapasitas, lokasi, lat, long, status, daftar_kode_mk) {
     document.getElementById('edit_id').value = id;
     document.getElementById('edit_nama').value = nama;
@@ -496,57 +683,121 @@ function editLab(id, nama, kapasitas, lokasi, lat, long, status, daftar_kode_mk)
     document.getElementById('edit_lokasi').value = lokasi;
     document.getElementById('edit_status').value = status;    
 
-    // [FIX] Populate the new coordinate fields
     const latVal = lat || 0;
     const longVal = long || 0;
     document.getElementById('edit_koordinat').value = latVal + ', ' + longVal;
     document.getElementById('edit_latitude_hidden').value = latVal;
     document.getElementById('edit_longitude_hidden').value = longVal;
 
-    // Filter out potential empty string from GROUP_CONCAT if no MK is associated
     const kode_mk_values = Array.isArray(daftar_kode_mk) ? daftar_kode_mk.filter(Boolean) : [];
     
-    // Reset all checkboxes first
     const checkboxes = document.querySelectorAll('#edit_kode_mk_container .form-check-input');
-    checkboxes.forEach(cb => {
-        cb.checked = false;
-    });
+    checkboxes.forEach(cb => { cb.checked = false; });
 
-    // Check the ones that are in the daftar_kode_mk array
     kode_mk_values.forEach(kode_mk => {
         const checkbox = document.getElementById('edit_mk_' + kode_mk);
-        if (checkbox) {
-            checkbox.checked = true;
-        }
+        if (checkbox) { checkbox.checked = true; }
     });
     
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 
-function hapusLab(id) {
-    if (confirm('Yakin ingin menghapus lab ini?')) {
-        document.getElementById('hapus_id').value = id;
-        document.getElementById('formHapus').submit();
+// --- LOGIKA SLIDE TO CONFIRM ---
+let deleteType = ''; 
+let deleteTargetId = ''; 
+
+function confirmSlideDelete(type, id = null) {
+    deleteType = type;
+    deleteTargetId = id;
+    
+    const modal = new bootstrap.Modal(document.getElementById('modalSlideConfirm'));
+    const msg = document.getElementById('slideConfirmMsg');
+    
+    if (type === 'bulk') {
+        msg.innerHTML = `Anda akan menghapus <b>${selectedItems.size} lab</b> terpilih.<br>Aksi ini tidak dapat dibatalkan.`;
+    } else {
+        msg.innerHTML = `Anda akan menghapus Lab ID <b>#${id}</b>.<br>Aksi ini tidak dapat dibatalkan.`;
     }
+    
+    resetSlider();
+    modal.show();
 }
 
-// [BARU] Fungsi untuk auto-split koordinat
+const sliderContainer = document.getElementById('deleteSlider');
+const sliderHandle = document.getElementById('sliderHandle');
+const sliderProgress = document.getElementById('sliderProgress');
+let isDragging = false;
+
+sliderHandle.addEventListener('mousedown', startDrag);
+sliderHandle.addEventListener('touchstart', startDrag);
+document.addEventListener('mouseup', endDrag);
+document.addEventListener('touchend', endDrag);
+document.addEventListener('mousemove', drag);
+document.addEventListener('touchmove', drag);
+
+function startDrag(e) { isDragging = true; }
+function drag(e) {
+    if (!isDragging) return;
+    let clientX = e.clientX || e.touches[0].clientX;
+    let rect = sliderContainer.getBoundingClientRect();
+    let x = clientX - rect.left - (sliderHandle.offsetWidth / 2);
+    let max = rect.width - sliderHandle.offsetWidth;
+    if (x < 0) x = 0; if (x > max) x = max;
+    sliderHandle.style.left = x + 'px';
+    sliderProgress.style.width = (x + 20) + 'px';
+    if (x >= max * 0.95) {
+        isDragging = false;
+        sliderContainer.classList.add('unlocked');
+        sliderHandle.style.left = max + 'px';
+        sliderProgress.style.width = '100%';
+        performDelete();
+    }
+}
+function endDrag() {
+    if (!isDragging) return; isDragging = false;
+    if (!sliderContainer.classList.contains('unlocked')) {
+        sliderHandle.style.left = '5px'; sliderProgress.style.width = '0';
+    }
+}
+function resetSlider() {
+    sliderContainer.classList.remove('unlocked');
+    sliderHandle.style.left = '5px'; sliderProgress.style.width = '0';
+    document.querySelector('.slider-text').style.opacity = '1';
+}
+
+function performDelete() {
+    setTimeout(() => {
+        if (deleteType === 'single') {
+            document.getElementById('hapus_id_single').value = deleteTargetId;
+            document.getElementById('formHapusSingle').submit();
+        } else if (deleteType === 'bulk') {
+            const container = document.getElementById('bulkInputs');
+            container.innerHTML = '';
+            selectedItems.forEach(id => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ids[]';
+                input.value = id;
+                container.appendChild(input);
+            });
+            document.getElementById('formHapusBulk').submit();
+        }
+    }, 300);
+}
+
 function handleCoordinatePaste(sourceId, latTargetId, lonTargetId) {
     const sourceInput = document.getElementById(sourceId);
     const latInput = document.getElementById(latTargetId);
     const lonInput = document.getElementById(lonTargetId);
-    
     const value = sourceInput.value;
     if (value.includes(',')) {
         const parts = value.split(',');
-        const lat = parts[0].trim();
-        const lon = parts[1].trim();
-        latInput.value = lat;
-        lonInput.value = lon;
+        latInput.value = parts[0].trim();
+        lonInput.value = parts[1].trim();
     }
 }
 
-// Live Search
+// Live Search with State Persistence
 let searchTimeout = null;
 document.getElementById('searchInput').addEventListener('input', function() {
     clearTimeout(searchTimeout);
@@ -558,6 +809,18 @@ document.getElementById('searchInput').addEventListener('input', function() {
             .then(response => response.text())
             .then(html => {
                 container.innerHTML = html;
+                // Re-apply selection states
+                selectedItems.forEach(id => {
+                    const checkbox = container.querySelector(`.item-checkbox[value="${id}"]`);
+                    if (checkbox) checkbox.checked = true;
+                    const card = document.getElementById('card-' + id);
+                    if(card) card.classList.add('selected');
+                });
+                // Re-apply Select Mode Layout
+                if (isSelectMode) {
+                    container.classList.add('select-mode');
+                }
+                updateBulkUI();
             })
             .catch(error => console.error('Error:', error));
     }, 300);

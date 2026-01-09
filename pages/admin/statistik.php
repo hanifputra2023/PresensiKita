@@ -100,46 +100,7 @@ while ($row = mysqli_fetch_assoc($q_data)) {
 mysqli_data_seek($q_data, 0); // Reset pointer agar bisa diloop ulang di tabel
 
 // 4. Handle Export Excel (CSV)
-if (isset($_GET['export'])) {
-    if (ob_get_length()) ob_end_clean();
-    
-    $filename = 'statistik_presensi_admin_' . $view . '_' . date('Y-m-d_His') . '.csv';
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename=' . $filename);
-    echo chr(0xEF) . chr(0xBB) . chr(0xBF); // BOM
 
-    // Header CSV
-    if ($view == 'kelas') {
-        echo "No;Kelas;Jumlah Mahasiswa;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
-    } elseif ($view == 'mk') {
-        echo "No;Mata Kuliah;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
-    } else {
-        echo "No;Lab;Jumlah Kelas;Total Jadwal;Hadir;Izin;Sakit;Alpha;Total Presensi;Persentase Kehadiran\n";
-    }
-
-    $no = 1;
-    while ($row = mysqli_fetch_assoc($q_data)) {
-        $total = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
-        $persen = $total > 0 ? round(($row['hadir'] / $total) * 100) : 0;
-        
-        $name = '';
-        $col3 = '';
-        if ($view == 'kelas') {
-            $name = $row['nama_kelas'];
-            $col3 = $row['jumlah_mhs'];
-        } elseif ($view == 'mk') {
-            $name = $row['nama_mk'];
-            $col3 = $row['jumlah_kelas'];
-        } else {
-            $name = $row['nama_lab'];
-            $col3 = $row['jumlah_kelas'];
-        }
-
-        echo "$no;$name;$col3;{$row['total_jadwal']};{$row['hadir']};{$row['izin']};{$row['sakit']};{$row['alpha']};$total;{$persen}%\n";
-        $no++;
-    }
-    exit;
-}
 
 // ============ TOTAL KESELURUHAN ============
 $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT 
@@ -782,9 +743,9 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                             <p class="subtitle">Analisis data kehadiran per kelas, mata kuliah, dan lab</p>
                         </div>
                         <div class="d-flex gap-2 flex-wrap">
-                            <a href="index.php?page=admin_statistik&export=1&view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" class="btn btn-success">
-                                <i class="fas fa-file-excel me-2"></i>Export Excel
-                            </a>
+<a href="pages/admin/export_statistik.php?view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" target="_blank" class="btn btn-success">
+    <i class="fas fa-file-excel me-2"></i>Export Excel
+</a>
                             <button class="btn btn-danger" onclick="exportPDF()">
                                 <i class="fas fa-file-pdf me-2"></i>Export PDF
                             </button>

@@ -14,6 +14,6 @@ if (isset($_COOKIE['remember_token'])) {
 }
 
 session_destroy();
-header("Location: index.php?page=login");
+echo "<script>window.location.href='index.php?page=login';</script>";
 exit;
 ?>

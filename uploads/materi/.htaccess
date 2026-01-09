@@ -1,0 +1,5 @@
+# Deny all script execution
+<FilesMatch "\.(php|phtml|php3|php4|php5|phps|cgi|pl|py|jsp|asp|aspx|sh|bat)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
