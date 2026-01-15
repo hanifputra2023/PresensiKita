@@ -203,60 +203,68 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Card Selection Styles */
-    .user-card { transition: all 0.2s; border: 1px solid var(--border-color); }
-    .user-card.selected { border-color: var(--primary-color); background-color: rgba(0, 102, 204, 0.05); box-shadow: 0 0 0 1px var(--primary-color); }
-    [data-theme="dark"] .user-card.selected { background-color: rgba(0, 102, 204, 0.15); }
-    .card-select-overlay { position: absolute; top: 10px; left: 10px; z-index: 5; display: none; opacity: 0; transition: opacity 0.3s; }
-    .select-mode .card-select-overlay { display: block; opacity: 1; }
-    .user-card .card-body { transition: padding-top 0.3s; }
-    .select-mode .user-card .card-body { padding-top: 2.5rem; }
-    .item-checkbox { width: 22px; height: 22px; cursor: pointer; border: 2px solid var(--text-muted); border-radius: 50%; }
-    .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
-
-    /* Bulk Action Bar */
-    #bulkActionBar { position: fixed; bottom: -100px; left: 0; right: 0; background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 15px 30px; z-index: 1000; transition: bottom 0.3s ease-in-out; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
-    body { padding-bottom: 80px; }
-    
-    /* Slider Confirm */
-    .slider-container { position: relative; width: 100%; height: 55px; background: #f0f2f5; border-radius: 30px; user-select: none; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
-    .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
-    .slider-handle { position: absolute; top: 5px; left: 5px; width: 45px; height: 45px; background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
-    @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+    :root {
+        --card-bg: #ffffff;
+        --card-border: #e8e8e8;
+        --text-main: #2c3e50;
+        --text-secondary: #6c757d;
+        --text-muted: #95a5a6;
+        --input-bg: #ffffff;
+        --divider: #f0f0f0;
+        --hover-bg: rgba(0, 102, 204, 0.03);
     }
-
+    
+    [data-theme="dark"] {
+        --card-bg: #1e293b;
+        --card-border: #334155;
+        --text-main: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --input-bg: #0f172a;
+        --divider: #334155;
+        --hover-bg: rgba(0, 153, 255, 0.1);
+    }
+    
     .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--card-border);
+        padding-bottom: 1.25rem;
+        margin-bottom: 2rem;
     }
     .page-header h4 {
-        font-weight: 700;
+        font-weight: 600;
         color: var(--text-main);
+        font-size: 1.5rem;
+        margin: 0;
     }
     .page-header h4 i {
         color: var(--primary-color);
     }
     .user-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        transition: all 0.25s ease;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
+    
+    [data-theme="dark"] .user-card {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    
     .user-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--card-shadow) !important;
+        border-color: #0066cc;
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
+        transform: translateY(-2px);
+    }
+    
+    [data-theme="dark"] .user-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 153, 255, 0.3);
     }
     
     .user-card .card-body {
         padding: 1.5rem;
+        background: var(--card-bg);
+        border-radius: 10px;
     }
     
     .user-card .card-title {
@@ -267,7 +275,7 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .user-card .username-text {
-        color: var(--text-muted);
+        color: var(--text-secondary);
         font-size: 0.875rem;
         font-weight: 400;
     }
@@ -277,12 +285,20 @@ if (isset($_GET['ajax_search'])) {
         height: 64px;
         object-fit: cover;
         border-radius: 50%;
-        border: 2px solid var(--border-color);
+        border: 2px solid var(--divider);
         transition: all 0.25s ease;
     }
     
     .user-card:hover .user-avatar {
         border-color: var(--primary-color);
+    }
+    
+    [data-theme="dark"] .user-avatar {
+        border-color: var(--card-border);
+    }
+    
+    [data-theme="dark"] .user-card:hover .user-avatar {
+        border-color: #0099ff;
     }
     
     .user-card .badge {
@@ -294,7 +310,7 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .user-card .info-text {
-        color: var(--text-muted);
+        color: var(--text-secondary);
         font-size: 0.875rem;
         margin-bottom: 0.5rem;
         display: flex;
@@ -307,12 +323,16 @@ if (isset($_GET['ajax_search'])) {
         margin-right: 8px;
     }
     
+    [data-theme="dark"] .user-card .info-text i {
+        color: #64748b;
+    }
+    
     .user-card .action-buttons {
         display: flex;
         gap: 0.5rem;
         margin-top: 1rem;
         padding-top: 1rem;
-        border-top: 1px solid var(--border-color);
+        border-top: 1px solid var(--divider);
     }
     
     .user-card .action-buttons .btn {
@@ -322,6 +342,45 @@ if (isset($_GET['ajax_search'])) {
     .modal-header {
         background: var(--banner-gradient);
         color: #fff;
+        border-radius: 0;
+        padding: 1.25rem;
+    }
+    
+    .modal-content {
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
+    }
+    
+    [data-theme="dark"] .modal-content {
+        background: #1e293b;
+    }
+    
+    [data-theme="dark"] .modal-body {
+        background: #1e293b;
+        color: var(--text-main);
+    }
+    
+    [data-theme="dark"] .modal-footer {
+        background: #1e293b;
+        border-top-color: var(--card-border);
+    }
+    
+    .card.mb-4 {
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+    
+    [data-theme="dark"] .card.mb-4 {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    
+    [data-theme="dark"] .card-body {
+        background: var(--card-bg);
+        color: var(--text-main);
+        border-radius: 10px;
     }
     
     .password-field {
@@ -340,7 +399,7 @@ if (isset($_GET['ajax_search'])) {
         z-index: 10;
     }
     .password-toggle:hover {
-        color: var(--text-main);
+        color: var(--text-secondary);
     }
     .password-info {
         font-size: 0.875rem;
@@ -348,10 +407,77 @@ if (isset($_GET['ajax_search'])) {
         margin-top: 0.25rem;
     }
     
-    /* Dark Mode Fixes */
-    [data-theme="dark"] .btn-warning,
-    [data-theme="dark"] .btn-info {
-        color: #212529 !important;
+    .alert {
+        border-radius: 20px;
+        border: none;
+        padding: 1rem 1.25rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 10px;
+        background: var(--input-bg);
+        color: var(--text-main);
+        border-color: var(--card-border);
+    }
+    
+    [data-theme="dark"] .form-control,
+    [data-theme="dark"] .form-select {
+        background: #0f172a;
+        color: #f1f5f9;
+        border-color: #334155;
+    }
+    
+    [data-theme="dark"] .form-control:focus,
+    [data-theme="dark"] .form-select:focus {
+        background: #1e293b;
+        border-color: #0099ff;
+        color: #f1f5f9;
+    }
+    
+    [data-theme="dark"] .form-control:disabled,
+    [data-theme="dark"] .form-control[readonly] {
+        background: #0f172a;
+        opacity: 0.7;
+    }
+    
+    .form-label {
+        color: var(--text-main);
+    }
+    
+    .btn {
+        border-radius: 10px;
+    }
+    
+    .input-group-text {
+        border-radius: 10px 0 0 10px;
+        background: var(--card-bg);
+        border-color: var(--card-border);
+        color: var(--text-muted);
+    }
+    
+    [data-theme="dark"] .input-group-text {
+        background: #1e293b;
+        border-color: #334155;
+        color: #94a3b8;
+    }
+    
+    .input-group .form-control {
+        border-radius: 0 10px 10px 0;
+    }
+    
+    [data-theme="dark"] .alert-info {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+    
+    /* Override Bootstrap white backgrounds in dark mode */
+    [data-theme="dark"] .bg-white {
+        background-color: var(--card-bg) !important;
+    }
+    
+    [data-theme="dark"] .text-muted {
+        color: var(--text-muted) !important;
     }
 </style>
 
@@ -374,11 +500,11 @@ if (isset($_GET['ajax_search'])) {
                 
                 <div class="card mb-4">
                     <div class="card-body">
-                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
+                        <form method="GET" class="row g-3 align-items-end">
                             <input type="hidden" name="page" value="admin_users">
                             <div class="col-12 col-md">
-                                <label for="searchInput" class="form-label small">Cari Nama/NIM</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
+                                <label for="searchInput" class="form-label">Cari Nama atau Username</label>
+                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Masukkan nama atau username..." value="<?= htmlspecialchars($search) ?>">
                             </div>
                             <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
                                 <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
