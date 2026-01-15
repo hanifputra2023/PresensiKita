@@ -236,23 +236,23 @@ if (isset($_GET['ajax_search'])) {
     }
 
     .page-header {
-        border-bottom: 1px solid #e0e0e0;
-        padding-bottom: 1.25rem;
-        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
     }
     .page-header h4 {
-        font-weight: 600;
-        color: #2c3e50;
-        font-size: 1.5rem;
-        margin: 0;
+        font-weight: 700;
+        color: var(--text-main);
     }
     .page-header h4 i {
-        color: #0066cc;
+        color: var(--primary-color);
+    }
+    .user-card {
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
     .user-card:hover {
-        border-color: #0066cc;
-        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
-        transform: translateY(-2px);
+        transform: translateY(-5px);
+        box-shadow: var(--card-shadow) !important;
     }
     
     .user-card .card-body {
@@ -261,13 +261,13 @@ if (isset($_GET['ajax_search'])) {
     
     .user-card .card-title {
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-main);
         font-size: 1.05rem;
         margin-bottom: 0.25rem;
     }
     
     .user-card .username-text {
-        color: #6c757d;
+        color: var(--text-muted);
         font-size: 0.875rem;
         font-weight: 400;
     }
@@ -277,12 +277,12 @@ if (isset($_GET['ajax_search'])) {
         height: 64px;
         object-fit: cover;
         border-radius: 50%;
-        border: 2px solid #f0f0f0;
+        border: 2px solid var(--border-color);
         transition: all 0.25s ease;
     }
     
     .user-card:hover .user-avatar {
-        border-color: #0066cc;
+        border-color: var(--primary-color);
     }
     
     .user-card .badge {
@@ -294,7 +294,7 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .user-card .info-text {
-        color: #6c757d;
+        color: var(--text-muted);
         font-size: 0.875rem;
         margin-bottom: 0.5rem;
         display: flex;
@@ -303,7 +303,7 @@ if (isset($_GET['ajax_search'])) {
     
     .user-card .info-text i {
         width: 18px;
-        color: #95a5a6;
+        color: var(--text-muted);
         margin-right: 8px;
     }
     
@@ -312,60 +312,16 @@ if (isset($_GET['ajax_search'])) {
         gap: 0.5rem;
         margin-top: 1rem;
         padding-top: 1rem;
-        border-top: 1px solid #f0f0f0;
+        border-top: 1px solid var(--border-color);
     }
     
     .user-card .action-buttons .btn {
-        flex: 1;
-        border-radius: 24px;
-        font-weight: 500;
-        font-size: 0.875rem;
-        padding: 0.5rem 0.75rem;
-        transition: all 0.2s ease;
-        border: 1px solid transparent;
-    }
-    
-    .user-card .action-buttons .btn-warning {
-        background: #ffc107;
-        color: #000;
-        border-color: #ffc107;
-    }
-    
-    .user-card .action-buttons .btn-warning:hover {
-        background: #ffb300;
-        border-color: #ffb300;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
-    }
-    
-    .user-card .action-buttons .btn-danger {
-        background: #dc3545;
-        border-color: #dc3545;
-    }
-    
-    .user-card .action-buttons .btn-danger:hover {
-        background: #c82333;
-        border-color: #c82333;
-        transform: translateY(-1px);
-        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        flex-grow: 1;
     }
     
     .modal-header {
-        background: #0066cc;
+        background: var(--banner-gradient);
         color: #fff;
-        border-radius: 0;
-        padding: 1.25rem;
-    }
-    
-    .modal-content {
-        border-radius: 24px;
-        border: 1px solid #e0e0e0;
-    }
-    
-    .card.mb-4 {
-        border-radius: 24px;
-        border: 1px solid #e8e8e8;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
     
     .password-field {
@@ -378,40 +334,24 @@ if (isset($_GET['ajax_search'])) {
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: #6c757d;
+        color: var(--text-muted);
         cursor: pointer;
         padding: 5px 10px;
         z-index: 10;
     }
     .password-toggle:hover {
-        color: #495057;
+        color: var(--text-main);
     }
     .password-info {
         font-size: 0.875rem;
-        color: #6c757d;
+        color: var(--text-muted);
         margin-top: 0.25rem;
     }
     
-    .alert {
-        border-radius: 20px;
-        border: none;
-        padding: 1rem 1.25rem;
-    }
-    
-    .form-control, .form-select {
-        border-radius: 16px;
-    }
-    
-    .btn {
-        border-radius: 20px;
-    }
-    
-    .input-group-text {
-        border-radius: 16px 0 0 16px;
-    }
-    
-    .input-group .form-control {
-        border-radius: 0 16px 16px 0;
+    /* Dark Mode Fixes */
+    [data-theme="dark"] .btn-warning,
+    [data-theme="dark"] .btn-info {
+        color: #212529 !important;
     }
 </style>
 
