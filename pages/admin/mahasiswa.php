@@ -380,18 +380,6 @@ if (isset($_GET['ajax_search'])) {
     .item-checkbox { width: 22px; height: 22px; cursor: pointer; border: 2px solid var(--text-muted); border-radius: 50%; }
     .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
     
-    .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .page-header h4 {
-        font-weight: 700;
-        color: var(--text-main);
-    }
-    .page-header h4 i {
-        color: var(--primary-color);
-    }
     .mahasiswa-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }

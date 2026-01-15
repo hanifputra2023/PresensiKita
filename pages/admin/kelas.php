@@ -194,12 +194,6 @@ if (isset($_GET['ajax_search'])) {
         flex-grow: 1; /* Membuat tombol berbagi lebar yang sama */
     }
 
-    .page-header { 
-        border-bottom: 1px solid var(--border-color); 
-        padding-bottom: 1rem; 
-        margin-bottom: 1.5rem; 
-    }
-    
     /* Card Styling */
     .class-card { 
         transition: all 0.2s; 

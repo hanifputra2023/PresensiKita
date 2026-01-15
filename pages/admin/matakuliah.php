@@ -182,18 +182,6 @@ if (isset($_GET['ajax_search'])) {
         #bulkActionBar button { flex: 1; }
     }
 
-    .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .page-header h4 {
-        font-weight: 700;
-        color: var(--text-main);
-    }
-    .page-header h4 i {
-        color: var(--primary-color);
-    }
     .matakuliah-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }

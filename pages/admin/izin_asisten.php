@@ -301,7 +301,7 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-user-clock me-2 text-primary"></i>Persetujuan Izin Asisten</h4>
+                <h4 class="mb-4 pt-2"><i class="fas fa-user-clock me-2"></i>Persetujuan Izin Asisten</h4>
                 
                 <?= show_alert() ?>
                 

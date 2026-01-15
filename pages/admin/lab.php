@@ -216,11 +216,6 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Styling Dasar Layout */
-    .page-header { border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; }
-    .page-header h4 { font-weight: 700; color: var(--text-main); }
-    .page-header h4 i { color: var(--primary-color); }
-    
     /* Card Styling & Selection */
     .lab-card { transition: all 0.2s; border: 1px solid var(--border-color); background-color: var(--bg-card); }
     .lab-card .card-title { font-weight: 600; color: var(--text-main); }

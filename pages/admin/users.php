@@ -186,7 +186,7 @@ if (isset($_GET['ajax_search'])) {
                             </div>
                             
                             <div class="mt-auto action-buttons">
-                                <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>', '<?= htmlspecialchars($u['password'], ENT_QUOTES) ?>')">
+                                <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $u['id'] ?>)">
@@ -252,18 +252,6 @@ if (isset($_GET['ajax_search'])) {
         #bulkActionBar button { flex: 1; }
     }
 
-    .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .page-header h4 {
-        font-weight: 700;
-        color: var(--text-main);
-    }
-    .page-header h4 i {
-        color: var(--primary-color);
-    }
     .user-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
@@ -370,6 +358,24 @@ if (isset($_GET['ajax_search'])) {
     [data-theme="dark"] .btn-info {
         color: #212529 !important;
     }
+    [data-theme="dark"] .check-password-box {
+        background-color: var(--bg-input) !important;
+        border-color: var(--border-color) !important;
+    }
+    [data-theme="dark"] .check-password-box .form-label {
+        color: var(--text-main);
+    }
+    [data-theme="dark"] .check-password-box .form-control {
+        background-color: var(--bg-card);
+        border-color: var(--border-color);
+        color: var(--text-main);
+    }
+    [data-theme="dark"] .check-password-box .form-control::placeholder {
+        color: var(--text-muted);
+    }
+    [data-theme="dark"] .check-password-box .form-text {
+        color: var(--text-muted) !important;
+    }
 </style>
 
 <div class="container-fluid">
@@ -449,7 +455,7 @@ if (isset($_GET['ajax_search'])) {
                                         </div>
                                         
                                         <div class="mt-auto action-buttons">
-                                            <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>', '<?= htmlspecialchars($u['password'], ENT_QUOTES) ?>')">
+                                            <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $u['id'] ?>)">
@@ -552,25 +558,9 @@ if (isset($_GET['ajax_search'])) {
                         <label class="form-label">Username</label>
                         <input type="text" id="edit_username" class="form-control" disabled>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">
-                            Password Lama 
-                            <small class="text-muted">(Hash)</small>
-                        </label>
-                        <div class="password-field">
-                            <input type="password" id="edit_old_password" class="form-control bg-light" readonly>
-                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('edit_old_password', this)">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <div class="password-info">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Hash password yang tersimpan di database (hanya untuk referensi)
-                        </div>
-                    </div>
                     
-                    <div class="mb-3 p-3 bg-light border rounded">
-                        <label class="form-label small fw-bold text-dark"><i class="fas fa-key me-1"></i>Cek Password Lama</label>
+                    <div class="mb-3 p-3 bg-light border rounded check-password-box">
+                        <label class="form-label small fw-bold"><i class="fas fa-key me-1"></i>Cek Password Lama</label>
                         <div class="input-group input-group-sm">
                             <input type="text" id="test_password" class="form-control" placeholder="Ketik password untuk dicek...">
                             <button class="btn btn-primary" type="button" onclick="verifyPassword()">
@@ -634,19 +624,16 @@ if (isset($_GET['ajax_search'])) {
 <form id="formHapusBulk" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_banyak"><div id="bulkInputs"></div></form>
 
 <script>
-function editUser(id, username, role, passwordHash) {
+function editUser(id, username, role) {
     document.getElementById('edit_id').value = id;
     document.getElementById('edit_username').value = username;
     document.getElementById('edit_role').value = role;
-    document.getElementById('edit_old_password').value = passwordHash || '';
     document.getElementById('edit_new_password').value = '';
     document.getElementById('test_password').value = '';
     document.getElementById('verify_result').innerHTML = 'Masukkan password untuk memastikan kecocokan dengan data lama.';
     
     // Reset password visibility
-    const oldPassField = document.getElementById('edit_old_password');
     const newPassField = document.getElementById('edit_new_password');
-    oldPassField.type = 'password';
     newPassField.type = 'password';
     
     // Reset eye icons
