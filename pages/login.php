@@ -411,10 +411,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: var(--bg-gradient);
-            background-size: 400% 400%;
-            animation: gradientBG 25s ease infinite;
-            padding: 40px 20px;
+            background-image: url("../uploads/logo/Kampus-I-Balapan-1.png");
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            padding: 20px;
             position: relative;
             overflow-x: hidden;
         }

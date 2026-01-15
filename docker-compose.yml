@@ -12,7 +12,7 @@ services:
         depends_on:
             - mysql
         networks:
-            - presensi-net  # Kita namakan jaringannya presensi-net
+            - presensi-net
 
     # 2. Database MySQL
     mysql:
