@@ -186,14 +186,36 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+    :root {
+        --card-bg: #ffffff;
+        --card-border: #e8e8e8;
+        --text-main: #2c3e50;
+        --text-secondary: #6c757d;
+        --text-muted: #95a5a6;
+        --input-bg: #ffffff;
+        --divider: #f0f0f0;
+        --hover-bg: rgba(0, 102, 204, 0.03);
+    }
+    
+    [data-theme="dark"] {
+        --card-bg: #1e293b;
+        --card-border: #334155;
+        --text-main: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --input-bg: #0f172a;
+        --divider: #334155;
+        --hover-bg: rgba(0, 153, 255, 0.1);
+    }
+    
     .page-header {
-        border-bottom: 1px solid #e0e0e0;
+        border-bottom: 1px solid var(--card-border);
         padding-bottom: 1.25rem;
         margin-bottom: 2rem;
     }
     .page-header h4 {
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-main);
         font-size: 1.5rem;
         margin: 0;
     }
@@ -203,31 +225,41 @@ if (isset($_GET['ajax_search'])) {
     
     .user-card {
         transition: all 0.25s ease;
-        border-radius: 24px;
-        border: 1px solid #e8e8e8;
-        background: #fff;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+    
+    [data-theme="dark"] .user-card {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
     }
     
     .user-card:hover {
         border-color: #0066cc;
-        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.15);
         transform: translateY(-2px);
+    }
+    
+    [data-theme="dark"] .user-card:hover {
+        box-shadow: 0 4px 12px rgba(0, 153, 255, 0.3);
     }
     
     .user-card .card-body {
         padding: 1.5rem;
+        background: var(--card-bg);
+        border-radius: 10px;
     }
     
     .user-card .card-title {
         font-weight: 600;
-        color: #2c3e50;
+        color: var(--text-main);
         font-size: 1.05rem;
         margin-bottom: 0.25rem;
     }
     
     .user-card .username-text {
-        color: #6c757d;
+        color: var(--text-secondary);
         font-size: 0.875rem;
         font-weight: 400;
     }
@@ -237,12 +269,20 @@ if (isset($_GET['ajax_search'])) {
         height: 64px;
         object-fit: cover;
         border-radius: 50%;
-        border: 2px solid #f0f0f0;
+        border: 2px solid var(--divider);
         transition: all 0.25s ease;
     }
     
     .user-card:hover .user-avatar {
         border-color: #0066cc;
+    }
+    
+    [data-theme="dark"] .user-avatar {
+        border-color: var(--card-border);
+    }
+    
+    [data-theme="dark"] .user-card:hover .user-avatar {
+        border-color: #0099ff;
     }
     
     .user-card .badge {
@@ -254,7 +294,7 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .user-card .info-text {
-        color: #6c757d;
+        color: var(--text-secondary);
         font-size: 0.875rem;
         margin-bottom: 0.5rem;
         display: flex;
@@ -263,8 +303,12 @@ if (isset($_GET['ajax_search'])) {
     
     .user-card .info-text i {
         width: 18px;
-        color: #95a5a6;
+        color: var(--text-muted);
         margin-right: 8px;
+    }
+    
+    [data-theme="dark"] .user-card .info-text i {
+        color: #64748b;
     }
     
     .user-card .action-buttons {
@@ -272,7 +316,7 @@ if (isset($_GET['ajax_search'])) {
         gap: 0.5rem;
         margin-top: 1rem;
         padding-top: 1rem;
-        border-top: 1px solid #f0f0f0;
+        border-top: 1px solid var(--divider);
     }
     
     .user-card .action-buttons .btn {
@@ -318,14 +362,40 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .modal-content {
-        border-radius: 24px;
-        border: 1px solid #e0e0e0;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
+    }
+    
+    [data-theme="dark"] .modal-content {
+        background: #1e293b;
+    }
+    
+    [data-theme="dark"] .modal-body {
+        background: #1e293b;
+        color: var(--text-main);
+    }
+    
+    [data-theme="dark"] .modal-footer {
+        background: #1e293b;
+        border-top-color: var(--card-border);
     }
     
     .card.mb-4 {
-        border-radius: 24px;
-        border: 1px solid #e8e8e8;
+        border-radius: 10px;
+        border: 1px solid var(--card-border);
+        background: var(--card-bg);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+    
+    [data-theme="dark"] .card.mb-4 {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    }
+    
+    [data-theme="dark"] .card-body {
+        background: var(--card-bg);
+        color: var(--text-main);
+        border-radius: 10px;
     }
     
     .password-field {
@@ -338,17 +408,17 @@ if (isset($_GET['ajax_search'])) {
         transform: translateY(-50%);
         background: none;
         border: none;
-        color: #6c757d;
+        color: var(--text-muted);
         cursor: pointer;
         padding: 5px 10px;
         z-index: 10;
     }
     .password-toggle:hover {
-        color: #495057;
+        color: var(--text-secondary);
     }
     .password-info {
         font-size: 0.875rem;
-        color: #6c757d;
+        color: var(--text-muted);
         margin-top: 0.25rem;
     }
     
@@ -359,19 +429,70 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .form-control, .form-select {
-        border-radius: 16px;
+        border-radius: 10px;
+        background: var(--input-bg);
+        color: var(--text-main);
+        border-color: var(--card-border);
+    }
+    
+    [data-theme="dark"] .form-control,
+    [data-theme="dark"] .form-select {
+        background: #0f172a;
+        color: #f1f5f9;
+        border-color: #334155;
+    }
+    
+    [data-theme="dark"] .form-control:focus,
+    [data-theme="dark"] .form-select:focus {
+        background: #1e293b;
+        border-color: #0099ff;
+        color: #f1f5f9;
+    }
+    
+    [data-theme="dark"] .form-control:disabled,
+    [data-theme="dark"] .form-control[readonly] {
+        background: #0f172a;
+        opacity: 0.7;
+    }
+    
+    .form-label {
+        color: var(--text-main);
     }
     
     .btn {
-        border-radius: 20px;
+        border-radius: 10px;
     }
     
     .input-group-text {
-        border-radius: 16px 0 0 16px;
+        border-radius: 10px 0 0 10px;
+        background: var(--card-bg);
+        border-color: var(--card-border);
+        color: var(--text-muted);
+    }
+    
+    [data-theme="dark"] .input-group-text {
+        background: #1e293b;
+        border-color: #334155;
+        color: #94a3b8;
     }
     
     .input-group .form-control {
-        border-radius: 0 16px 16px 0;
+        border-radius: 0 10px 10px 0;
+    }
+    
+    [data-theme="dark"] .alert-info {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+    
+    /* Override Bootstrap white backgrounds in dark mode */
+    [data-theme="dark"] .bg-white {
+        background-color: var(--card-bg) !important;
+    }
+    
+    [data-theme="dark"] .text-muted {
+        color: var(--text-muted) !important;
     }
 </style>
 
@@ -394,13 +515,11 @@ if (isset($_GET['ajax_search'])) {
                 
                 <div class="card mb-4">
                     <div class="card-body">
-                        <form method="GET" class="row g-3">
+                        <form method="GET" class="row g-3 align-items-end">
                             <input type="hidden" name="page" value="admin_users">
                             <div class="col-12 col-md">
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
-                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari Nama atau NIM..." value="<?= htmlspecialchars($search) ?>">
-                                </div>
+                                <label for="searchInput" class="form-label">Cari Nama atau Username</label>
+                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Masukkan nama atau username..." value="<?= htmlspecialchars($search) ?>">
                             </div>
                             <div class="col-12 col-md-auto">
                                 <button type="submit" class="btn btn-primary w-100 px-4"><i class="fas fa-search me-2"></i>Cari</button>

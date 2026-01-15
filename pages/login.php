@@ -132,6 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             overflow: hidden;
         }
 
+        [data-theme="dark"] .loading-screen {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+
         .loading-screen::before {
             content: '';
             position: absolute;
@@ -142,6 +146,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 radial-gradient(circle at 80% 80%, rgba(0, 153, 255, 0.3) 0%, transparent 50%),
                 radial-gradient(circle at 40% 20%, rgba(0, 82, 163, 0.3) 0%, transparent 50%);
             animation: gradientShift 15s ease infinite;
+        }
+
+        [data-theme="dark"] .loading-screen::before {
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(96, 165, 250, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(37, 99, 235, 0.15) 0%, transparent 50%);
         }
 
         @keyframes gradientShift {
@@ -179,6 +190,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         inset 0 0 30px rgba(0, 102, 204, 0.2);
         }
 
+        [data-theme="dark"] .logo-frame {
+            border-top-color: #3b82f6;
+            border-right-color: #60a5fa;
+            box-shadow: 0 0 40px rgba(59, 130, 246, 0.4),
+                        0 0 80px rgba(96, 165, 250, 0.3),
+                        inset 0 0 30px rgba(59, 130, 246, 0.15);
+        }
+
         .logo-frame::before {
             content: '';
             position: absolute;
@@ -191,6 +210,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-bottom-color: rgba(0, 153, 255, 0.5);
             border-left-color: rgba(0, 82, 163, 0.5);
             animation: spinLoaderReverse 2s linear infinite;
+        }
+
+        [data-theme="dark"] .logo-frame::before {
+            border-bottom-color: rgba(96, 165, 250, 0.4);
+            border-left-color: rgba(59, 130, 246, 0.4);
         }
 
         @keyframes spinLoader {
@@ -207,6 +231,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 transform: rotate(360deg);
                 border-top-color: #0066cc;
                 border-right-color: #0099ff;
+            }
+        }
+
+        [data-theme="dark"] .logo-frame {
+            animation-name: spinLoaderDark;
+        }
+
+        @keyframes spinLoaderDark {
+            0% { 
+                transform: rotate(0deg);
+                border-top-color: #3b82f6;
+                border-right-color: #60a5fa;
+            }
+            50% {
+                border-top-color: #60a5fa;
+                border-right-color: #2563eb;
+            }
+            100% { 
+                transform: rotate(360deg);
+                border-top-color: #3b82f6;
+                border-right-color: #60a5fa;
             }
         }
 
@@ -232,6 +277,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             animation: logoPulseLoading 2s ease-in-out infinite;
         }
 
+        [data-theme="dark"] .logo-image {
+            background: rgba(30, 41, 59, 0.95);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5),
+                        0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+
         @keyframes logoPulseLoading {
             0%, 100% { 
                 transform: scale(1);
@@ -242,6 +293,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 transform: scale(1.05);
                 box-shadow: 0 20px 60px rgba(0, 102, 204, 0.4),
                             0 0 0 6px rgba(0, 153, 255, 0.2);
+            }
+        }
+
+        [data-theme="dark"] .logo-image {
+            animation-name: logoPulseLoadingDark;
+        }
+
+        @keyframes logoPulseLoadingDark {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5),
+                            0 0 0 4px rgba(59, 130, 246, 0.2);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3),
+                            0 0 0 6px rgba(96, 165, 250, 0.3);
             }
         }
 
@@ -351,6 +419,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             overflow-x: hidden;
         }
 
+        [data-theme="dark"] body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+        }
+
         @keyframes gradientBG {
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
@@ -368,6 +440,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 radial-gradient(circle at 80% 80%, rgba(0, 153, 255, 0.15) 0%, transparent 60%);
             pointer-events: none;
             animation: bgPulse 12s ease infinite;
+        }
+
+        [data-theme="dark"] body::before {
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 60%);
         }
 
         @keyframes bgPulse {
@@ -391,6 +469,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.15);
             animation: float 20s infinite;
+        }
+
+        [data-theme="dark"] .particle {
+            background: rgba(59, 130, 246, 0.1);
         }
 
         .particle:nth-child(1) {
@@ -759,48 +841,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 17px;
             border: none;
             border-radius: 14px;
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-light) 100%);
+            background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
             color: white;
             font-size: 15px;
             font-weight: 700;
             letter-spacing: 0.5px;
             text-transform: uppercase;
             cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 12px 28px rgba(0, 102, 204, 0.3);
+            transition: none;
+            box-shadow: 0 12px 28px rgba(26, 35, 50, 0.4);
             position: relative;
             overflow: hidden;
         }
 
-        .btn-submit::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.7s;
-        }
-
-        .btn-submit:hover::before {
-            left: 100%;
-        }
-
-        .btn-submit:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 16px 36px rgba(0, 102, 204, 0.4);
-        }
-
-        .btn-submit:active {
-            transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(0, 102, 204, 0.3);
+        [data-theme="dark"] .btn-submit {
+            background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
+            box-shadow: 0 12px 28px rgba(26, 35, 50, 0.5);
         }
 
         .btn-submit:disabled {
             opacity: 0.6;
             cursor: not-allowed;
-            transform: none;
         }
 
         .btn-submit .fa-spinner {
@@ -1007,7 +1068,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="logo-container">
             <div class="logo-frame"></div>
             <div class="logo-image">
-                <img src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
+                <img id="loadingLogo" src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
             </div>
         </div>
         
@@ -1031,7 +1092,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <!-- Logo Section -->
         <div class="logo-section">
             <div class="logo-wrapper">
-                <img src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
+                <img id="mainLogo" src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
             </div>
             <h2 class="university-name">Universitas AKPRIND</h2>
             <p class="system-name">Sistem Presensi Lab</p>
@@ -1145,11 +1206,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const themeToggleBtn = document.getElementById('themeToggle');
             const root = document.documentElement;
             const icon = themeToggleBtn.querySelector('i');
+            const mainLogo = document.getElementById('mainLogo');
+            const loadingLogo = document.getElementById('loadingLogo');
+
+            function updateLogo(theme) {
+                const logoPath = theme === 'dark' 
+                    ? 'includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png'
+                    : 'includes/logo-AU.png';
+                
+                mainLogo.src = logoPath;
+                loadingLogo.src = logoPath;
+            }
 
             function setTheme(theme) {
                 root.setAttribute('data-theme', theme);
                 localStorage.setItem('theme', theme);
                 icon.className = `fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`;
+                updateLogo(theme);
             }
             
             themeToggleBtn.addEventListener('click', () => {
