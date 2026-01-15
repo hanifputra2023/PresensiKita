@@ -99,41 +99,54 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - <?= APP_NAME ?></title>
     
-    <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.php">
     <meta name="theme-color" content="#0066cc">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="Presensi">
-    <meta name="mobile-web-app-capable" content="yes">
-    
-    <!-- Favicon & Icons -->
     <link rel="icon" type="image/png" sizes="192x192" href="includes/icon-192.png">
     <link rel="apple-touch-icon" href="includes/icon-192.png">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
-        // Apply theme immediately to prevent flash
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme) {
             document.documentElement.setAttribute('data-theme', savedTheme);
         }
     </script>
     <style>
-        /* Loading Screen Styles */
+        /* Loading Screen */
         .loading-screen {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, #001f5c 0%, #003399 100%);
+            background: linear-gradient(135deg, #0052a3 0%, #0066cc 50%, #0099ff 100%);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             z-index: 9999;
             transition: opacity 0.8s ease, visibility 0.8s ease;
+            overflow: hidden;
+        }
+
+        .loading-screen::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(0, 102, 204, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(0, 153, 255, 0.3) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(0, 82, 163, 0.3) 0%, transparent 50%);
+            animation: gradientShift 15s ease infinite;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            50% { transform: translate(-50px, -50px) rotate(180deg); }
         }
 
         .loading-screen.hidden {
@@ -149,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: flex;
             justify-content: center;
             align-items: center;
+            z-index: 2;
         }
 
         .logo-frame {
@@ -156,20 +170,49 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             width: 100%;
             height: 100%;
             border-radius: 50%;
-            background: linear-gradient(45deg, #0066cc, #0099ff, #66cc00, #0066cc);
-            animation: rotate 8s linear infinite;
-            box-shadow: 0 0 40px rgba(0, 102, 204, 0.6);
+            border: 8px solid transparent;
+            border-top-color: #0066cc;
+            border-right-color: #0099ff;
+            animation: spinLoader 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            box-shadow: 0 0 40px rgba(0, 102, 204, 0.6),
+                        0 0 80px rgba(0, 153, 255, 0.4),
+                        inset 0 0 30px rgba(0, 102, 204, 0.2);
         }
 
         .logo-frame::before {
             content: '';
             position: absolute;
-            top: 8px;
-            left: 8px;
-            right: 8px;
-            bottom: 8px;
-            background: #001f5c;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
             border-radius: 50%;
+            border: 4px solid transparent;
+            border-bottom-color: rgba(0, 153, 255, 0.5);
+            border-left-color: rgba(0, 82, 163, 0.5);
+            animation: spinLoaderReverse 2s linear infinite;
+        }
+
+        @keyframes spinLoader {
+            0% { 
+                transform: rotate(0deg);
+                border-top-color: #0066cc;
+                border-right-color: #0099ff;
+            }
+            50% {
+                border-top-color: #0099ff;
+                border-right-color: #0052a3;
+            }
+            100% { 
+                transform: rotate(360deg);
+                border-top-color: #0066cc;
+                border-right-color: #0099ff;
+            }
+        }
+
+        @keyframes spinLoaderReverse {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(-360deg); }
         }
 
         .logo-image {
@@ -177,115 +220,122 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             width: 180px;
             height: 180px;
             border-radius: 50%;
-            background: white;
+            background: rgba(255, 255, 255, 0.98);
             display: flex;
-            flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 15px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+            padding: 25px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3),
+                        0 0 0 4px rgba(255, 255, 255, 0.1);
             overflow: hidden;
+            backdrop-filter: blur(12px);
+            animation: logoPulseLoading 2s ease-in-out infinite;
+        }
+
+        @keyframes logoPulseLoading {
+            0%, 100% { 
+                transform: scale(1);
+                box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3),
+                            0 0 0 4px rgba(255, 255, 255, 0.1);
+            }
+            50% { 
+                transform: scale(1.05);
+                box-shadow: 0 20px 60px rgba(0, 102, 204, 0.4),
+                            0 0 0 6px rgba(0, 153, 255, 0.2);
+            }
         }
 
         .logo-image img {
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
+            animation: logoFloatLoading 3s ease-in-out infinite;
+        }
+
+        @keyframes logoFloatLoading {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(2deg); }
+        }
+
+        .loading-content {
+            text-align: center;
+            z-index: 2;
         }
 
         .loading-title {
-            font-size: 1.8rem;
+            font-size: 2rem;
             font-weight: 700;
             margin-bottom: 10px;
             text-align: center;
-            background: linear-gradient(90deg, #0099ff, #66cc00);
+            background: linear-gradient(90deg, #ffffff, #e6f2ff, #ffffff);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
         }
 
         .loading-subtitle {
             font-size: 1rem;
-            margin-bottom: 25px;
+            margin-bottom: 40px;
             text-align: center;
-            color: #99ccff;
+            color: rgba(255, 255, 255, 0.9);
             font-weight: 300;
         }
 
-        .loading-bar-container {
-            width: 250px;
-            height: 6px;
-            background-color: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            overflow: hidden;
-            margin-bottom: 20px;
-            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .loading-bar {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #0066cc, #0099ff, #66cc00);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-        }
-
         .loading-message {
-            font-size: 0.9rem;
-            color: #99ccff;
+            font-size: 0.95rem;
+            color: rgba(255, 255, 255, 0.95);
             text-align: center;
-            height: 20px;
+            height: 24px;
             margin-top: 10px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            animation: messageGlow 2s ease-in-out infinite;
         }
 
-        /* Theme Variables */
+        @keyframes messageGlow {
+            0%, 100% { 
+                opacity: 0.8;
+                text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            }
+            50% { 
+                opacity: 1;
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+            }
+        }
+
+        /* Modern Elegant Login Design */
+        
         :root {
-            --bg-overlay: rgba(0, 20, 60, 0.35);
-            --container-bg: rgba(255, 255, 255, 0.88);
-            --login-bg: rgba(255, 255, 255, 0.95);
-            --text-main: #333;
-            --text-muted: #666;
-            --input-bg: #f8fbff;
-            --input-border: #e1e8ff;
-            --input-text: #333;
-            --border-color: rgba(255, 255, 255, 0.3);
-            --welcome-bg: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
-            --btn-bg: linear-gradient(to right, #0066cc 0%, #0099ff 100%);
-            --btn-shadow: 0 5px 15px rgba(78, 115, 223, 0.3);
+            --primary-blue: #0066cc;
+            --primary-blue-dark: #0052a3;
+            --primary-blue-light: #0099ff;
+            --bg-gradient: linear-gradient(135deg, #0052a3 0%, #0066cc 50%, #0099ff 100%);
+            
+            --container-bg: rgba(255, 255, 255, 0.96);
+            --text-main: #1e293b;
+            --text-secondary: #334155;
+            --text-muted: #64748b;
+            --input-bg: #f8fafc;
+            --input-border: #e2e8f0;
+            --card-shadow: 0 25px 50px -12px rgba(0, 102, 204, 0.15);
         }
 
         [data-theme="dark"] {
-            --bg-overlay: rgba(0, 0, 0, 0.75);
-            --container-bg: rgba(30, 41, 59, 0.85);
-            --login-bg: rgba(30, 41, 59, 0.95);
+            --container-bg: rgba(15, 23, 42, 0.95);
             --text-main: #f1f5f9;
+            --text-secondary: #e2e8f0;
             --text-muted: #94a3b8;
-            --input-bg: #1e293b;
-            --input-border: #475569;
-            --input-text: #f1f5f9;
-            --border-color: rgba(255, 255, 255, 0.1);
-            --welcome-bg: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
-            --btn-bg: linear-gradient(to right, #3a8fd9 0%, #2c7bc0 100%);
-            --btn-shadow: 0 5px 15px rgba(58, 143, 217, 0.3);
+            --input-bg: rgba(30, 41, 59, 0.5);
+            --input-border: rgba(100, 116, 139, 0.2);
+            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
         }
 
-        @keyframes rotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0% { opacity: 0.6; }
-            50% { opacity: 1; }
-            100% { opacity: 0.6; }
-        }
-
-        /* Existing Login Styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
         
         body {
@@ -293,14 +343,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-image: url("uploads/logo/Kampus-I-Balapan-1.png");
-            background-size: cover;
-            background-position: center;
-            background-attachment: fixed;
-            padding: 20px;
+            background: var(--bg-gradient);
+            background-size: 400% 400%;
+            animation: gradientBG 25s ease infinite;
+            padding: 40px 20px;
             position: relative;
+            overflow-x: hidden;
         }
-        
+
+        @keyframes gradientBG {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
         body::before {
             content: '';
             position: fixed;
@@ -308,416 +363,651 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             left: 0;
             width: 100%;
             height: 100%;
-            background: var(--bg-overlay);
-            z-index: 0;
+            background: 
+                radial-gradient(circle at 20% 20%, rgba(0, 102, 204, 0.15) 0%, transparent 60%),
+                radial-gradient(circle at 80% 80%, rgba(0, 153, 255, 0.15) 0%, transparent 60%);
             pointer-events: none;
+            animation: bgPulse 12s ease infinite;
+        }
+
+        @keyframes bgPulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        /* Floating Particles */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            animation: float 20s infinite;
+        }
+
+        .particle:nth-child(1) {
+            width: 80px;
+            height: 80px;
+            left: 10%;
+            top: 20%;
+            animation-delay: 0s;
+            animation-duration: 25s;
+        }
+
+        .particle:nth-child(2) {
+            width: 60px;
+            height: 60px;
+            right: 15%;
+            top: 60%;
+            animation-delay: 2s;
+            animation-duration: 20s;
+        }
+
+        .particle:nth-child(3) {
+            width: 100px;
+            height: 100px;
+            left: 70%;
+            top: 30%;
+            animation-delay: 4s;
+            animation-duration: 30s;
+        }
+
+        .particle:nth-child(4) {
+            width: 50px;
+            height: 50px;
+            left: 20%;
+            bottom: 20%;
+            animation-delay: 1s;
+            animation-duration: 22s;
+        }
+
+        .particle:nth-child(5) {
+            width: 70px;
+            height: 70px;
+            right: 25%;
+            bottom: 30%;
+            animation-delay: 3s;
+            animation-duration: 28s;
+        }
+
+        @keyframes float {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 0.3;
+            }
+            25% {
+                transform: translate(30px, -30px) scale(1.1);
+                opacity: 0.5;
+            }
+            50% {
+                transform: translate(-20px, 40px) scale(0.9);
+                opacity: 0.2;
+            }
+            75% {
+                transform: translate(40px, 20px) scale(1.05);
+                opacity: 0.4;
+            }
         }
         
-        .container {
-            display: flex;
+        .login-container {
             width: 100%;
-            max-width: 950px;
-            min-height: 550px;
+            max-width: 460px;
             background: var(--container-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15), 
-                        inset 0 1px 1px rgba(255, 255, 255, 0.4);
-            
-            animation: fadeIn 0.8s ease-out;
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border-radius: 32px;
+            padding: 48px 44px 52px;
+            box-shadow: var(--card-shadow),
+                        0 0 0 1px rgba(0, 102, 204, 0.06);
             position: relative;
             z-index: 1;
             opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.5s ease, transform 0.5s ease;
+            transform: translateY(30px) scale(0.98);
+            transition: all 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        .container.visible {
+        .login-container.visible {
             opacity: 1;
-            transform: translateY(0);
-        }
-        
-        .login-side {
-            flex: 1;
-            padding: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            background: var(--login-bg);
-            border-right: 1px solid var(--border-color);
-        }
-        
-        .welcome-side {
-            flex: 1;
-            background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
-            background: var(--welcome-bg);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            color: white;
-            padding: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            
-        }
-        
-        .welcome-side::before {
-            content: '';
-            position: absolute;
-            width: 300px;
-            height: 300px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            top: -100px;
-            right: -100px;
-        }
-        
-        .welcome-side::after {
-            content: '';
-            position: absolute;
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            bottom: -80px;
-            left: -80px;
-        }
-        
-        .logo {
-            display: flex;
-            align-items: center;
-            margin-bottom: 30px;
-            color: #0066cc;
-        }
-        
-        .logo i {
-            font-size: 28px;
-            margin-right: 10px;
-        }
-        
-        .logo span {
-            font-size: 24px;
-            font-weight: 700;
-        }
-        
-        h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
-            color: var(--text-main);
-        }
-        
-        .subtitle {
-            color: var(--text-muted);
-            margin-bottom: 40px;
-        }
-        
-        .form-group {
-            margin-bottom: 25px;
-            position: relative;
-        }
-        
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            color: var(--text-main);
-            font-weight: 500;
-        }
-        
-        .input-with-icon {
-            position: relative;
-        }
-        
-        .input-with-icon i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #0066cc;
-            font-size: 18px;
-        }
-        
-        input {
-            width: 100%;
-            padding: 15px 15px 15px 45px;
-            border: 2px solid var(--input-border);
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s;
-            background-color: var(--input-bg);
-            color: var(--input-text);
-        }
-        
-        input:focus {
-            outline: none;
-            border-color: #0066cc;
-            box-shadow: 0 0 0 3px rgba(78, 115, 223, 0.2);
-            background-color: var(--input-bg);
-        }
-        
-        .alert {
-            padding: 12px 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-        }
-        
-        .alert-danger {
-            background: #ffe0e0;
-            color: #d63031;
-            border: 1px solid #ffb8b8;
-        }
-        
-        .alert i {
-            margin-right: 10px;
-        }
-        
-        .login-btn {
-            width: 100%;
-            padding: 16px;
-            background: linear-gradient(to right, #0066cc 0%, #0099ff 100%);
-            background: var(--btn-bg);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            box-shadow: 0 5px 15px rgba(78, 115, 223, 0.3);
-            box-shadow: var(--btn-shadow);
-        }
-        
-        .login-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(78, 115, 223, 0.4);
-        }
-        
-        .login-btn:active {
-            transform: translateY(0);
-        }
-        
-        .login-btn:disabled {
-            opacity: 0.7;
-            cursor: not-allowed;
-            transform: none;
+            transform: translateY(0) scale(1);
         }
         
         .theme-toggle-btn {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            background: transparent;
-            border: none;
-            color: var(--text-muted);
-            font-size: 1.2rem;
-            cursor: pointer;
-            z-index: 10;
-        }
-
-        .demo-info {
-            margin-top: 30px;
-            padding: 15px;
-            background: #f8f9fc;
-            border-radius: 10px;
-            font-size: 13px;
-            color: #666;
-        }
-        
-        .demo-info p {
-            margin: 5px 0;
-        }
-        
-        .demo-info strong {
-            color: #0066cc;
-        }
-        
-        .welcome-title {
-            font-size: 36px;
-            margin-bottom: 15px;
-            position: relative;
-            z-index: 2;
-        }
-        
-        .welcome-text {
-            font-size: 18px;
-            line-height: 1.6;
-            margin-bottom: 30px;
-            position: relative;
-            z-index: 2;
-            max-width: 400px;
-        }
-        
-        .features {
-            list-style: none;
-            text-align: left;
-            margin-top: 30px;
-            position: relative;
-            z-index: 2;
-        }
-        
-        .features li {
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-        }
-        
-        .features i {
-            margin-right: 12px;
-            font-size: 20px;
-            background: rgba(255, 255, 255, 0.2);
-            width: 36px;
-            height: 36px;
+            top: 24px;
+            right: 24px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+            z-index: 100;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .theme-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: scale(1.1) rotate(15deg);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
         }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+
+        .theme-toggle-btn:active {
+            transform: scale(0.95);
         }
-        
-        .floating-element {
+
+        [data-theme="dark"] .theme-toggle-btn {
+            background: rgba(0, 102, 204, 0.2);
+            border-color: rgba(0, 153, 255, 0.3);
+        }
+
+        /* Logo Section */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 36px;
+            position: relative;
+        }
+
+        .logo-section::after {
+            content: '';
             position: absolute;
-            width: 100px;
-            height: 100px;
-            border-radius: 30% 70% 70% 30% / 30% 30% 70% 70%;
-            background: rgba(255, 255, 255, 0.15);
-            z-index: 1;
-            animation: float 6s ease-in-out infinite;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, transparent, var(--primary-blue), transparent);
+            border-radius: 4px;
+            opacity: 0.4;
         }
-        
-        .element1 {
-            top: 20%;
-            left: 10%;
-            width: 80px;
-            height: 80px;
-            animation-delay: 0s;
+
+        .logo-wrapper {
+            display: inline-block;
+            position: relative;
+            margin-bottom: 24px;
         }
-        
-        .element2 {
-            bottom: 15%;
-            right: 15%;
-            width: 120px;
-            height: 120px;
-            animation-delay: 2s;
+
+        .logo-wrapper::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 140px;
+            height: 140px;
+            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
+            border-radius: 50%;
+            opacity: 0.08;
+            animation: logoPulse 5s ease-in-out infinite;
         }
-        
-        .welcome-icon {
-            font-size: 80px;
-            margin-bottom: 20px;
+
+        @keyframes logoPulse {
+            0%, 100% { 
+                transform: translate(-50%, -50%) scale(1); 
+                opacity: 0.08; 
+            }
+            50% { 
+                transform: translate(-50%, -50%) scale(1.12); 
+                opacity: 0.12; 
+            }
+        }
+
+        .logo-wrapper img {
+            width: 88px;
+            height: auto;
             position: relative;
             z-index: 2;
+            animation: logoFloat 5s ease-in-out infinite;
+            filter: drop-shadow(0 8px 20px rgba(0, 102, 204, 0.2));
+        }
+
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .university-name {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            letter-spacing: -0.4px;
+            line-height: 1.2;
+        }
+
+        .system-name {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+
+        /* Login Section */
+        .login-section {
+            position: relative;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
         }
         
-        /* Logo Toggle */
-        .logo-light { display: block; }
-        .logo-dark { display: none; }
-        [data-theme="dark"] .logo-light { display: none; }
-        [data-theme="dark"] .logo-dark { display: block; }
+        .form-label {
+            display: block;
+            margin-bottom: 10px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+        }
+        
+        .input-group {
+            position: relative;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 16px 18px 16px 52px;
+            border: 2px solid var(--input-border);
+            border-radius: 14px;
+            background: var(--input-bg);
+            color: var(--text-main);
+            font-size: 15px;
+            font-weight: 500;
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-        @media (max-width: 900px) {
+        .form-control::placeholder {
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            background: #ffffff;
+            box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.08),
+                        0 2px 8px rgba(0, 102, 204, 0.04);
+            transform: translateY(-2px);
+        }
+
+        [data-theme="dark"] .form-control:focus {
+            background: var(--input-bg);
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-blue);
+            font-size: 18px;
+            opacity: 0.4;
+            transition: all 0.35s ease;
+            pointer-events: none;
+        }
+
+        .form-control:focus ~ .input-icon {
+            opacity: 1;
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--primary-blue);
+            cursor: pointer;
+            font-size: 18px;
+            padding: 8px;
+            border-radius: 8px;
+            opacity: 0.4;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-password:hover {
+            opacity: 1;
+            background: rgba(0, 102, 204, 0.08);
+            transform: translateY(-50%) scale(1.1);
+        }
+
+        .form-control[type="password"] {
+            padding-right: 54px;
+        }
+
+        /* Alert */
+        .alert {
+            display: flex;
+            align-items: center;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #dc2626;
+            border: 2px solid rgba(220, 38, 38, 0.15);
+            font-size: 14px;
+            font-weight: 500;
+            animation: alertSlide 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        @keyframes alertSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .alert i {
+            margin-right: 12px;
+            font-size: 18px;
+        }
+        
+        [data-theme="dark"] .alert {
+            background: rgba(220, 38, 38, 0.15);
+            color: #fca5a5;
+            border-color: rgba(220, 38, 38, 0.25);
+        }
+        
+        /* Checkbox */
+        .form-check {
+            display: flex;
+            align-items: center;
+            margin-bottom: 28px;
+        }
+
+        .form-check-input {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            accent-color: var(--primary-blue);
+        }
+
+        .form-check-label {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        /* Button */
+        .btn-submit {
+            width: 100%;
+            padding: 17px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-blue-light) 100%);
+            color: white;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 12px 28px rgba(0, 102, 204, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-submit::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.7s;
+        }
+
+        .btn-submit:hover::before {
+            left: 100%;
+        }
+
+        .btn-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 36px rgba(0, 102, 204, 0.4);
+        }
+
+        .btn-submit:active {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 20px rgba(0, 102, 204, 0.3);
+        }
+
+        .btn-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-submit .fa-spinner {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Login Footer */
+        .login-footer {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(0, 102, 204, 0.1);
+            text-align: center;
+        }
+
+        .login-footer-text {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .login-footer-version {
+            font-size: 11px;
+            color: var(--text-muted);
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .login-footer-version i {
+            font-size: 10px;
+        }
+
+        .login-footer-links {
+            margin-top: 16px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            font-size: 12px;
+            color: var(--primary-blue);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .footer-link:hover {
+            color: var(--primary-blue-light);
+            transform: translateY(-2px);
+        }
+
+        .footer-link i {
+            font-size: 13px;
+        }
+
+        /* Stats Badge */
+        .stats-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(0, 102, 204, 0.08);
+            border-radius: 20px;
+            margin-top: 16px;
+            font-size: 11px;
+            color: var(--primary-blue);
+            font-weight: 600;
+        }
+
+        .stats-badge i {
+            font-size: 12px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
             body {
-                background-attachment: scroll;
-            }
-            
-            .container {
-                flex-direction: column;
-                height: auto;
-                max-width: 500px;
-                min-height: auto;
-            }
-            
-            .welcome-side {
-                order: -1;
-                padding: 40px 30px;
-                border-right: none;
-                border-bottom: 1px solid var(--border-color);
-            }
-            
-            .login-side {
-                padding: 40px 30px;
-                border-right: none;
-            }
-            
-            .welcome-side::before, 
-            .welcome-side::after {
-                display: none;
-            }
-            
-            .welcome-icon {
-                font-size: 60px;
-            }
-            
-            .welcome-title {
-                font-size: 28px;
-            }
-            
-            .features {
-                display: none;
+                padding: 30px 16px;
             }
 
-            /* Loading screen responsive */
-            .logo-container {
-                width: 180px;
-                height: 180px;
+            .login-container {
+                padding: 40px 36px 44px;
+                border-radius: 28px;
+                max-width: 95%;
             }
 
-            .logo-image {
-                width: 150px;
-                height: 150px;
+            .logo-section {
+                margin-bottom: 36px;
+                padding-bottom: 32px;
             }
 
-            .loading-title {
-                font-size: 1.5rem;
+            .logo-wrapper img {
+                width: 78px;
             }
-        }
-        
-        @media (max-width: 480px) {
-            .container {
-                border-radius: 15px;
-                max-width: 90vw;
+
+            .logo-wrapper::before {
+                width: 120px;
+                height: 120px;
             }
-            
-            .login-side, .welcome-side {
-                padding: 30px 20px;
-            }
-            
-            h1 {
-                font-size: 24px;
-            }
-            
-            .welcome-title {
-                font-size: 24px;
-            }
-            
-            .logo span {
+
+            .university-name {
                 font-size: 20px;
             }
+
+            .system-name {
+                font-size: 12px;
+            }
+
+            .login-title {
+                font-size: 23px;
+            }
+
+            .theme-toggle-btn {
+                width: 44px;
+                height: 44px;
+                top: 20px;
+                right: 20px;
+            }
+
+            .form-control {
+                padding: 15px 16px 15px 48px;
+                font-size: 14px;
+            }
+
+            .input-icon {
+                left: 16px;
+                font-size: 17px;
+            }
+
+            .toggle-password {
+                right: 16px;
+            }
+
+            .btn-submit {
+                padding: 16px;
+                font-size: 14px;
+            }
         }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 36px 32px 40px;
+                border-radius: 24px;
+            }
+
+            .logo-wrapper img {
+                width: 72px;
+            }
+
+            .university-name {
+                font-size: 19px;
+            }
+
+            .login-title {
+                font-size: 22px;
+            }
+
+            .login-footer {
+                margin-top: 24px;
+                padding-top: 20px;
+            }
+
+            .login-footer-links {
+                gap: 16px;
+            }
+
+            .footer-link {
+                font-size: 11px;
+            }
+        }
+
     </style>
 </head>
 <body>
+    <!-- Floating Particles -->
+    <div class="particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
         <div class="logo-container">
             <div class="logo-frame"></div>
             <div class="logo-image">
-                <!-- Logo Universitas AKPRIND - diganti dengan Logo-AU.png -->
-                <img src="includes/logo-AU.png" alt="Logo <?= defined('APP_NAME') ? APP_NAME : 'Aplikasi' ?>" style="width: 100%; height: 100%; object-fit: contain;">
+                <img src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
             </div>
         </div>
         
@@ -725,223 +1015,186 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <h1 class="loading-title">Universitas AKPRIND</h1>
             <p class="loading-subtitle">Menyiapkan Sistem Presensi Lab</p>
             
-            <div class="loading-bar-container">
-                <div class="loading-bar" id="loadingBar"></div>
-            </div>
-            
             <div class="loading-message" id="loadingMessage">
                 Memuat antarmuka login...
             </div>
         </div>
     </div>
 
-    <!-- Main Login Container -->
-    <div class="container" id="loginContainer">
-        <button class="theme-toggle-btn" id="themeToggle" title="Ganti Tema">
-            <i class="fas fa-moon"></i>
-        </button>
-        <div class="login-side">
-            
-            
-            <h1>Masuk ke Sistem</h1>
-            <p class="subtitle">Silakan login untuk mengakses sistem presensi.</p>
-            
+    <!-- Theme Toggle Button -->
+    <button class="theme-toggle-btn" id="themeToggle" title="Ganti Tema">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <!-- Login Container -->
+    <div class="login-container" id="loginContainer">
+        <!-- Logo Section -->
+        <div class="logo-section">
+            <div class="logo-wrapper">
+                <img src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
+            </div>
+            <h2 class="university-name">Universitas AKPRIND</h2>
+            <p class="system-name">Sistem Presensi Lab</p>
+        </div>
+
+        <!-- Login Section -->
+        <div class="login-section">
             <?php if (!empty($error)): ?>
-                <div class="alert alert-danger">
+                <div class="alert">
                     <i class="fas fa-exclamation-circle"></i>
-                    <?= $error ?>
+                    <span><?= $error ?></span>
                 </div>
             <?php endif; ?>
-            
+
             <form id="loginForm" method="POST">
                 <div class="form-group">
-                    <label for="username">Username / NIM</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-user"></i>
-                        <input type="text" id="username" name="username" placeholder="Masukkan Username atau NIM" required>
+                    <label class="form-label" for="username">Username / NIM</label>
+                    <div class="input-group">
+                        <input type="text" id="username" name="username" class="form-control" placeholder="Masukkan username atau NIM" required autocomplete="username">
+                        <i class="fas fa-user input-icon"></i>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-lock"></i>
-                        <input type="password" id="password" name="password" placeholder="Masukkan password" required>
+                    <label class="form-label" for="password">Password</label>
+                    <div class="input-group">
+                        <input type="password" id="password" name="password" class="form-control" placeholder="Masukkan password" required autocomplete="current-password">
+                        <i class="fas fa-lock input-icon"></i>
+                        <button type="button" class="toggle-password" onclick="togglePassword()" title="Tampilkan/Sembunyikan Password">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
                     </div>
                 </div>
-                
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="display: flex; align-items: center; cursor: pointer; font-weight: normal;">
-                        <input type="checkbox" name="remember" id="remember" style="width: auto; margin-right: 10px; padding: 0;">
-                        <span>Ingat saya selama 30 hari</span>
-                    </label>
+
+                <div class="form-check">
+                    <input type="checkbox" name="remember" id="remember" class="form-check-input">
+                    <label for="remember" class="form-check-label">Ingat saya selama 30 hari</label>
                 </div>
-                
-                <button type="submit" class="login-btn" id="btnLogin">
+
+                <button type="submit" class="btn-submit" id="btnLogin">
                     <i class="fas fa-sign-in-alt"></i> Masuk
                 </button>
             </form>
-            
-            
-        </div>
-        
-        <div class="welcome-side">
-            <div class="floating-element element1"></div>
-            <div class="floating-element element2"></div>
-            
-            <!-- Logo di welcome side - juga diganti dengan Logo-AU.png -->
-            <img src="includes/logo-AU.png" 
-                 alt="Logo <?= defined('APP_NAME') ? APP_NAME : 'Aplikasi' ?>" 
-                 class="logo-light"
-                 style="height: 60px; width: auto; margin-bottom: 20px;">
-            <img src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" 
-                 alt="Logo <?= defined('APP_NAME') ? APP_NAME : 'Aplikasi' ?>" 
-                 class="logo-dark"
-                 style="height: 60px; width: auto; margin-bottom: 20px;">
-            <h2 class="welcome-title">Selamat Datang!</h2>
-            <p class="welcome-text">
-                Sistem Presensi Lab Kampus untuk memudahkan pengelolaan kehadiran praktikum mahasiswa.
-            </p>
-            
-            <ul class="features">
-                <li>
-                    <i class="fas fa-qrcode"></i>
-                    <span>Presensi cepat dengan QR Code</span>
-                </li>
-                <li>
-                    <i class="fas fa-chart-bar"></i>
-                    <span>Monitoring kehadiran real-time</span>
-                </li>
-                <li>
-                    <i class="fas fa-file-alt"></i>
-                    <span>Laporan dan rekap otomatis</span>
-                </li>
-                <li>
-                    <i class="fas fa-mobile-alt"></i>
-                    <span>Akses dari perangkat manapun</span>
-                </li>
-            </ul>
+
+            <!-- Login Footer -->
+            <div class="login-footer">
+                <p class="login-footer-text">© 2026 Universitas AKPRIND Yogyakarta</p>
+                <div class="login-footer-version">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>Sistem Presensi Lab v2.0</span>
+                </div>
+                <div class="stats-badge">
+                    <i class="fas fa-circle"></i>
+                    <span>Sistem Aktif & Aman</span>
+                </div>
+                <div class="login-footer-links">
+                    <a href="#" class="footer-link" title="Bantuan">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Bantuan</span>
+                    </a>
+                    <a href="#" class="footer-link" title="Kontak Admin">
+                        <i class="fas fa-headset"></i>
+                        <span>Kontak</span>
+                    </a>
+                    <a href="#" class="footer-link" title="Panduan">
+                        <i class="fas fa-book"></i>
+                        <span>Panduan</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Loading screen simulation
+        // Loading Screen Logic
         document.addEventListener('DOMContentLoaded', function() {
             const loadingScreen = document.getElementById('loadingScreen');
             const loginContainer = document.getElementById('loginContainer');
-            const loadingBar = document.getElementById('loadingBar');
             const loadingMessage = document.getElementById('loadingMessage');
             
-            // Data untuk simulasi loading
             const loadingMessages = [
                 "Memuat antarmuka login...",
                 "Menyiapkan sistem keamanan...",
                 "Memuat komponen formulir...",
-                "Menyiapkan database...",
+                "Menyiapkan koneksi database...",
                 "Hampir selesai...",
                 "Sistem siap!"
             ];
             
-            let progress = 0;
             let currentMessageIndex = 0;
+            let messageInterval;
             
-            // Fungsi untuk update progress
-            function updateProgress() {
-                if (progress >= 100) {
-                    // Loading selesai, tampilkan login container dan sembunyikan loading screen
-                    setTimeout(() => {
-                        loadingScreen.classList.add('hidden');
-                        loginContainer.classList.add('visible');
-                    }, 500);
-                    return;
-                }
-                
-                // Increment progress
-                let increment = Math.random() * 5 + 2; // 2-7%
-                progress = Math.min(progress + increment, 100);
-                
-                // Update progress bar
-                loadingBar.style.width = progress + '%';
-                
-                // Update pesan loading setiap 20% progress
-                if (progress >= currentMessageIndex * (100 / loadingMessages.length)) {
+            // Update loading message setiap 400ms
+            messageInterval = setInterval(() => {
+                if (currentMessageIndex < loadingMessages.length - 1) {
+                    currentMessageIndex++;
                     loadingMessage.textContent = loadingMessages[currentMessageIndex];
-                    if (currentMessageIndex < loadingMessages.length - 1) {
-                        currentMessageIndex++;
-                    }
                 }
-                
-                // Jadwalkan update berikutnya
-                let delay = 80 + Math.random() * 120; // 80-200ms
-                setTimeout(updateProgress, delay);
-            }
+            }, 400);
             
-            // Mulai proses loading setelah sedikit delay
-            setTimeout(updateProgress, 300);
+            // Sembunyikan loading screen setelah 2.5 detik
+            setTimeout(() => {
+                clearInterval(messageInterval);
+                loadingScreen.classList.add('hidden');
+                setTimeout(() => {
+                    loginContainer.classList.add('visible');
+                }, 100);
+            }, 2500);
 
-            // Theme Toggle Logic
+            // Theme Toggle
             const themeToggleBtn = document.getElementById('themeToggle');
             const root = document.documentElement;
             const icon = themeToggleBtn.querySelector('i');
 
-            function updateIcon() {
-                if (root.getAttribute('data-theme') === 'dark') {
-                    icon.classList.remove('fa-moon');
-                    icon.classList.add('fa-sun');
-                } else {
-                    icon.classList.remove('fa-sun');
-                    icon.classList.add('fa-moon');
-                }
+            function setTheme(theme) {
+                root.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                icon.className = `fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`;
             }
-            updateIcon();
-
+            
             themeToggleBtn.addEventListener('click', () => {
-                const currentTheme = root.getAttribute('data-theme');
-                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-                root.setAttribute('data-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                updateIcon();
+                const newTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                setTheme(newTheme);
+                
+                themeToggleBtn.style.animation = 'pulse 0.4s ease';
+                setTimeout(() => {
+                    themeToggleBtn.style.animation = '';
+                }, 400);
             });
+
+            const currentTheme = localStorage.getItem('theme') || 'light';
+            setTheme(currentTheme);
         });
 
-        // Form submission handling dengan loading
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const loginBtn = document.getElementById('btnLogin');
-            const originalText = loginBtn.innerHTML;
+        // Toggle Password Visibility
+        function togglePassword() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
             
-            // Tampilkan loading
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+
+        // Form submission loading state
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            const loginBtn = document.getElementById('btnLogin');
             loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memproses...';
             loginBtn.disabled = true;
         });
-        
-        // Efek hover pada input fields
-        const inputs = document.querySelectorAll('input');
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.parentElement.style.transform = 'scale(1.02)';
-            });
-            
-            input.addEventListener('blur', function() {
-                this.parentElement.style.transform = 'scale(1)';
-            });
-        });
-        
-        // Animasi tambahan untuk elemen floating
-        const floatingElements = document.querySelectorAll('.floating-element');
-        floatingElements.forEach((el, index) => {
-            el.style.animationDuration = (6 + index * 2) + 's';
-        });
-        
-        // PWA Service Worker Registration
+
+        // PWA Service Worker
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
+            window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.php')
-                    .then(function(registration) {
-                        console.log('PWA ServiceWorker registered');
-                    })
-                    .catch(function(err) {
-                        console.log('PWA ServiceWorker failed:', err);
-                    });
+                    .then(reg => console.log('PWA ServiceWorker registered'))
+                    .catch(err => console.log('PWA registration failed:', err));
             });
         }
     </script>
