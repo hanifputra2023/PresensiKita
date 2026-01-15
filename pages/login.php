@@ -411,7 +411,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-image: url("../uploads/logo/Kampus-I-Balapan-1.png");
+            background-image: url("../uploads/logo/cc.jpg");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;

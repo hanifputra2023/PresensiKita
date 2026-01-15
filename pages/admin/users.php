@@ -61,6 +61,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             set_alert('success', $success_count . ' User berhasil dihapus!');
         }
+    } elseif ($aksi == 'verify_password') {
+        // Handler untuk cek password via AJAX
+        // Bersihkan output buffer agar tidak ada HTML yang ikut
+        if (ob_get_length()) ob_end_clean();
+        $id = (int)$_POST['id'];
+        $password = $_POST['password'];
+        
+        $stmt = mysqli_prepare($conn, "SELECT password FROM users WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "i", $id);
+        mysqli_stmt_execute($stmt);
+        $result = mysqli_stmt_get_result($stmt);
+        $user = mysqli_fetch_assoc($result);
+        
+        $match = ($user && password_verify($password, $user['password']));
+        header('Content-Type: application/json');
+        echo json_encode(['match' => $match]);
+        exit;
     }
     
     header("Location: index.php?page=admin_users");
@@ -551,6 +568,18 @@ if (isset($_GET['ajax_search'])) {
                             Hash password yang tersimpan di database (hanya untuk referensi)
                         </div>
                     </div>
+                    
+                    <div class="mb-3 p-3 bg-light border rounded">
+                        <label class="form-label small fw-bold text-dark"><i class="fas fa-key me-1"></i>Cek Password Lama</label>
+                        <div class="input-group input-group-sm">
+                            <input type="text" id="test_password" class="form-control" placeholder="Ketik password untuk dicek...">
+                            <button class="btn btn-primary" type="button" onclick="verifyPassword()">
+                                Cek
+                            </button>
+                        </div>
+                        <div id="verify_result" class="form-text small mt-1">Masukkan password untuk memastikan kecocokan dengan data lama.</div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Password Baru</label>
                         <div class="password-field">
@@ -564,6 +593,7 @@ if (isset($_GET['ajax_search'])) {
                             Isi hanya jika ingin mengubah password
                         </div>
                     </div>
+                    
                     <div class="mb-3">
                         <label class="form-label">Role</label>
                         <select name="role" id="edit_role" class="form-select" required>
@@ -610,6 +640,8 @@ function editUser(id, username, role, passwordHash) {
     document.getElementById('edit_role').value = role;
     document.getElementById('edit_old_password').value = passwordHash || '';
     document.getElementById('edit_new_password').value = '';
+    document.getElementById('test_password').value = '';
+    document.getElementById('verify_result').innerHTML = 'Masukkan password untuk memastikan kecocokan dengan data lama.';
     
     // Reset password visibility
     const oldPassField = document.getElementById('edit_old_password');
@@ -639,6 +671,33 @@ function togglePasswordVisibility(inputId, button) {
         icon.classList.remove('fa-eye-slash');
         icon.classList.add('fa-eye');
     }
+}
+
+function verifyPassword() {
+    const id = document.getElementById('edit_id').value;
+    const password = document.getElementById('test_password').value;
+    const resultDiv = document.getElementById('verify_result');
+    
+    if (!password) {
+        resultDiv.innerHTML = '<span class="text-warning">Masukkan password terlebih dahulu!</span>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Memeriksa...</span>';
+    
+    const formData = new FormData();
+    formData.append('aksi', 'verify_password');
+    formData.append('id', id);
+    formData.append('password', password);
+    
+    fetch('index.php?page=admin_users', { method: 'POST', body: formData })
+    .then(response => response.json())
+    .then(data => {
+        resultDiv.innerHTML = data.match 
+            ? '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Password COCOK!</span>' 
+            : '<span class="text-danger fw-bold"><i class="fas fa-times-circle me-1"></i>Password TIDAK COCOK.</span>';
+    })
+    .catch(err => { console.error(err); resultDiv.innerHTML = '<span class="text-danger">Error koneksi.</span>'; });
 }
 
 function hapusUser(id) {

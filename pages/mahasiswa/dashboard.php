@@ -153,6 +153,12 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .dashboard-content {
     padding: 24px;
     max-width: 1400px;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Announcement Style */
