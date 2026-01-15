@@ -149,19 +149,27 @@ if (isset($_GET['ajax_search'])) {
                                    onchange="toggleSelection(<?= $u['id'] ?>)">
                         </div>
                         <div class="card-body d-flex flex-column">
-                            <div class="d-flex align-items-center mb-3">
+                            <div class="d-flex align-items-start mb-3">
                                 <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3" loading="lazy">
-                                <div>
-                                    <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
-                                    <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>
-                                    <span class="badge <?= $badge_role[$u['role']] ?> mt-1"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
+                                <div class="flex-grow-1">
+                                    <h5 class="card-title"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
+                                    <div class="username-text mb-2"><?= htmlspecialchars($u['username']) ?></div>
+                                    <span class="badge <?= $badge_role[$u['role']] ?>"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
                                 </div>
                             </div>
-                            <p class="text-muted mb-2"><i class="fas fa-hashtag me-2"></i>ID Pengguna: <?= $u['id'] ?></p>
-                            <p class="text-muted mb-2"><i class="fas fa-calendar-alt me-2"></i>Dibuat pada: <?= date('d M Y, H:i', strtotime($u['created_at'])) ?></p>
+                            
+                            <div class="info-text">
+                                <i class="fas fa-hashtag"></i>
+                                <span>ID: <?= $u['id'] ?></span>
+                            </div>
+                            
+                            <div class="info-text">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span><?= date('d M Y, H:i', strtotime($u['created_at'])) ?></span>
+                            </div>
                             
                             <div class="mt-auto action-buttons">
-                                <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
+                                <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>', '<?= htmlspecialchars($u['password'], ENT_QUOTES) ?>')">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $u['id'] ?>)">
@@ -228,49 +236,182 @@ if (isset($_GET['ajax_search'])) {
     }
 
     .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
+        border-bottom: 1px solid #e0e0e0;
+        padding-bottom: 1.25rem;
+        margin-bottom: 2rem;
     }
     .page-header h4 {
-        font-weight: 700;
-        color: var(--text-main);
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 1.5rem;
+        margin: 0;
     }
     .page-header h4 i {
-        color: var(--primary-color);
+        color: #0066cc;
     }
     .user-card:hover {
-        transform: translateY(-5px);
-        box-shadow: var(--card-shadow) !important;
+        border-color: #0066cc;
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.1);
+        transform: translateY(-2px);
     }
+    
+    .user-card .card-body {
+        padding: 1.5rem;
+    }
+    
     .user-card .card-title {
         font-weight: 600;
-        color: var(--text-main);
+        color: #2c3e50;
+        font-size: 1.05rem;
+        margin-bottom: 0.25rem;
     }
-    .user-card .card-body p i {
-        width: 20px;
-        text-align: center;
-        color: var(--text-muted);
+    
+    .user-card .username-text {
+        color: #6c757d;
+        font-size: 0.875rem;
+        font-weight: 400;
     }
+    
+    .user-avatar {
+        width: 64px;
+        height: 64px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 2px solid #f0f0f0;
+        transition: all 0.25s ease;
+    }
+    
+    .user-card:hover .user-avatar {
+        border-color: #0066cc;
+    }
+    
+    .user-card .badge {
+        border-radius: 20px;
+        padding: 4px 12px;
+        font-weight: 500;
+        font-size: 0.75rem;
+        text-transform: capitalize;
+    }
+    
+    .user-card .info-text {
+        color: #6c757d;
+        font-size: 0.875rem;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .user-card .info-text i {
+        width: 18px;
+        color: #95a5a6;
+        margin-right: 8px;
+    }
+    
     .user-card .action-buttons {
         display: flex;
         gap: 0.5rem;
         margin-top: 1rem;
-        border-top: 1px solid var(--border-color);
         padding-top: 1rem;
+        border-top: 1px solid #f0f0f0;
     }
+    
     .user-card .action-buttons .btn {
-        flex-grow: 1;
+        flex: 1;
+        border-radius: 24px;
+        font-weight: 500;
+        font-size: 0.875rem;
+        padding: 0.5rem 0.75rem;
+        transition: all 0.2s ease;
+        border: 1px solid transparent;
     }
-    .user-avatar {
-        width: 60px;
-        height: 60px;
-        object-fit: cover;
-        border-radius: 50%;
+    
+    .user-card .action-buttons .btn-warning {
+        background: #ffc107;
+        color: #000;
+        border-color: #ffc107;
     }
+    
+    .user-card .action-buttons .btn-warning:hover {
+        background: #ffb300;
+        border-color: #ffb300;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+    }
+    
+    .user-card .action-buttons .btn-danger {
+        background: #dc3545;
+        border-color: #dc3545;
+    }
+    
+    .user-card .action-buttons .btn-danger:hover {
+        background: #c82333;
+        border-color: #c82333;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    }
+    
     .modal-header {
-        background: var(--banner-gradient);
+        background: #0066cc;
         color: #fff;
+        border-radius: 0;
+        padding: 1.25rem;
+    }
+    
+    .modal-content {
+        border-radius: 24px;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .card.mb-4 {
+        border-radius: 24px;
+        border: 1px solid #e8e8e8;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    }
+    
+    .password-field {
+        position: relative;
+    }
+    .password-toggle {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        padding: 5px 10px;
+        z-index: 10;
+    }
+    .password-toggle:hover {
+        color: #495057;
+    }
+    .password-info {
+        font-size: 0.875rem;
+        color: #6c757d;
+        margin-top: 0.25rem;
+    }
+    
+    .alert {
+        border-radius: 20px;
+        border: none;
+        padding: 1rem 1.25rem;
+    }
+    
+    .form-control, .form-select {
+        border-radius: 16px;
+    }
+    
+    .btn {
+        border-radius: 20px;
+    }
+    
+    .input-group-text {
+        border-radius: 16px 0 0 16px;
+    }
+    
+    .input-group .form-control {
+        border-radius: 0 16px 16px 0;
     }
 </style>
 
@@ -331,19 +472,27 @@ if (isset($_GET['ajax_search'])) {
                                                onchange="toggleSelection(<?= $u['id'] ?>)">
                                     </div>
                                     <div class="card-body d-flex flex-column">
-                                        <div class="d-flex align-items-center mb-3">
+                                        <div class="d-flex align-items-start mb-3">
                                             <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3" loading="lazy">
-                                            <div>
-                                                <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
-                                                <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>
-                                                <span class="badge <?= $badge_role[$u['role']] ?> mt-1"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
+                                            <div class="flex-grow-1">
+                                                <h5 class="card-title"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
+                                                <div class="username-text mb-2"><?= htmlspecialchars($u['username']) ?></div>
+                                                <span class="badge <?= $badge_role[$u['role']] ?>"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
                                             </div>
                                         </div>
-                                        <p class="text-muted mb-2"><i class="fas fa-hashtag me-2"></i>ID Pengguna: <?= $u['id'] ?></p>
-                                        <p class="text-muted mb-2"><i class="fas fa-calendar-alt me-2"></i>Dibuat pada: <?= date('d M Y, H:i', strtotime($u['created_at'])) ?></p>
+                                        
+                                        <div class="info-text">
+                                            <i class="fas fa-hashtag"></i>
+                                            <span>ID: <?= $u['id'] ?></span>
+                                        </div>
+                                        
+                                        <div class="info-text">
+                                            <i class="fas fa-calendar-alt"></i>
+                                            <span><?= date('d M Y, H:i', strtotime($u['created_at'])) ?></span>
+                                        </div>
                                         
                                         <div class="mt-auto action-buttons">
-                                            <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
+                                            <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>', '<?= htmlspecialchars($u['password'], ENT_QUOTES) ?>')">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $u['id'] ?>)">
@@ -405,7 +554,12 @@ if (isset($_GET['ajax_search'])) {
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" required>
+                        <div class="password-field">
+                            <input type="password" name="password" id="tambah_password" class="form-control" required>
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('tambah_password', this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Role</label>
@@ -442,8 +596,33 @@ if (isset($_GET['ajax_search'])) {
                         <input type="text" id="edit_username" class="form-control" disabled>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">
+                            Password Lama 
+                            <small class="text-muted">(Hash)</small>
+                        </label>
+                        <div class="password-field">
+                            <input type="password" id="edit_old_password" class="form-control bg-light" readonly>
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('edit_old_password', this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="password-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Hash password yang tersimpan di database (hanya untuk referensi)
+                        </div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Password Baru</label>
-                        <input type="password" name="password" class="form-control" placeholder="Kosongkan jika tidak diubah">
+                        <div class="password-field">
+                            <input type="password" name="password" id="edit_new_password" class="form-control" placeholder="Kosongkan jika tidak diubah">
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('edit_new_password', this)">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="password-info">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Isi hanya jika ingin mengubah password
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Role</label>
@@ -485,11 +664,41 @@ if (isset($_GET['ajax_search'])) {
 <form id="formHapusBulk" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_banyak"><div id="bulkInputs"></div></form>
 
 <script>
-function editUser(id, username, role) {
+function editUser(id, username, role, passwordHash) {
     document.getElementById('edit_id').value = id;
     document.getElementById('edit_username').value = username;
     document.getElementById('edit_role').value = role;
+    document.getElementById('edit_old_password').value = passwordHash || '';
+    document.getElementById('edit_new_password').value = '';
+    
+    // Reset password visibility
+    const oldPassField = document.getElementById('edit_old_password');
+    const newPassField = document.getElementById('edit_new_password');
+    oldPassField.type = 'password';
+    newPassField.type = 'password';
+    
+    // Reset eye icons
+    document.querySelectorAll('.password-toggle i').forEach(icon => {
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    });
+    
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
+}
+
+function togglePasswordVisibility(inputId, button) {
+    const input = document.getElementById(inputId);
+    const icon = button.querySelector('i');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
 }
 
 function hapusUser(id) {
