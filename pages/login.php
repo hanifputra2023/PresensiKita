@@ -571,17 +571,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             position: absolute;
             top: 24px;
             right: 24px;
+<<<<<<< HEAD
             background: rgba(255, 255, 255, 0.15);
             backdrop-filter: blur(12px);
             border: 2px solid rgba(255, 255, 255, 0.2);
             color: white;
+=======
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            border: 2px solid rgba(0, 102, 204, 0.3);
+            color: #0066cc;
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             width: 48px;
             height: 48px;
             border-radius: 50%;
             font-size: 1.1rem;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+<<<<<<< HEAD
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+=======
+            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             z-index: 100;
             display: flex;
             align-items: center;
@@ -589,9 +600,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         .theme-toggle-btn:hover {
+<<<<<<< HEAD
             background: rgba(255, 255, 255, 0.25);
             transform: scale(1.1) rotate(15deg);
             box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+=======
+            background: #0066cc;
+            color: white;
+            border-color: #0066cc;
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 102, 204, 0.4);
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         }
 
         .theme-toggle-btn:active {
@@ -599,6 +618,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         [data-theme="dark"] .theme-toggle-btn {
+<<<<<<< HEAD
             background: rgba(0, 102, 204, 0.2);
             border-color: rgba(0, 153, 255, 0.3);
         }
@@ -657,6 +677,38 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         .logo-wrapper img {
             width: 88px;
+=======
+            background: rgba(30, 41, 59, 0.9);
+            border-color: rgba(30, 41, 59, 0.5);
+            color: white;
+            box-shadow: 0 4px 12px rgba(30, 41, 59, 0.5);
+        }
+
+        [data-theme="dark"] .theme-toggle-btn:hover {
+            background: #1e293b;
+            border-color: #1e293b;
+            box-shadow: 0 6px 16px rgba(30, 41, 59, 0.6);
+        }
+
+        /* Logo Section */
+        .logo-section {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            position: relative;
+        }
+
+        .logo-wrapper {
+            display: inline-block;
+            position: relative;
+            margin-bottom: 12px;
+            width: 100%;
+            max-width: 150px;
+        }
+
+        .logo-wrapper img {
+            width: 100%;
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             height: auto;
             position: relative;
             z-index: 2;
@@ -669,6 +721,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             50% { transform: translateY(-8px); }
         }
 
+<<<<<<< HEAD
         .university-name {
             font-size: 22px;
             font-weight: 800;
@@ -684,6 +737,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-weight: 600;
             letter-spacing: 1.5px;
             text-transform: uppercase;
+=======
+        .system-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-top: 8px;
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         }
 
         /* Login Section */
@@ -847,7 +909,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 17px;
             border: none;
             border-radius: 14px;
+<<<<<<< HEAD
             background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
+=======
+            background: #0066cc;
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             color: white;
             font-size: 15px;
             font-weight: 700;
@@ -855,14 +921,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             text-transform: uppercase;
             cursor: pointer;
             transition: none;
+<<<<<<< HEAD
             box-shadow: 0 12px 28px rgba(26, 35, 50, 0.4);
+=======
+            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             position: relative;
             overflow: hidden;
         }
 
         [data-theme="dark"] .btn-submit {
+<<<<<<< HEAD
             background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
             box-shadow: 0 12px 28px rgba(26, 35, 50, 0.5);
+=======
+            background: #1e293b;
+            box-shadow: 0 4px 12px rgba(30, 41, 59, 0.5);
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         }
 
         .btn-submit:disabled {
@@ -974,6 +1049,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             .logo-section {
                 margin-bottom: 36px;
+<<<<<<< HEAD
                 padding-bottom: 32px;
             }
 
@@ -988,10 +1064,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             .university-name {
                 font-size: 20px;
+=======
+                padding-bottom: 20px;
             }
 
-            .system-name {
-                font-size: 12px;
+            .logo-wrapper {
+                max-width: 130px;
+            }
+
+            .logo-wrapper img {
+                width: 100%;
+            }
+
+            .system-title {
+                font-size: 13px;
             }
 
             .login-title {
@@ -1031,6 +1117,74 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 border-radius: 24px;
             }
 
+            .logo-wrapper {
+                max-width: 110px;
+            }
+
+            .logo-wrapper img {
+                width: 100%;
+            }
+
+            .system-title {
+                font-size: 12px;
+            }
+
+            .login-footer {
+                margin-top: 24px;
+                padding-top: 20px;
+            }
+
+            .login-footer-links {
+                gap: 16px;
+            }
+
+            .footer-link {
+                font-size: 11px;
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
+            }
+
+            .system-name {
+                font-size: 12px;
+            }
+
+            .login-title {
+                font-size: 23px;
+            }
+
+            .theme-toggle-btn {
+                width: 44px;
+                height: 44px;
+                top: 20px;
+                right: 20px;
+            }
+
+            .form-control {
+                padding: 15px 16px 15px 48px;
+                font-size: 14px;
+            }
+
+            .input-icon {
+                left: 16px;
+                font-size: 17px;
+            }
+
+            .toggle-password {
+                right: 16px;
+            }
+
+            .btn-submit {
+                padding: 16px;
+                font-size: 14px;
+            }
+        }
+
+<<<<<<< HEAD
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 36px 32px 40px;
+                border-radius: 24px;
+            }
+
             .logo-wrapper img {
                 width: 72px;
             }
@@ -1057,6 +1211,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
 
+=======
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
     </style>
 </head>
 <body>
@@ -1100,8 +1256,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <div class="logo-wrapper">
                 <img id="mainLogo" src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
             </div>
+<<<<<<< HEAD
             <h2 class="university-name">Universitas AKPRIND</h2>
             <p class="system-name">Sistem Presensi Lab</p>
+=======
+            <p class="system-title">Sistem Presensi Lab</p>
+>>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         </div>
 
         <!-- Login Section -->
