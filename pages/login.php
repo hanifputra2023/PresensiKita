@@ -601,27 +601,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .logo-section {
             text-align: center;
             margin-bottom: 40px;
-            padding-bottom: 36px;
+            padding-bottom: 20px;
             position: relative;
-        }
-
-        .logo-section::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, var(--primary-blue), transparent);
-            border-radius: 4px;
-            opacity: 0.4;
         }
 
         .logo-wrapper {
             display: inline-block;
             position: relative;
-            margin-bottom: 24px;
+            margin-bottom: 0;
+            padding: 30px;
         }
 
         .logo-wrapper::before {
@@ -630,8 +618,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 140px;
-            height: 140px;
+            width: 180px;
+            height: 180px;
             background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
             border-radius: 50%;
             opacity: 0.08;
@@ -650,7 +638,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         .logo-wrapper img {
-            width: 88px;
+            width: 120px;
             height: auto;
             position: relative;
             z-index: 2;
@@ -661,23 +649,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         @keyframes logoFloat {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-8px); }
-        }
-
-        .university-name {
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--text-main);
-            margin-bottom: 8px;
-            letter-spacing: -0.4px;
-            line-height: 1.2;
-        }
-
-        .system-name {
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
         }
 
         /* Login Section */
@@ -968,24 +939,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             .logo-section {
                 margin-bottom: 36px;
-                padding-bottom: 32px;
+                padding-bottom: 20px;
             }
 
             .logo-wrapper img {
-                width: 78px;
+                width: 100px;
             }
 
             .logo-wrapper::before {
-                width: 120px;
-                height: 120px;
-            }
-
-            .university-name {
-                font-size: 20px;
-            }
-
-            .system-name {
-                font-size: 12px;
+                width: 150px;
+                height: 150px;
             }
 
             .login-title {
@@ -1026,15 +989,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             .logo-wrapper img {
-                width: 72px;
-            }
-
-            .university-name {
-                font-size: 19px;
-            }
-
-            .login-title {
-                font-size: 22px;
+                width: 90px;
             }
 
             .login-footer {
@@ -1094,8 +1049,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <div class="logo-wrapper">
                 <img id="mainLogo" src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
             </div>
-            <h2 class="university-name">Universitas AKPRIND</h2>
-            <p class="system-name">Sistem Presensi Lab</p>
         </div>
 
         <!-- Login Section -->
