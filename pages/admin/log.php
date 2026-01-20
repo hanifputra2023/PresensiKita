@@ -42,19 +42,6 @@ if ($search) {
 <?php include 'includes/header.php'; ?>
 
 <style>
-    .page-header {
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    .page-header h4 {
-        font-weight: 700;
-        color: var(--text-main);
-    }
-    .page-header h4 i {
-        color: var(--primary-color);
-    }
-    
     /* Timeline-like style for mobile logs */
     .log-timeline-item {
         position: relative;

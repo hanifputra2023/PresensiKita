@@ -310,6 +310,29 @@
             color: var(--text-main);
         }
         
+        /* Global Page Header Styling */
+        .page-header {
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        .page-header h4 {
+            font-weight: 700;
+            color: var(--text-main);
+        }
+        .page-header h4 i {
+            color: var(--primary-color);
+        }
+        
+        /* Global h4 icon color - untuk semua halaman admin */
+        .content-wrapper > div > h4 > i,
+        .content-wrapper > h4 > i,
+        .content-wrapper h4.mb-0 > i,
+        .content-wrapper h4.mb-4 > i,
+        .page-header-banner h4 > i {
+            color: var(--primary-color) !important;
+        }
+        
         /* Bootstrap Overrides for Dark Mode */
         [data-theme="dark"] .bg-light {
             background-color: var(--bg-body) !important;

@@ -194,12 +194,6 @@ if (isset($_GET['ajax_search'])) {
         flex-grow: 1; /* Membuat tombol berbagi lebar yang sama */
     }
 
-    .page-header { 
-        border-bottom: 1px solid var(--border-color); 
-        padding-bottom: 1rem; 
-        margin-bottom: 1.5rem; 
-    }
-    
     /* Card Styling */
     .class-card { 
         transition: all 0.2s; 
@@ -377,7 +371,7 @@ if (isset($_GET['ajax_search'])) {
                                 <label for="searchInput" class="form-label small">Cari Nama/Kode Kelas</label>
                                 <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-5">
                                 <label for="prodiFilter" class="form-label small">Filter Program Studi</label>
                                 <select name="prodi" id="prodiFilter" class="form-select">
                                     <option value="">Semua Prodi</option>
@@ -386,13 +380,13 @@ if (isset($_GET['ajax_search'])) {
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-3 d-flex align-items-end justify-content-start justify-content-md-end gap-2">
+                            <div class="col-12 col-md-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
                                 <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
                                     <i class="fas fa-check-square me-1"></i> Pilih
                                 </button>
-                                <div class="form-check d-none align-items-center mb-2" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll">Semua</label>
+                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
+                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
                                 </div>
                             </div>
                         </form>

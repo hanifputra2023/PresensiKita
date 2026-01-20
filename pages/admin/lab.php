@@ -216,11 +216,6 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Styling Dasar Layout */
-    .page-header { border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem; }
-    .page-header h4 { font-weight: 700; color: var(--text-main); }
-    .page-header h4 i { color: var(--primary-color); }
-    
     /* Card Styling & Selection */
     .lab-card { transition: all 0.2s; border: 1px solid var(--border-color); background-color: var(--bg-card); }
     .lab-card .card-title { font-weight: 600; color: var(--text-main); }
@@ -342,13 +337,13 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
                                 <label for="searchInput" class="form-label small">Cari Nama/Kode Lab</label>
                                 <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
                             </div>
-                            <div class="col-12 col-md-auto d-flex align-items-end justify-content-start justify-content-md-end gap-2">
+                            <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
                                 <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
                                     <i class="fas fa-check-square me-1"></i> Pilih
                                 </button>
-                                <div class="form-check d-none align-items-center mb-2" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll">Semua</label>
+                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
+                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
                                 </div>
                             </div>
                         </form>
