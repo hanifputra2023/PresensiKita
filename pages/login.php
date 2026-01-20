@@ -24,8 +24,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $remember = isset($_POST['remember']) ? true : false;
     
     // [SECURITY] Gunakan Prepared Statement untuk mencegah SQL Injection
-    $stmt = mysqli_prepare($conn, "SELECT * FROM users WHERE username = ?");
-    mysqli_stmt_bind_param($stmt, "s", $username);
+    // [UPDATE] Cek juga ke tabel mahasiswa (NIM) dan asisten (Kode Asisten) agar bisa login pakai NIM/Kode
+    $stmt = mysqli_prepare($conn, "
+        SELECT u.* FROM users u 
+        LEFT JOIN mahasiswa m ON u.id = m.user_id 
+        LEFT JOIN asisten a ON u.id = a.user_id 
+        WHERE u.username = ? OR m.nim = ? OR a.kode_asisten = ?");
+    mysqli_stmt_bind_param($stmt, "sss", $username, $username, $username);
     mysqli_stmt_execute($stmt);
     $result = mysqli_stmt_get_result($stmt);
     

@@ -371,7 +371,7 @@ if (isset($_GET['ajax_search'])) {
                                 <label for="searchInput" class="form-label small">Cari Nama/Kode Kelas</label>
                                 <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-5">
                                 <label for="prodiFilter" class="form-label small">Filter Program Studi</label>
                                 <select name="prodi" id="prodiFilter" class="form-select">
                                     <option value="">Semua Prodi</option>
@@ -380,7 +380,7 @@ if (isset($_GET['ajax_search'])) {
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-3 d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
+                            <div class="col-12 col-md-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
                                 <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
                                     <i class="fas fa-check-square me-1"></i> Pilih
                                 </button>

@@ -18,11 +18,71 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             set_alert('danger', 'Username sudah ada!');
         } else {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            // Prepared statement untuk insert user
+            
+            // Insert user dulu
             $stmt_ins = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
             mysqli_stmt_bind_param($stmt_ins, "sss", $username, $hashed_password, $role);
             mysqli_stmt_execute($stmt_ins);
-            set_alert('success', 'User berhasil ditambahkan!');
+            $user_id = mysqli_insert_id($conn);
+            
+            // Insert data sesuai role
+            if ($role == 'mahasiswa') {
+                $nim = escape($_POST['nim']);
+                $nama = escape($_POST['nama']);
+                $kode_kelas = escape($_POST['kode_kelas']);
+                $prodi = escape($_POST['prodi']);
+                $no_hp = escape($_POST['no_hp']);
+                
+                // Cek apakah NIM sudah ada
+                $stmt_cek_nim = mysqli_prepare($conn, "SELECT * FROM mahasiswa WHERE nim = ?");
+                mysqli_stmt_bind_param($stmt_cek_nim, "s", $nim);
+                mysqli_stmt_execute($stmt_cek_nim);
+                $cek_nim = mysqli_stmt_get_result($stmt_cek_nim);
+                
+                if (mysqli_num_rows($cek_nim) > 0) {
+                    // Rollback - hapus user yang baru dibuat
+                    $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
+                    mysqli_stmt_bind_param($stmt_del, "i", $user_id);
+                    mysqli_stmt_execute($stmt_del);
+                    set_alert('danger', 'NIM sudah terdaftar!');
+                } else {
+                    $stmt_mhs = mysqli_prepare($conn, "
+                        INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp) 
+                        VALUES (?, ?, ?, ?, ?, ?)");
+                    mysqli_stmt_bind_param($stmt_mhs, "sissss", $nim, $user_id, $nama, $kode_kelas, $prodi, $no_hp);
+                    mysqli_stmt_execute($stmt_mhs);
+                    set_alert('success', 'Mahasiswa berhasil ditambahkan!');
+                }
+            } elseif ($role == 'asisten') {
+                $kode_asisten = escape($_POST['kode_asisten']);
+                $username = escape($_POST['username']);
+                $nama = escape($_POST['nama']);
+                $no_hp = escape($_POST['no_hp']);
+                $kode_mk = escape($_POST['kode_mk']);
+                $kode_mk = $kode_mk ?: null;
+                
+                // Cek apakah kode asisten sudah ada
+                $stmt_cek_ast = mysqli_prepare($conn, "SELECT * FROM asisten WHERE kode_asisten = ?");
+                mysqli_stmt_bind_param($stmt_cek_ast, "s", $kode_asisten);
+                mysqli_stmt_execute($stmt_cek_ast);
+                $cek_ast = mysqli_stmt_get_result($stmt_cek_ast);
+                
+                if (mysqli_num_rows($cek_ast) > 0) {
+                    // Rollback - hapus user yang baru dibuat
+                    $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
+                    mysqli_stmt_bind_param($stmt_del, "i", $user_id);
+                    mysqli_stmt_execute($stmt_del);
+                    set_alert('danger', 'Kode Asisten sudah terdaftar!');
+                } else {
+                    $stmt_ast = mysqli_prepare($conn, "INSERT INTO asisten (kode_asisten, user_id, nama, no_hp, kode_mk) VALUES (?, ?, ?, ?, ?)");
+                    mysqli_stmt_bind_param($stmt_ast, "sisss", $kode_asisten, $user_id, $nama, $no_hp, $kode_mk);
+                    mysqli_stmt_execute($stmt_ast);
+                    set_alert('success', 'Asisten berhasil ditambahkan!');
+                }
+            } else {
+                // Admin - tidak perlu data tambahan
+                set_alert('success', 'Admin berhasil ditambahkan!');
+            }
         }
     } elseif ($aksi == 'edit') {
         $id = (int)$_POST['id'];
@@ -44,22 +104,45 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         set_alert('success', 'User berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
         $id = (int)$_POST['id'];
-        // Prepared statement untuk hapus user
+        
+        // Hapus data terkait di mahasiswa dan asisten terlebih dahulu
+        $stmt_del_mhs = mysqli_prepare($conn, "DELETE FROM mahasiswa WHERE user_id = ?");
+        mysqli_stmt_bind_param($stmt_del_mhs, "i", $id);
+        mysqli_stmt_execute($stmt_del_mhs);
+        
+        $stmt_del_ast = mysqli_prepare($conn, "DELETE FROM asisten WHERE user_id = ?");
+        mysqli_stmt_bind_param($stmt_del_ast, "i", $id);
+        mysqli_stmt_execute($stmt_del_ast);
+        
+        // Hapus user
         $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
         mysqli_stmt_bind_param($stmt_del, "i", $id);
         mysqli_stmt_execute($stmt_del);
-        set_alert('success', 'User berhasil dihapus!');
+        set_alert('success', 'User dan data terkait berhasil dihapus!');
     } elseif ($aksi == 'hapus_banyak') {
         if (isset($_POST['ids']) && is_array($_POST['ids'])) {
             $ids = $_POST['ids'];
             $success_count = 0;
+            
+            $stmt_del_mhs = mysqli_prepare($conn, "DELETE FROM mahasiswa WHERE user_id = ?");
+            $stmt_del_ast = mysqli_prepare($conn, "DELETE FROM asisten WHERE user_id = ?");
             $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
+            
             foreach ($ids as $id) {
                 $safe_id = (int)$id;
+                
+                // Hapus data terkait
+                mysqli_stmt_bind_param($stmt_del_mhs, "i", $safe_id);
+                mysqli_stmt_execute($stmt_del_mhs);
+                
+                mysqli_stmt_bind_param($stmt_del_ast, "i", $safe_id);
+                mysqli_stmt_execute($stmt_del_ast);
+                
+                // Hapus user
                 mysqli_stmt_bind_param($stmt_del, "i", $safe_id);
                 if(mysqli_stmt_execute($stmt_del)) $success_count++;
             }
-            set_alert('success', $success_count . ' User berhasil dihapus!');
+            set_alert('success', $success_count . ' User dan data terkait berhasil dihapus!');
         }
     } elseif ($aksi == 'verify_password') {
         // Handler untuk cek password via AJAX
@@ -144,6 +227,10 @@ if ($search) {
     mysqli_stmt_execute($stmt_users);
     $users = mysqli_stmt_get_result($stmt_users);
 }
+
+// Ambil data kelas dan mata kuliah untuk form
+$kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
+$matkul_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
 
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
@@ -367,8 +454,45 @@ if (isset($_GET['ajax_search'])) {
     }
     [data-theme="dark"] .check-password-box .form-control {
         background-color: var(--bg-card);
-        border-color: var(--border-color);
-        color: var(--text-main);
+    }
+    
+    /* Role Selection Buttons */
+    .btn-check:checked + .btn-outline-success {
+        background-color: #198754 !important;
+        border-color: #198754 !important;
+        color: #fff !important;
+    }
+    .btn-check:checked + .btn-outline-info {
+        background-color: #0dcaf0 !important;
+        border-color: #0dcaf0 !important;
+        color: #000 !important;
+    }
+    .btn-check:checked + .btn-outline-danger {
+        background-color: #dc3545 !important;
+        border-color: #dc3545 !important;
+        color: #fff !important;
+    }
+    .role-fields {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    [data-theme="dark"] .alert-success {
+        background-color: rgba(25, 135, 84, 0.2);
+        border-color: rgba(25, 135, 84, 0.3);
+        color: #75b798;
+    }
+    [data-theme="dark"] .alert-info {
+        background-color: rgba(13, 202, 240, 0.2);
+        border-color: rgba(13, 202, 240, 0.3);
+        color: #6edff6;
+    }
+    [data-theme="dark"] .alert-danger {
+        background-color: rgba(220, 53, 69, 0.2);
+        border-color: rgba(220, 53, 69, 0.3);
+        color: #ea868f;
     }
     [data-theme="dark"] .check-password-box .form-control::placeholder {
         color: var(--text-muted);
@@ -502,40 +626,147 @@ if (isset($_GET['ajax_search'])) {
 
 <!-- Modal Tambah -->
 <div class="modal fade" id="modalTambah" tabindex="-1" aria-labelledby="modalTambahLabel">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
-            <form method="POST">
+            <form method="POST" id="formTambah">
                 <input type="hidden" name="aksi" value="tambah">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalTambahLabel">Tambah Pengguna</h5>
+                    <h5 class="modal-title" id="modalTambahLabel"><i class="fas fa-user-plus me-2"></i>Tambah Pengguna</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <!-- Pilih Role Dulu -->
                     <div class="mb-3">
-                        <label class="form-label">Username</label>
-                        <input type="text" name="username" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <div class="password-field">
-                            <input type="password" name="password" id="tambah_password" class="form-control" required>
-                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('tambah_password', this)">
-                                <i class="fas fa-eye"></i>
-                            </button>
+                        <label class="form-label fw-bold">Pilih Tipe Pengguna <span class="text-danger">*</span></label>
+                        <div class="row g-2">
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="role" id="role_mahasiswa" value="mahasiswa" checked>
+                                <label class="btn btn-outline-success w-100 py-3" for="role_mahasiswa">
+                                    <i class="fas fa-user-graduate d-block mb-1 fs-4"></i>
+                                    <span class="small">Mahasiswa</span>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="role" id="role_asisten" value="asisten">
+                                <label class="btn btn-outline-info w-100 py-3" for="role_asisten">
+                                    <i class="fas fa-chalkboard-teacher d-block mb-1 fs-4"></i>
+                                    <span class="small">Asisten</span>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="role" id="role_admin" value="admin">
+                                <label class="btn btn-outline-danger w-100 py-3" for="role_admin">
+                                    <i class="fas fa-user-shield d-block mb-1 fs-4"></i>
+                                    <span class="small">Admin</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Role</label>
-                        <select name="role" class="form-select" required>
-                            <option value="mahasiswa" selected>Mahasiswa</option>
-                            <option value="asisten">Asisten</option>
-                            <option value="admin">Admin</option>
-                        </select>
+                    
+                    <hr class="my-3">
+                    
+                    <!-- Field Umum: Username & Password -->
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Username <span class="text-danger">*</span></label>
+                            <input type="text" name="username" id="tambah_username" class="form-control" required>
+                            <div class="form-text" id="usernameHint">Untuk mahasiswa, gunakan NIM sebagai username</div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Password <span class="text-danger">*</span></label>
+                            <div class="password-field">
+                                <input type="password" name="password" id="tambah_password" class="form-control" required>
+                                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('tambah_password', this)">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Field Mahasiswa -->
+                    <div id="fieldsMahasiswa" class="role-fields">
+                        <div class="alert alert-success py-2 mb-3">
+                            <i class="fas fa-user-graduate me-2"></i><strong>Data Mahasiswa</strong>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">NIM <span class="text-danger">*</span></label>
+                                <input type="text" name="nim" id="tambah_nim" class="form-control">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                                <input type="text" name="nama" id="tambah_nama_mhs" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Kelas <span class="text-danger">*</span></label>
+                                <select name="kode_kelas" id="tambah_kelas" class="form-select">
+                                    <option value="">-- Pilih Kelas --</option>
+                                    <?php 
+                                    mysqli_data_seek($kelas_list, 0);
+                                    while ($k = mysqli_fetch_assoc($kelas_list)): 
+                                    ?>
+                                        <option value="<?= $k['kode_kelas'] ?>"><?= $k['kode_kelas'] ?> - <?= $k['nama_kelas'] ?></option>
+                                    <?php endwhile; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Program Studi</label>
+                                <input type="text" name="prodi" id="tambah_prodi" class="form-control" placeholder="Contoh: Teknik Informatika">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">No. HP</label>
+                                <input type="text" name="no_hp" id="tambah_hp_mhs" class="form-control" placeholder="08xxxxxxxxxx">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Field Asisten -->
+                    <div id="fieldsAsisten" class="role-fields" style="display: none;">
+                        <div class="alert alert-info py-2 mb-3">
+                            <i class="fas fa-chalkboard-teacher me-2"></i><strong>Data Asisten</strong>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Kode Asisten <span class="text-danger">*</span></label>
+                                <input type="text" name="kode_asisten" id="tambah_kode_asisten" class="form-control" placeholder="Contoh: AST001">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
+                                <input type="text" name="nama" id="tambah_nama_ast" class="form-control">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">No. HP</label>
+                                <input type="text" name="no_hp" id="tambah_hp_ast" class="form-control" placeholder="08xxxxxxxxxx">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Mata Kuliah</label>
+                                <select name="kode_mk" id="tambah_mk" class="form-select">
+                                    <option value="">-- Tidak Ada --</option>
+                                    <?php 
+                                    mysqli_data_seek($matkul_list, 0);
+                                    while ($mk = mysqli_fetch_assoc($matkul_list)): 
+                                    ?>
+                                        <option value="<?= $mk['kode_mk'] ?>"><?= $mk['kode_mk'] ?> - <?= $mk['nama_mk'] ?></option>
+                                    <?php endwhile; ?>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Field Admin -->
+                    <div id="fieldsAdmin" class="role-fields" style="display: none;">
+                        <div class="alert alert-danger py-2 mb-3">
+                            <i class="fas fa-user-shield me-2"></i><strong>Admin</strong> - Tidak memerlukan data tambahan
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary">Simpan</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan</button>
                 </div>
             </form>
         </div>
@@ -807,6 +1038,91 @@ document.getElementById('searchInput').addEventListener('input', function() {
             })
             .catch(error => console.error('Error:', error));
     }, 300);
+});
+
+// =====================================================
+// Dynamic Role Form Handler
+// =====================================================
+document.addEventListener('DOMContentLoaded', function() {
+    const roleRadios = document.querySelectorAll('input[name="role"]');
+    const fieldsMahasiswa = document.getElementById('fieldsMahasiswa');
+    const fieldsAsisten = document.getElementById('fieldsAsisten');
+    const fieldsAdmin = document.getElementById('fieldsAdmin');
+    const usernameHint = document.getElementById('usernameHint');
+    
+    // All field inputs
+    const mahasiswaInputs = fieldsMahasiswa.querySelectorAll('input, select');
+    const asistenInputs = fieldsAsisten.querySelectorAll('input, select');
+    
+    // Toggle fields based on role
+    function toggleRoleFields() {
+        const selectedRole = document.querySelector('input[name="role"]:checked').value;
+        
+        // Hide all and disable all inputs
+        fieldsMahasiswa.style.display = 'none';
+        fieldsAsisten.style.display = 'none';
+        fieldsAdmin.style.display = 'none';
+        
+        // Disable all role-specific inputs
+        mahasiswaInputs.forEach(input => input.disabled = true);
+        asistenInputs.forEach(input => input.disabled = true);
+        
+        // Clear required attributes
+        clearRequiredFields();
+        
+        // Show selected and enable inputs
+        if (selectedRole === 'mahasiswa') {
+            fieldsMahasiswa.style.display = 'block';
+            mahasiswaInputs.forEach(input => input.disabled = false);
+            usernameHint.textContent = 'Masukkan username untuk login mahasiswa';
+            setMahasiswaRequired();
+        } else if (selectedRole === 'asisten') {
+            fieldsAsisten.style.display = 'block';
+            asistenInputs.forEach(input => input.disabled = false);
+            usernameHint.textContent = 'Masukkan username untuk login asisten';
+            setAsistenRequired();
+        } else {
+            fieldsAdmin.style.display = 'block';
+            usernameHint.textContent = 'Masukkan username untuk login admin';
+        }
+    }
+    
+    function clearRequiredFields() {
+        // Mahasiswa fields
+        document.getElementById('tambah_nim').removeAttribute('required');
+        document.getElementById('tambah_nama_mhs').removeAttribute('required');
+        document.getElementById('tambah_kelas').removeAttribute('required');
+        // Asisten fields
+        document.getElementById('tambah_kode_asisten').removeAttribute('required');
+        document.getElementById('tambah_nama_ast').removeAttribute('required');
+    }
+    
+    function setMahasiswaRequired() {
+        document.getElementById('tambah_nim').setAttribute('required', 'required');
+        document.getElementById('tambah_nama_mhs').setAttribute('required', 'required');
+        document.getElementById('tambah_kelas').setAttribute('required', 'required');
+    }
+    
+    function setAsistenRequired() {
+        document.getElementById('tambah_kode_asisten').setAttribute('required', 'required');
+        document.getElementById('tambah_nama_ast').setAttribute('required', 'required');
+    }
+    
+    // Listen for role changes
+    roleRadios.forEach(radio => {
+        radio.addEventListener('change', toggleRoleFields);
+    });
+    
+    // Initialize on page load
+    toggleRoleFields();
+    
+    // Reset form when modal is opened
+    const modalTambah = document.getElementById('modalTambah');
+    modalTambah.addEventListener('show.bs.modal', function() {
+        document.getElementById('formTambah').reset();
+        document.getElementById('role_mahasiswa').checked = true;
+        toggleRoleFields();
+    });
 });
 </script>
 

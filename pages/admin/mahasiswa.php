@@ -14,10 +14,10 @@ if (isset($_GET['download_template'])) {
     echo chr(0xEF) . chr(0xBB) . chr(0xBF);
     
     // Header dengan semicolon sebagai delimiter (lebih kompatibel dengan Excel Indonesia)
-    echo "NIM;Nama;Kode Kelas;Program Studi;No HP;Password\n";
+    echo "NIM;Username;Nama;Kode Kelas;Program Studi;No HP;Password\n";
     // Contoh data
-    echo "12345678;Budi Santoso;TI-1A;Teknik Informatika;081234567890;123456\n";
-    echo "12345679;Ani Wijaya;TI-1A;Teknik Informatika;081234567891;123456\n";
+    echo "12345678;budi.santoso;Budi Santoso;TI-1A;Teknik Informatika;081234567890;123456\n";
+    echo "12345679;ani.wijaya;Ani Wijaya;TI-1A;Teknik Informatika;081234567891;123456\n";
     exit;
 }
 
@@ -29,9 +29,10 @@ if (isset($_GET['export'])) {
     $filter_kelas_exp = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
     $where_exp = $filter_kelas_exp ? "WHERE m.kode_kelas = '$filter_kelas_exp'" : '';
     
-    $data_export = mysqli_query($conn, "SELECT m.nim, m.nama, m.kode_kelas, k.nama_kelas, m.prodi, m.no_hp 
+    $data_export = mysqli_query($conn, "SELECT m.nim, u.username, m.nama, m.kode_kelas, k.nama_kelas, m.prodi, m.no_hp 
                                          FROM mahasiswa m 
                                          LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                         JOIN users u ON m.user_id = u.id 
                                          $where_exp ORDER BY m.nim");
     
     $filename = 'data_mahasiswa_' . date('Y-m-d_His') . '.csv';
@@ -42,13 +43,14 @@ if (isset($_GET['export'])) {
     echo chr(0xEF) . chr(0xBB) . chr(0xBF);
     
     // Header
-    echo "No;NIM;Nama;Kode Kelas;Nama Kelas;Program Studi;No HP\n";
+    echo "No;NIM;Username;Nama;Kode Kelas;Nama Kelas;Program Studi;No HP\n";
     
     // Data
     $no = 1;
     while ($row = mysqli_fetch_assoc($data_export)) {
         echo $no . ";" . 
              $row['nim'] . ";" . 
+             $row['username'] . ";" . 
              $row['nama'] . ";" . 
              $row['kode_kelas'] . ";" . 
              $row['nama_kelas'] . ";" . 
@@ -85,9 +87,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     foreach ($header as $index => $col) {
                         $col_name = strtolower(trim($col));
                         if (strpos($col_name, 'nim') !== false) $header_map['nim'] = $index;
+                        if (strpos($col_name, 'username') !== false) $header_map['username'] = $index;
                         if (strpos($col_name, 'nama') !== false) $header_map['nama'] = $index;
                         if (strpos($col_name, 'kelas') !== false) $header_map['kelas'] = $index;
-                        if (strpos($col_name, 'prodi') !== false) $header_map['prodi'] = $index;
+                        if (strpos($col_name, 'prodi') !== false || strpos($col_name, 'program studi') !== false) $header_map['prodi'] = $index;
                         if (strpos($col_name, 'hp') !== false) $header_map['hp'] = $index;
                         if (strpos($col_name, 'password') !== false) $header_map['password'] = $index;
                     }
@@ -119,6 +122,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if (count($data) > 0) {
                     $nim = escape(trim($data[$header_map['nim']] ?? ''));
                     $nama = escape(trim($data[$header_map['nama']] ?? ''));
+                    // Ambil username jika ada, jika tidak gunakan NIM
+                    $username_raw = isset($header_map['username']) ? trim($data[$header_map['username']]) : '';
+                    $username = !empty($username_raw) ? escape($username_raw) : $nim;
                     $kelas = isset($header_map['kelas']) ? escape(trim($data[$header_map['kelas']])) : '';
                     $prodi = isset($header_map['prodi']) ? escape(trim($data[$header_map['prodi']])) : '';
                     $hp = isset($header_map['hp']) ? escape(trim($data[$header_map['hp']])) : '';
@@ -135,14 +141,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $cek = mysqli_stmt_get_result($stmt_cek);
                     if (mysqli_num_rows($cek) > 0) { $gagal++; $errors[] = "Baris $row_num: NIM $nim sudah terdaftar."; continue; }
                     
+                    // Cek Username
+                    $stmt_cek_user = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ?");
+                    mysqli_stmt_bind_param($stmt_cek_user, "s", $username);
+                    mysqli_stmt_execute($stmt_cek_user);
+                    if (mysqli_num_rows(mysqli_stmt_get_result($stmt_cek_user)) > 0) { $gagal++; $errors[] = "Baris $row_num: Username '$username' sudah digunakan."; continue; }
+                    
+                    
                     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    // [FIX] Jalankan query terpisah agar tidak out of sync
                     $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'mahasiswa')");
-                    mysqli_stmt_bind_param($stmt_user, "ss", $nim, $hashed_password);
+
+                    mysqli_stmt_bind_param($stmt_user, "ss", $username, $hashed_password);
                     mysqli_stmt_execute($stmt_user);
                     $user_id = mysqli_insert_id($conn);
                     
                     $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    mysqli_stmt_bind_param($stmt_mhs, "sissss s", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
+                    mysqli_stmt_bind_param($stmt_mhs, "sisssss", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
                     $q = mysqli_stmt_execute($stmt_mhs);
                     if ($q) { $success++; } else { $gagal++; $errors[] = "Baris $row_num: Gagal insert database."; }
                 }
@@ -162,6 +177,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if ($aksi == 'tambah') {
         $nim = escape($_POST['nim']);
+        $username = escape($_POST['username']);
+        
+        // Jika username kosong, otomatis gunakan NIM
+        if (empty($username)) {
+            $username = $nim;
+        }
+        
         $nama = escape($_POST['nama']);
         $kelas = escape($_POST['kode_kelas']);
         $prodi = escape($_POST['prodi']);
@@ -179,15 +201,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (mysqli_num_rows($cek) > 0) {
             set_alert('danger', 'NIM sudah terdaftar!');
         } else {
+            // Cek Username apakah sudah ada di tabel users
+            $stmt_cek_user = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ?");
+            mysqli_stmt_bind_param($stmt_cek_user, "s", $username);
+            mysqli_stmt_execute($stmt_cek_user);
+            if (mysqli_num_rows(mysqli_stmt_get_result($stmt_cek_user)) > 0) {
+                set_alert('danger', 'Username sudah digunakan! Silakan pilih username lain.');
+            } else {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'mahasiswa')");
-            mysqli_stmt_bind_param($stmt_user, "ss", $nim, $hashed_password);
+            mysqli_stmt_bind_param($stmt_user, "ss", $username, $hashed_password);
             mysqli_stmt_execute($stmt_user);
             $user_id = mysqli_insert_id($conn);
             $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES (?, ?, ?, ?, ?, ?, ?)");
             mysqli_stmt_bind_param($stmt_mhs, "sisssss", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
             mysqli_stmt_execute($stmt_mhs);
             set_alert('success', 'Mahasiswa berhasil ditambahkan!');
+            }
         }
     } elseif ($aksi == 'edit') {
         $id = (int)$_POST['id'];
@@ -276,30 +306,34 @@ $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
 if ($filter_kelas && $search) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   JOIN users u ON m.user_id = u.id
                                    WHERE m.kode_kelas = ? AND (m.nama LIKE ? OR m.nim LIKE ?)
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "sssii", $filter_kelas, $search_param, $search_param, $offset, $per_page);
 } elseif ($filter_kelas) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   JOIN users u ON m.user_id = u.id
                                    WHERE m.kode_kelas = ?
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "sii", $filter_kelas, $offset, $per_page);
 } elseif ($search) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   JOIN users u ON m.user_id = u.id
                                    WHERE m.nama LIKE ? OR m.nim LIKE ?
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "ssii", $search_param, $search_param, $offset, $per_page);
 } else {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+                                   JOIN users u ON m.user_id = u.id
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "ii", $offset, $per_page);
 }
@@ -329,6 +363,7 @@ if (isset($_GET['ajax_search'])) {
                             </div>
                             <h5 class="card-title text-center mb-1"><?= htmlspecialchars($m['nama']) ?></h5>
                             <p class="text-center text-muted small"><?= htmlspecialchars($m['nim']) ?></p>
+                            <p class="text-center text-muted small" style="font-size: 0.75rem;"><i class="fas fa-user me-1"></i><?= htmlspecialchars($m['username']) ?></p>
                             
                             <p class="text-muted mb-2 mt-3"><i class="fas fa-university me-2"></i><?= htmlspecialchars($m['prodi']) ?: 'N/A' ?></p>
                             <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i><?= htmlspecialchars($m['nama_kelas']) ?: 'N/A' ?></p>
@@ -470,7 +505,7 @@ if (isset($_GET['ajax_search'])) {
                                 <label for="search" class="form-label">Cari Nama atau NIM</label>
                                 <input type="text" name="search" id="search" class="form-control" value="<?= htmlspecialchars($search) ?>" placeholder="Masukkan nama atau NIM...">
                             </div>
-                            <div class="col-12 col-md-4">
+                            <div class="col-12 col-md-5">
                                 <label for="kelas" class="form-label">Filter Kelas</label>
                                 <select name="kelas" id="kelas" class="form-select">
                                     <option value="">Semua Kelas</option>
@@ -481,7 +516,7 @@ if (isset($_GET['ajax_search'])) {
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-3 d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
+                            <div class="col-12 col-md-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
                                 <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
                                     <i class="fas fa-check-square me-1"></i> Pilih
                                 </button>
@@ -573,6 +608,7 @@ if (isset($_GET['ajax_search'])) {
                 <div class="modal-header"><h5 class="modal-title" id="modalTambahLabel">Tambah Mahasiswa</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">NIM</label><input type="text" name="nim" class="form-control" required></div>
+                    <div class="mb-3"><label class="form-label">Username <small class="text-muted">(Opsional)</small></label><input type="text" name="username" class="form-control" placeholder="Kosongkan jika sama dengan NIM"></div>
                     <div class="mb-3"><label class="form-label">Nama</label><input type="text" name="nama" class="form-control" required></div>
                     <div class="mb-3">
                         <label class="form-label">Kelas</label>
