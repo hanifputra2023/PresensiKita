@@ -18,71 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             set_alert('danger', 'Username sudah ada!');
         } else {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            
-            // Insert user dulu
+            // Prepared statement untuk insert user
             $stmt_ins = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
             mysqli_stmt_bind_param($stmt_ins, "sss", $username, $hashed_password, $role);
             mysqli_stmt_execute($stmt_ins);
-            $user_id = mysqli_insert_id($conn);
-            
-            // Insert data sesuai role
-            if ($role == 'mahasiswa') {
-                $nim = escape($_POST['nim']);
-                $nama = escape($_POST['nama']);
-                $kode_kelas = escape($_POST['kode_kelas']);
-                $prodi = escape($_POST['prodi']);
-                $no_hp = escape($_POST['no_hp']);
-                
-                // Cek apakah NIM sudah ada
-                $stmt_cek_nim = mysqli_prepare($conn, "SELECT * FROM mahasiswa WHERE nim = ?");
-                mysqli_stmt_bind_param($stmt_cek_nim, "s", $nim);
-                mysqli_stmt_execute($stmt_cek_nim);
-                $cek_nim = mysqli_stmt_get_result($stmt_cek_nim);
-                
-                if (mysqli_num_rows($cek_nim) > 0) {
-                    // Rollback - hapus user yang baru dibuat
-                    $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
-                    mysqli_stmt_bind_param($stmt_del, "i", $user_id);
-                    mysqli_stmt_execute($stmt_del);
-                    set_alert('danger', 'NIM sudah terdaftar!');
-                } else {
-                    $stmt_mhs = mysqli_prepare($conn, "
-                        INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp) 
-                        VALUES (?, ?, ?, ?, ?, ?)");
-                    mysqli_stmt_bind_param($stmt_mhs, "sissss", $nim, $user_id, $nama, $kode_kelas, $prodi, $no_hp);
-                    mysqli_stmt_execute($stmt_mhs);
-                    set_alert('success', 'Mahasiswa berhasil ditambahkan!');
-                }
-            } elseif ($role == 'asisten') {
-                $kode_asisten = escape($_POST['kode_asisten']);
-                $username = escape($_POST['username']);
-                $nama = escape($_POST['nama']);
-                $no_hp = escape($_POST['no_hp']);
-                $kode_mk = escape($_POST['kode_mk']);
-                $kode_mk = $kode_mk ?: null;
-                
-                // Cek apakah kode asisten sudah ada
-                $stmt_cek_ast = mysqli_prepare($conn, "SELECT * FROM asisten WHERE kode_asisten = ?");
-                mysqli_stmt_bind_param($stmt_cek_ast, "s", $kode_asisten);
-                mysqli_stmt_execute($stmt_cek_ast);
-                $cek_ast = mysqli_stmt_get_result($stmt_cek_ast);
-                
-                if (mysqli_num_rows($cek_ast) > 0) {
-                    // Rollback - hapus user yang baru dibuat
-                    $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
-                    mysqli_stmt_bind_param($stmt_del, "i", $user_id);
-                    mysqli_stmt_execute($stmt_del);
-                    set_alert('danger', 'Kode Asisten sudah terdaftar!');
-                } else {
-                    $stmt_ast = mysqli_prepare($conn, "INSERT INTO asisten (kode_asisten, user_id, nama, no_hp, kode_mk) VALUES (?, ?, ?, ?, ?)");
-                    mysqli_stmt_bind_param($stmt_ast, "sisss", $kode_asisten, $user_id, $nama, $no_hp, $kode_mk);
-                    mysqli_stmt_execute($stmt_ast);
-                    set_alert('success', 'Asisten berhasil ditambahkan!');
-                }
-            } else {
-                // Admin - tidak perlu data tambahan
-                set_alert('success', 'Admin berhasil ditambahkan!');
-            }
+            set_alert('success', 'User berhasil ditambahkan!');
         }
     } elseif ($aksi == 'edit') {
         $id = (int)$_POST['id'];
@@ -104,63 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         set_alert('success', 'User berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
         $id = (int)$_POST['id'];
-        
-        // Hapus data terkait di mahasiswa dan asisten terlebih dahulu
-        $stmt_del_mhs = mysqli_prepare($conn, "DELETE FROM mahasiswa WHERE user_id = ?");
-        mysqli_stmt_bind_param($stmt_del_mhs, "i", $id);
-        mysqli_stmt_execute($stmt_del_mhs);
-        
-        $stmt_del_ast = mysqli_prepare($conn, "DELETE FROM asisten WHERE user_id = ?");
-        mysqli_stmt_bind_param($stmt_del_ast, "i", $id);
-        mysqli_stmt_execute($stmt_del_ast);
-        
-        // Hapus user
+        // Prepared statement untuk hapus user
         $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
         mysqli_stmt_bind_param($stmt_del, "i", $id);
         mysqli_stmt_execute($stmt_del);
-        set_alert('success', 'User dan data terkait berhasil dihapus!');
-    } elseif ($aksi == 'hapus_banyak') {
-        if (isset($_POST['ids']) && is_array($_POST['ids'])) {
-            $ids = $_POST['ids'];
-            $success_count = 0;
-            
-            $stmt_del_mhs = mysqli_prepare($conn, "DELETE FROM mahasiswa WHERE user_id = ?");
-            $stmt_del_ast = mysqli_prepare($conn, "DELETE FROM asisten WHERE user_id = ?");
-            $stmt_del = mysqli_prepare($conn, "DELETE FROM users WHERE id = ?");
-            
-            foreach ($ids as $id) {
-                $safe_id = (int)$id;
-                
-                // Hapus data terkait
-                mysqli_stmt_bind_param($stmt_del_mhs, "i", $safe_id);
-                mysqli_stmt_execute($stmt_del_mhs);
-                
-                mysqli_stmt_bind_param($stmt_del_ast, "i", $safe_id);
-                mysqli_stmt_execute($stmt_del_ast);
-                
-                // Hapus user
-                mysqli_stmt_bind_param($stmt_del, "i", $safe_id);
-                if(mysqli_stmt_execute($stmt_del)) $success_count++;
-            }
-            set_alert('success', $success_count . ' User dan data terkait berhasil dihapus!');
-        }
-    } elseif ($aksi == 'verify_password') {
-        // Handler untuk cek password via AJAX
-        // Bersihkan output buffer agar tidak ada HTML yang ikut
-        if (ob_get_length()) ob_end_clean();
-        $id = (int)$_POST['id'];
-        $password = $_POST['password'];
-        
-        $stmt = mysqli_prepare($conn, "SELECT password FROM users WHERE id = ?");
-        mysqli_stmt_bind_param($stmt, "i", $id);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-        $user = mysqli_fetch_assoc($result);
-        
-        $match = ($user && password_verify($password, $user['password']));
-        header('Content-Type: application/json');
-        echo json_encode(['match' => $match]);
-        exit;
+        set_alert('success', 'User berhasil dihapus!');
     }
     
     header("Location: index.php?page=admin_users");
@@ -228,10 +116,6 @@ if ($search) {
     $users = mysqli_stmt_get_result($stmt_users);
 }
 
-// Ambil data kelas dan mata kuliah untuk form
-$kelas_list = mysqli_query($conn, "SELECT * FROM kelas ORDER BY kode_kelas");
-$matkul_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY kode_mk");
-
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
     ?>
@@ -246,37 +130,24 @@ if (isset($_GET['ajax_search'])) {
                                : 'https://ui-avatars.com/api/?name=' . urlencode($u['username']) . '&background=random&color=fff&rounded=true';
             ?>
                 <div class="col-lg-4 col-md-6 mb-4">
-                    <div class="card h-100 user-card position-relative" id="card-<?= $u['id'] ?>">
-                        <div class="card-select-overlay">
-                            <input type="checkbox" class="form-check-input item-checkbox" 
-                                   value="<?= $u['id'] ?>" 
-                                   onchange="toggleSelection(<?= $u['id'] ?>)">
-                        </div>
+                    <div class="card h-100 user-card">
                         <div class="card-body d-flex flex-column">
-                            <div class="d-flex align-items-start mb-3">
+                            <div class="d-flex align-items-center mb-3">
                                 <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3" loading="lazy">
-                                <div class="flex-grow-1">
-                                    <h5 class="card-title"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
-                                    <div class="username-text mb-2"><?= htmlspecialchars($u['username']) ?></div>
-                                    <span class="badge <?= $badge_role[$u['role']] ?>"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
+                                <div>
+                                    <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
+                                    <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>
+                                    <span class="badge <?= $badge_role[$u['role']] ?> mt-1"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
                                 </div>
                             </div>
-                            
-                            <div class="info-text">
-                                <i class="fas fa-hashtag"></i>
-                                <span>ID: <?= $u['id'] ?></span>
-                            </div>
-                            
-                            <div class="info-text">
-                                <i class="fas fa-calendar-alt"></i>
-                                <span><?= date('d M Y, H:i', strtotime($u['created_at'])) ?></span>
-                            </div>
+                            <p class="text-muted mb-2"><i class="fas fa-hashtag me-2"></i>ID Pengguna: <?= $u['id'] ?></p>
+                            <p class="text-muted mb-2"><i class="fas fa-calendar-alt me-2"></i>Dibuat pada: <?= date('d M Y, H:i', strtotime($u['created_at'])) ?></p>
                             
                             <div class="mt-auto action-buttons">
                                 <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
-                                <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $u['id'] ?>)">
+                                <button class="btn btn-sm btn-danger" onclick="hapusUser(<?= $u['id'] ?>)">
                                     <i class="fas fa-trash me-1"></i>Hapus
                                 </button>
                             </div>
@@ -307,38 +178,18 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Card Selection Styles */
-    .user-card { transition: all 0.2s; border: 1px solid var(--border-color); }
-    .user-card.selected { border-color: var(--primary-color); background-color: rgba(0, 102, 204, 0.05); box-shadow: 0 0 0 1px var(--primary-color); }
-    [data-theme="dark"] .user-card.selected { background-color: rgba(0, 102, 204, 0.15); }
-    .card-select-overlay { position: absolute; top: 10px; left: 10px; z-index: 5; display: none; opacity: 0; transition: opacity 0.3s; }
-    .select-mode .card-select-overlay { display: block; opacity: 1; }
-    .user-card .card-body { transition: padding-top 0.3s; }
-    .select-mode .user-card .card-body { padding-top: 2.5rem; }
-    .item-checkbox { width: 22px; height: 22px; cursor: pointer; border: 2px solid var(--text-muted); border-radius: 50%; }
-    .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
-
-    /* Bulk Action Bar */
-    #bulkActionBar { position: fixed; bottom: -100px; left: 0; right: 0; background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 15px 30px; z-index: 1000; transition: bottom 0.3s ease-in-out; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
-    body { padding-bottom: 80px; }
-    
-    /* Slider Confirm */
-    .slider-container { position: relative; width: 100%; height: 55px; background: #f0f2f5; border-radius: 30px; user-select: none; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
-    .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
-    .slider-handle { position: absolute; top: 5px; left: 5px; width: 45px; height: 45px; background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
-    @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+    .page-header {
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
     }
-
+    .page-header h4 {
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    .page-header h4 i {
+        color: var(--primary-color);
+    }
     .user-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
@@ -346,159 +197,34 @@ if (isset($_GET['ajax_search'])) {
         transform: translateY(-5px);
         box-shadow: var(--card-shadow) !important;
     }
-    
-    .user-card .card-body {
-        padding: 1.5rem;
-    }
-    
     .user-card .card-title {
         font-weight: 600;
         color: var(--text-main);
-        font-size: 1.05rem;
-        margin-bottom: 0.25rem;
     }
-    
-    .user-card .username-text {
+    .user-card .card-body p i {
+        width: 20px;
+        text-align: center;
         color: var(--text-muted);
-        font-size: 0.875rem;
-        font-weight: 400;
     }
-    
-    .user-avatar {
-        width: 64px;
-        height: 64px;
-        object-fit: cover;
-        border-radius: 50%;
-        border: 2px solid var(--border-color);
-        transition: all 0.25s ease;
-    }
-    
-    .user-card:hover .user-avatar {
-        border-color: var(--primary-color);
-    }
-    
-    .user-card .badge {
-        border-radius: 20px;
-        padding: 4px 12px;
-        font-weight: 500;
-        font-size: 0.75rem;
-        text-transform: capitalize;
-    }
-    
-    .user-card .info-text {
-        color: var(--text-muted);
-        font-size: 0.875rem;
-        margin-bottom: 0.5rem;
-        display: flex;
-        align-items: center;
-    }
-    
-    .user-card .info-text i {
-        width: 18px;
-        color: var(--text-muted);
-        margin-right: 8px;
-    }
-    
     .user-card .action-buttons {
         display: flex;
         gap: 0.5rem;
         margin-top: 1rem;
-        padding-top: 1rem;
         border-top: 1px solid var(--border-color);
+        padding-top: 1rem;
     }
-    
     .user-card .action-buttons .btn {
         flex-grow: 1;
     }
-    
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 50%;
+    }
     .modal-header {
         background: var(--banner-gradient);
         color: #fff;
-    }
-    
-    .password-field {
-        position: relative;
-    }
-    .password-toggle {
-        position: absolute;
-        right: 10px;
-        top: 50%;
-        transform: translateY(-50%);
-        background: none;
-        border: none;
-        color: var(--text-muted);
-        cursor: pointer;
-        padding: 5px 10px;
-        z-index: 10;
-    }
-    .password-toggle:hover {
-        color: var(--text-main);
-    }
-    .password-info {
-        font-size: 0.875rem;
-        color: var(--text-muted);
-        margin-top: 0.25rem;
-    }
-    
-    /* Dark Mode Fixes */
-    [data-theme="dark"] .btn-warning,
-    [data-theme="dark"] .btn-info {
-        color: #212529 !important;
-    }
-    [data-theme="dark"] .check-password-box {
-        background-color: var(--bg-input) !important;
-        border-color: var(--border-color) !important;
-    }
-    [data-theme="dark"] .check-password-box .form-label {
-        color: var(--text-main);
-    }
-    [data-theme="dark"] .check-password-box .form-control {
-        background-color: var(--bg-card);
-    }
-    
-    /* Role Selection Buttons */
-    .btn-check:checked + .btn-outline-success {
-        background-color: #198754 !important;
-        border-color: #198754 !important;
-        color: #fff !important;
-    }
-    .btn-check:checked + .btn-outline-info {
-        background-color: #0dcaf0 !important;
-        border-color: #0dcaf0 !important;
-        color: #000 !important;
-    }
-    .btn-check:checked + .btn-outline-danger {
-        background-color: #dc3545 !important;
-        border-color: #dc3545 !important;
-        color: #fff !important;
-    }
-    .role-fields {
-        animation: fadeIn 0.3s ease-in-out;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    [data-theme="dark"] .alert-success {
-        background-color: rgba(25, 135, 84, 0.2);
-        border-color: rgba(25, 135, 84, 0.3);
-        color: #75b798;
-    }
-    [data-theme="dark"] .alert-info {
-        background-color: rgba(13, 202, 240, 0.2);
-        border-color: rgba(13, 202, 240, 0.3);
-        color: #6edff6;
-    }
-    [data-theme="dark"] .alert-danger {
-        background-color: rgba(220, 53, 69, 0.2);
-        border-color: rgba(220, 53, 69, 0.3);
-        color: #ea868f;
-    }
-    [data-theme="dark"] .check-password-box .form-control::placeholder {
-        color: var(--text-muted);
-    }
-    [data-theme="dark"] .check-password-box .form-text {
-        color: var(--text-muted) !important;
     }
 </style>
 
@@ -521,20 +247,16 @@ if (isset($_GET['ajax_search'])) {
                 
                 <div class="card mb-4">
                     <div class="card-body">
-                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
+                        <form method="GET" class="row g-3">
                             <input type="hidden" name="page" value="admin_users">
                             <div class="col-12 col-md">
-                                <label for="searchInput" class="form-label small">Cari Nama/NIM</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
-                            </div>
-                            <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
-                                </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari Nama atau NIM..." value="<?= htmlspecialchars($search) ?>">
                                 </div>
+                            </div>
+                            <div class="col-12 col-md-auto">
+                                <button type="submit" class="btn btn-primary w-100 px-4"><i class="fas fa-search me-2"></i>Cari</button>
                             </div>
                         </form>
                     </div>
@@ -552,37 +274,24 @@ if (isset($_GET['ajax_search'])) {
                                            : 'https://ui-avatars.com/api/?name=' . urlencode($u['username']) . '&background=random&color=fff&rounded=true';
                         ?>
                             <div class="col-lg-4 col-md-6 mb-4">
-                                <div class="card h-100 user-card position-relative" id="card-<?= $u['id'] ?>">
-                                    <div class="card-select-overlay">
-                                        <input type="checkbox" class="form-check-input item-checkbox" 
-                                               value="<?= $u['id'] ?>" 
-                                               onchange="toggleSelection(<?= $u['id'] ?>)">
-                                    </div>
+                                <div class="card h-100 user-card">
                                     <div class="card-body d-flex flex-column">
-                                        <div class="d-flex align-items-start mb-3">
+                                        <div class="d-flex align-items-center mb-3">
                                             <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($u['username']) ?>" class="user-avatar me-3" loading="lazy">
-                                            <div class="flex-grow-1">
-                                                <h5 class="card-title"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
-                                                <div class="username-text mb-2"><?= htmlspecialchars($u['username']) ?></div>
-                                                <span class="badge <?= $badge_role[$u['role']] ?>"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
+                                            <div>
+                                                <h5 class="card-title mb-0"><?= htmlspecialchars($u['nama_lengkap']) ?></h5>
+                                                <div class="small text-muted"><?= htmlspecialchars($u['username']) ?></div>
+                                                <span class="badge <?= $badge_role[$u['role']] ?> mt-1"><?= ucfirst(htmlspecialchars($u['role'])) ?></span>
                                             </div>
                                         </div>
-                                        
-                                        <div class="info-text">
-                                            <i class="fas fa-hashtag"></i>
-                                            <span>ID: <?= $u['id'] ?></span>
-                                        </div>
-                                        
-                                        <div class="info-text">
-                                            <i class="fas fa-calendar-alt"></i>
-                                            <span><?= date('d M Y, H:i', strtotime($u['created_at'])) ?></span>
-                                        </div>
+                                        <p class="text-muted mb-2"><i class="fas fa-hashtag me-2"></i>ID Pengguna: <?= $u['id'] ?></p>
+                                        <p class="text-muted mb-2"><i class="fas fa-calendar-alt me-2"></i>Dibuat pada: <?= date('d M Y, H:i', strtotime($u['created_at'])) ?></p>
                                         
                                         <div class="mt-auto action-buttons">
                                             <button class="btn btn-sm btn-warning" onclick="editUser(<?= $u['id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>', '<?= $u['role'] ?>')">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
-                                            <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', <?= $u['id'] ?>)">
+                                            <button class="btn btn-sm btn-danger" onclick="hapusUser(<?= $u['id'] ?>)">
                                                 <i class="fas fa-trash me-1"></i>Hapus
                                             </button>
                                         </div>
@@ -613,160 +322,37 @@ if (isset($_GET['ajax_search'])) {
     </div>
 </div>
 
-<div id="bulkActionBar">
-    <div class="d-flex align-items-center">
-        <span class="badge bg-primary me-2" style="font-size: 1rem;"><span id="selectedCount">0</span></span>
-        <span class="text-dark fw-bold">User Dipilih</span>
-    </div>
-    <div>
-        <button class="btn btn-secondary me-2" onclick="toggleSelectMode()">Batal</button>
-        <button class="btn btn-danger" onclick="confirmSlideDelete('bulk')"><i class="fas fa-trash-alt me-2"></i>Hapus Terpilih</button>
-    </div>
-</div>
-
 <!-- Modal Tambah -->
 <div class="modal fade" id="modalTambah" tabindex="-1" aria-labelledby="modalTambahLabel">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <form method="POST" id="formTambah">
+            <form method="POST">
                 <input type="hidden" name="aksi" value="tambah">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="modalTambahLabel"><i class="fas fa-user-plus me-2"></i>Tambah Pengguna</h5>
+                    <h5 class="modal-title" id="modalTambahLabel">Tambah Pengguna</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <!-- Pilih Role Dulu -->
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Pilih Tipe Pengguna <span class="text-danger">*</span></label>
-                        <div class="row g-2">
-                            <div class="col-4">
-                                <input type="radio" class="btn-check" name="role" id="role_mahasiswa" value="mahasiswa" checked>
-                                <label class="btn btn-outline-success w-100 py-3" for="role_mahasiswa">
-                                    <i class="fas fa-user-graduate d-block mb-1 fs-4"></i>
-                                    <span class="small">Mahasiswa</span>
-                                </label>
-                            </div>
-                            <div class="col-4">
-                                <input type="radio" class="btn-check" name="role" id="role_asisten" value="asisten">
-                                <label class="btn btn-outline-info w-100 py-3" for="role_asisten">
-                                    <i class="fas fa-chalkboard-teacher d-block mb-1 fs-4"></i>
-                                    <span class="small">Asisten</span>
-                                </label>
-                            </div>
-                            <div class="col-4">
-                                <input type="radio" class="btn-check" name="role" id="role_admin" value="admin">
-                                <label class="btn btn-outline-danger w-100 py-3" for="role_admin">
-                                    <i class="fas fa-user-shield d-block mb-1 fs-4"></i>
-                                    <span class="small">Admin</span>
-                                </label>
-                            </div>
-                        </div>
+                        <label class="form-label">Username</label>
+                        <input type="text" name="username" class="form-control" required>
                     </div>
-                    
-                    <hr class="my-3">
-                    
-                    <!-- Field Umum: Username & Password -->
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Username <span class="text-danger">*</span></label>
-                            <input type="text" name="username" id="tambah_username" class="form-control" required>
-                            <div class="form-text" id="usernameHint">Untuk mahasiswa, gunakan NIM sebagai username</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Password <span class="text-danger">*</span></label>
-                            <div class="password-field">
-                                <input type="password" name="password" id="tambah_password" class="form-control" required>
-                                <button type="button" class="password-toggle" onclick="togglePasswordVisibility('tambah_password', this)">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" name="password" class="form-control" required>
                     </div>
-                    
-                    <!-- Field Mahasiswa -->
-                    <div id="fieldsMahasiswa" class="role-fields">
-                        <div class="alert alert-success py-2 mb-3">
-                            <i class="fas fa-user-graduate me-2"></i><strong>Data Mahasiswa</strong>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">NIM <span class="text-danger">*</span></label>
-                                <input type="text" name="nim" id="tambah_nim" class="form-control">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
-                                <input type="text" name="nama" id="tambah_nama_mhs" class="form-control">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Kelas <span class="text-danger">*</span></label>
-                                <select name="kode_kelas" id="tambah_kelas" class="form-select">
-                                    <option value="">-- Pilih Kelas --</option>
-                                    <?php 
-                                    mysqli_data_seek($kelas_list, 0);
-                                    while ($k = mysqli_fetch_assoc($kelas_list)): 
-                                    ?>
-                                        <option value="<?= $k['kode_kelas'] ?>"><?= $k['kode_kelas'] ?> - <?= $k['nama_kelas'] ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">Program Studi</label>
-                                <input type="text" name="prodi" id="tambah_prodi" class="form-control" placeholder="Contoh: Teknik Informatika">
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                <label class="form-label">No. HP</label>
-                                <input type="text" name="no_hp" id="tambah_hp_mhs" class="form-control" placeholder="08xxxxxxxxxx">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Field Asisten -->
-                    <div id="fieldsAsisten" class="role-fields" style="display: none;">
-                        <div class="alert alert-info py-2 mb-3">
-                            <i class="fas fa-chalkboard-teacher me-2"></i><strong>Data Asisten</strong>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Kode Asisten <span class="text-danger">*</span></label>
-                                <input type="text" name="kode_asisten" id="tambah_kode_asisten" class="form-control" placeholder="Contoh: AST001">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Nama Lengkap <span class="text-danger">*</span></label>
-                                <input type="text" name="nama" id="tambah_nama_ast" class="form-control">
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">No. HP</label>
-                                <input type="text" name="no_hp" id="tambah_hp_ast" class="form-control" placeholder="08xxxxxxxxxx">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Mata Kuliah</label>
-                                <select name="kode_mk" id="tambah_mk" class="form-select">
-                                    <option value="">-- Tidak Ada --</option>
-                                    <?php 
-                                    mysqli_data_seek($matkul_list, 0);
-                                    while ($mk = mysqli_fetch_assoc($matkul_list)): 
-                                    ?>
-                                        <option value="<?= $mk['kode_mk'] ?>"><?= $mk['kode_mk'] ?> - <?= $mk['nama_mk'] ?></option>
-                                    <?php endwhile; ?>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Field Admin -->
-                    <div id="fieldsAdmin" class="role-fields" style="display: none;">
-                        <div class="alert alert-danger py-2 mb-3">
-                            <i class="fas fa-user-shield me-2"></i><strong>Admin</strong> - Tidak memerlukan data tambahan
-                        </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select name="role" class="form-select" required>
+                            <option value="mahasiswa" selected>Mahasiswa</option>
+                            <option value="asisten">Asisten</option>
+                            <option value="admin">Admin</option>
+                        </select>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Simpan</button>
+                    <button type="submit" class="btn btn-primary">Simpan</button>
                 </div>
             </form>
         </div>
@@ -789,32 +375,10 @@ if (isset($_GET['ajax_search'])) {
                         <label class="form-label">Username</label>
                         <input type="text" id="edit_username" class="form-control" disabled>
                     </div>
-                    
-                    <div class="mb-3 p-3 bg-light border rounded check-password-box">
-                        <label class="form-label small fw-bold"><i class="fas fa-key me-1"></i>Cek Password Lama</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" id="test_password" class="form-control" placeholder="Ketik password untuk dicek...">
-                            <button class="btn btn-primary" type="button" onclick="verifyPassword()">
-                                Cek
-                            </button>
-                        </div>
-                        <div id="verify_result" class="form-text small mt-1">Masukkan password untuk memastikan kecocokan dengan data lama.</div>
-                    </div>
-                    
                     <div class="mb-3">
                         <label class="form-label">Password Baru</label>
-                        <div class="password-field">
-                            <input type="password" name="password" id="edit_new_password" class="form-control" placeholder="Kosongkan jika tidak diubah">
-                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('edit_new_password', this)">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                        <div class="password-info">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Isi hanya jika ingin mengubah password
-                        </div>
+                        <input type="password" name="password" class="form-control" placeholder="Kosongkan jika tidak diubah">
                     </div>
-                    
                     <div class="mb-3">
                         <label class="form-label">Role</label>
                         <select name="role" id="edit_role" class="form-select" required>
@@ -833,188 +397,24 @@ if (isset($_GET['ajax_search'])) {
     </div>
 </div>
 
-<div class="modal fade" id="modalSlideConfirm" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-body text-center p-4">
-                <div class="mb-3 text-danger"><i class="fas fa-exclamation-triangle fa-3x"></i></div>
-                <h4 class="fw-bold text-danger mb-2">Konfirmasi Hapus</h4>
-                <p class="text-muted mb-4" id="slideConfirmMsg">Apakah Anda yakin? Data yang dihapus tidak dapat dikembalikan.</p>
-                <div class="slider-container" id="deleteSlider">
-                    <div class="slider-progress" id="sliderProgress"></div>
-                    <div class="slider-text">GESER UNTUK MENGHAPUS >></div>
-                    <div class="slider-handle" id="sliderHandle"><i class="fas fa-trash"></i></div>
-                </div>
-                <button type="button" class="btn btn-link text-muted mt-3 text-decoration-none" data-bs-dismiss="modal" id="btnCancelSlide">Batal</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<form id="formHapus" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus"><input type="hidden" name="id" id="hapus_id"></form>
-<form id="formHapusBulk" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_banyak"><div id="bulkInputs"></div></form>
+<form id="formHapus" method="POST" class="d-none">
+    <input type="hidden" name="aksi" value="hapus">
+    <input type="hidden" name="id" id="hapus_id">
+</form>
 
 <script>
 function editUser(id, username, role) {
     document.getElementById('edit_id').value = id;
     document.getElementById('edit_username').value = username;
     document.getElementById('edit_role').value = role;
-    document.getElementById('edit_new_password').value = '';
-    document.getElementById('test_password').value = '';
-    document.getElementById('verify_result').innerHTML = 'Masukkan password untuk memastikan kecocokan dengan data lama.';
-    
-    // Reset password visibility
-    const newPassField = document.getElementById('edit_new_password');
-    newPassField.type = 'password';
-    
-    // Reset eye icons
-    document.querySelectorAll('.password-toggle i').forEach(icon => {
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
-    });
-    
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 
-function togglePasswordVisibility(inputId, button) {
-    const input = document.getElementById(inputId);
-    const icon = button.querySelector('i');
-    
-    if (input.type === 'password') {
-        input.type = 'text';
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
-    } else {
-        input.type = 'password';
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
-    }
-}
-
-function verifyPassword() {
-    const id = document.getElementById('edit_id').value;
-    const password = document.getElementById('test_password').value;
-    const resultDiv = document.getElementById('verify_result');
-    
-    if (!password) {
-        resultDiv.innerHTML = '<span class="text-warning">Masukkan password terlebih dahulu!</span>';
-        return;
-    }
-    
-    resultDiv.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Memeriksa...</span>';
-    
-    const formData = new FormData();
-    formData.append('aksi', 'verify_password');
-    formData.append('id', id);
-    formData.append('password', password);
-    
-    fetch('index.php?page=admin_users', { method: 'POST', body: formData })
-    .then(response => response.json())
-    .then(data => {
-        resultDiv.innerHTML = data.match 
-            ? '<span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i>Password COCOK!</span>' 
-            : '<span class="text-danger fw-bold"><i class="fas fa-times-circle me-1"></i>Password TIDAK COCOK.</span>';
-    })
-    .catch(err => { console.error(err); resultDiv.innerHTML = '<span class="text-danger">Error koneksi.</span>'; });
-}
-
 function hapusUser(id) {
-    confirmSlideDelete('single', id);
-}
-
-// --- Selection & Bulk Action Logic ---
-let selectedItems = new Set();
-let isSelectMode = false;
-
-function toggleSelectMode() {
-    isSelectMode = !isSelectMode;
-    const container = document.getElementById('usersContainer');
-    const btn = document.getElementById('btnSelectMode');
-    const selectAllContainer = document.getElementById('selectAllContainer');
-    
-    if (isSelectMode) {
-        container.classList.add('select-mode');
-        btn.classList.replace('btn-outline-secondary', 'btn-secondary');
-        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
-        selectAllContainer.classList.remove('d-none');
-        selectAllContainer.classList.add('d-flex');
-    } else {
-        container.classList.remove('select-mode');
-        btn.classList.replace('btn-secondary', 'btn-outline-secondary');
-        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Pilih';
-        selectAllContainer.classList.add('d-none');
-        selectAllContainer.classList.remove('d-flex');
-        selectedItems.clear();
-        document.getElementById('selectAll').checked = false;
-        document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false);
-        document.querySelectorAll('.user-card').forEach(c => c.classList.remove('selected'));
-        updateBulkUI();
+    if (confirm('Yakin ingin menghapus user ini? Aksi ini tidak bisa dibatalkan.')) {
+        document.getElementById('hapus_id').value = id;
+        document.getElementById('formHapus').submit();
     }
-}
-
-function toggleSelection(id) {
-    const card = document.getElementById('card-' + id);
-    const checkbox = card.querySelector('.item-checkbox');
-    const idStr = String(id);
-    if (checkbox.checked) { selectedItems.add(idStr); card.classList.add('selected'); }
-    else { selectedItems.delete(idStr); card.classList.remove('selected'); }
-    updateBulkUI();
-}
-
-function toggleSelectAll() {
-    const isChecked = document.getElementById('selectAll').checked;
-    document.querySelectorAll('#usersContainer .item-checkbox').forEach(cb => {
-        const id = String(cb.value);
-        const card = document.getElementById('card-' + id);
-        if (cb.checked !== isChecked) {
-            cb.checked = isChecked;
-            if (isChecked) { selectedItems.add(id); card.classList.add('selected'); }
-            else { selectedItems.delete(id); card.classList.remove('selected'); }
-        }
-    });
-    updateBulkUI();
-}
-
-function updateBulkUI() {
-    const bar = document.getElementById('bulkActionBar');
-    document.getElementById('selectedCount').innerText = selectedItems.size;
-    if (selectedItems.size > 0) bar.classList.add('show'); else bar.classList.remove('show');
-}
-
-// --- Slide to Confirm Logic ---
-let deleteType = ''; let deleteTargetId = '';
-function confirmSlideDelete(type, id = null) {
-    deleteType = type; deleteTargetId = id;
-    const modal = new bootstrap.Modal(document.getElementById('modalSlideConfirm'));
-    const msg = document.getElementById('slideConfirmMsg');
-    if (type === 'bulk') msg.innerHTML = `Anda akan menghapus <b>${selectedItems.size} user</b> terpilih.<br>Data terkait (mahasiswa/asisten) mungkin akan terpengaruh.`;
-    else msg.innerHTML = `Anda akan menghapus user ini.<br>Data terkait (mahasiswa/asisten) mungkin akan terpengaruh.`;
-    resetSlider(); modal.show();
-}
-
-const sliderContainer = document.getElementById('deleteSlider');
-const sliderHandle = document.getElementById('sliderHandle');
-const sliderProgress = document.getElementById('sliderProgress');
-let isDragging = false;
-
-sliderHandle.addEventListener('mousedown', startDrag); sliderHandle.addEventListener('touchstart', startDrag);
-document.addEventListener('mouseup', endDrag); document.addEventListener('touchend', endDrag);
-document.addEventListener('mousemove', drag); document.addEventListener('touchmove', drag);
-
-function startDrag(e) { isDragging = true; }
-function drag(e) { if(!isDragging) return; let clientX = e.clientX || e.touches[0].clientX; let rect = sliderContainer.getBoundingClientRect(); let x = clientX - rect.left - (sliderHandle.offsetWidth/2); let max = rect.width - sliderHandle.offsetWidth; if(x<0)x=0; if(x>max)x=max; sliderHandle.style.left = x+'px'; sliderProgress.style.width = (x+20)+'px'; if(x>=max*0.95) { isDragging=false; sliderContainer.classList.add('unlocked'); sliderHandle.style.left=max+'px'; sliderProgress.style.width='100%'; performDelete(); } }
-function endDrag() { if(!isDragging) return; isDragging=false; if(!sliderContainer.classList.contains('unlocked')) { sliderHandle.style.left='5px'; sliderProgress.style.width='0'; } }
-function resetSlider() { sliderContainer.classList.remove('unlocked'); sliderHandle.style.left='5px'; sliderProgress.style.width='0'; document.querySelector('.slider-text').style.opacity='1'; }
-
-function performDelete() {
-    setTimeout(() => {
-        if (deleteType === 'single') { document.getElementById('hapus_id').value = deleteTargetId; document.getElementById('formHapus').submit(); }
-        else {
-            const container = document.getElementById('bulkInputs'); container.innerHTML = '';
-            selectedItems.forEach(id => { const input = document.createElement('input'); input.type = 'hidden'; input.name = 'ids[]'; input.value = id; container.appendChild(input); });
-            document.getElementById('formHapusBulk').submit();
-        }
-    }, 300);
 }
 
 // Live Search
@@ -1029,100 +429,9 @@ document.getElementById('searchInput').addEventListener('input', function() {
             .then(response => response.text())
             .then(html => {
                 container.innerHTML = html;
-                // Re-apply selection state
-                selectedItems.forEach(id => {
-                    const cb = container.querySelector(`.item-checkbox[value="${id}"]`); if(cb) cb.checked=true;
-                    const card = document.getElementById('card-'+id); if(card) card.classList.add('selected');
-                });
-                if(isSelectMode) container.classList.add('select-mode');
             })
             .catch(error => console.error('Error:', error));
     }, 300);
-});
-
-// =====================================================
-// Dynamic Role Form Handler
-// =====================================================
-document.addEventListener('DOMContentLoaded', function() {
-    const roleRadios = document.querySelectorAll('input[name="role"]');
-    const fieldsMahasiswa = document.getElementById('fieldsMahasiswa');
-    const fieldsAsisten = document.getElementById('fieldsAsisten');
-    const fieldsAdmin = document.getElementById('fieldsAdmin');
-    const usernameHint = document.getElementById('usernameHint');
-    
-    // All field inputs
-    const mahasiswaInputs = fieldsMahasiswa.querySelectorAll('input, select');
-    const asistenInputs = fieldsAsisten.querySelectorAll('input, select');
-    
-    // Toggle fields based on role
-    function toggleRoleFields() {
-        const selectedRole = document.querySelector('input[name="role"]:checked').value;
-        
-        // Hide all and disable all inputs
-        fieldsMahasiswa.style.display = 'none';
-        fieldsAsisten.style.display = 'none';
-        fieldsAdmin.style.display = 'none';
-        
-        // Disable all role-specific inputs
-        mahasiswaInputs.forEach(input => input.disabled = true);
-        asistenInputs.forEach(input => input.disabled = true);
-        
-        // Clear required attributes
-        clearRequiredFields();
-        
-        // Show selected and enable inputs
-        if (selectedRole === 'mahasiswa') {
-            fieldsMahasiswa.style.display = 'block';
-            mahasiswaInputs.forEach(input => input.disabled = false);
-            usernameHint.textContent = 'Masukkan username untuk login mahasiswa';
-            setMahasiswaRequired();
-        } else if (selectedRole === 'asisten') {
-            fieldsAsisten.style.display = 'block';
-            asistenInputs.forEach(input => input.disabled = false);
-            usernameHint.textContent = 'Masukkan username untuk login asisten';
-            setAsistenRequired();
-        } else {
-            fieldsAdmin.style.display = 'block';
-            usernameHint.textContent = 'Masukkan username untuk login admin';
-        }
-    }
-    
-    function clearRequiredFields() {
-        // Mahasiswa fields
-        document.getElementById('tambah_nim').removeAttribute('required');
-        document.getElementById('tambah_nama_mhs').removeAttribute('required');
-        document.getElementById('tambah_kelas').removeAttribute('required');
-        // Asisten fields
-        document.getElementById('tambah_kode_asisten').removeAttribute('required');
-        document.getElementById('tambah_nama_ast').removeAttribute('required');
-    }
-    
-    function setMahasiswaRequired() {
-        document.getElementById('tambah_nim').setAttribute('required', 'required');
-        document.getElementById('tambah_nama_mhs').setAttribute('required', 'required');
-        document.getElementById('tambah_kelas').setAttribute('required', 'required');
-    }
-    
-    function setAsistenRequired() {
-        document.getElementById('tambah_kode_asisten').setAttribute('required', 'required');
-        document.getElementById('tambah_nama_ast').setAttribute('required', 'required');
-    }
-    
-    // Listen for role changes
-    roleRadios.forEach(radio => {
-        radio.addEventListener('change', toggleRoleFields);
-    });
-    
-    // Initialize on page load
-    toggleRoleFields();
-    
-    // Reset form when modal is opened
-    const modalTambah = document.getElementById('modalTambah');
-    modalTambah.addEventListener('show.bs.modal', function() {
-        document.getElementById('formTambah').reset();
-        document.getElementById('role_mahasiswa').checked = true;
-        toggleRoleFields();
-    });
 });
 </script>
 
