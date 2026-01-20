@@ -157,10 +157,11 @@ if (isset($_GET['export_detail_mhs'])) {
     $end_date = escape($_GET['end_date']);
     
     // Ambil data mahasiswa & kelas untuk judul
-    $mhs_qry = mysqli_query($conn, "SELECT m.nama, k.nama_kelas FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas WHERE m.nim = '$nim'");
+    $mhs_qry = mysqli_query($conn, "SELECT m.nama, k.nama_kelas, m.tanggal_daftar FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas WHERE m.nim = '$nim'");
     $mhs_data = mysqli_fetch_assoc($mhs_qry);
     $nama_mhs = $mhs_data['nama'] ?? $nim;
     $nama_kelas = $mhs_data['nama_kelas'] ?? $kelas;
+    $tanggal_daftar = $mhs_data['tanggal_daftar'] ?? '2099-12-31';
 
     // Query Data (Menggunakan logika yang sama dengan ajax_detail)
     $mk_condition = $mk ? "AND j.kode_mk = '$mk'" : "";
@@ -211,7 +212,13 @@ if (isset($_GET['export_detail_mhs'])) {
         $status = $row['status'];
         if (!$status) {
             $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+
+           // [FIX] Validasi terhadap tanggal daftar mahasiswa
+           if ($tanggal_daftar > $jadwal_end) {
+               $status = 'Belum Daftar';
+           } else {
             $status = (strtotime($jadwal_end) < time()) ? 'Alpha' : 'Belum';
+           }
         } else {
             $status = ucfirst($status);
         }
@@ -324,7 +331,7 @@ if (isset($_GET['export'])) {
 
     if ($sertakan_detail) {
         // Ambil detail pertemuan untuk kolom tambahan (P1, P2, dst)
-        $detail_sql = "SELECT m.nim, j.pertemuan_ke, j.tanggal, j.jam_selesai, l.nama_lab, p.status
+        $detail_sql = "SELECT m.nim, m.tanggal_daftar, j.pertemuan_ke, j.tanggal, j.jam_selesai, l.nama_lab, p.status
                        FROM mahasiswa m
                        JOIN jadwal j ON m.kode_kelas = j.kode_kelas
                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
@@ -343,8 +350,13 @@ if (isset($_GET['export'])) {
             
             $status = $d['status'];
             if (!$status) {
-                 $is_past = strtotime($d['tanggal'] . ' ' . $d['jam_selesai']) < time();
-                 $status = $is_past ? 'Alpha' : 'Belum';
+                 $jadwal_end = $d['tanggal'] . ' ' . $d['jam_selesai'];
+                 $is_past = strtotime($jadwal_end) < time();
+                 if ($d['tanggal_daftar'] > $jadwal_end) {
+                     $status = 'Belum Daftar';
+                 } else {
+                     $status = $is_past ? 'Alpha' : 'Belum';
+                 }
             } else {
                 $status = ucfirst($status);
             }
@@ -503,7 +515,7 @@ $print_details = [];
 $meetings = [];
 
 // Query diperbarui untuk mengambil kode_mk untuk grouping
-$detail_print_sql = "SELECT m.nim, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, l.nama_lab, p.status, j.kode_mk
+$detail_print_sql = "SELECT m.nim, m.tanggal_daftar, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, l.nama_lab, p.status, j.kode_mk
                FROM mahasiswa m
                JOIN jadwal j ON m.kode_kelas = j.kode_kelas
                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
@@ -532,7 +544,8 @@ while ($d = mysqli_fetch_assoc($detail_print_res)) {
             'attended_lab' => null,
             'all_labs' => [],
             'tanggal' => $d['tanggal'],
-            'jam_selesai' => $d['jam_selesai']
+            'jam_selesai' => $d['jam_selesai'],
+            'tanggal_daftar' => $d['tanggal_daftar'] ?? '2099-12-31'
         ];
     }
     
@@ -554,8 +567,13 @@ foreach ($grouped_details as $nim => $meetings_data) {
         
         $status = $data['status'];
         if (!$status) {
-            $is_past = strtotime($data['tanggal'] . ' ' . $data['jam_selesai']) < time();
-            $status = $is_past ? 'alpha' : 'belum';
+            $jadwal_end = $data['tanggal'] . ' ' . $data['jam_selesai'];
+            $is_past = strtotime($jadwal_end) < time();
+            if ($data['tanggal_daftar'] > $jadwal_end) {
+                $status = 'Belum Daftar';
+            } else {
+                $status = $is_past ? 'alpha' : 'belum';
+            }
         }
         
         $status_display = ucfirst($status);

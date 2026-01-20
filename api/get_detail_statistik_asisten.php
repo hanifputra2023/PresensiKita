@@ -55,15 +55,15 @@ $base_where = "
 
 // For alpha, we must only look at past schedules OR already saved as alpha. For other statuses, we can see the record anytime.
 if ($status == 'alpha') {
-    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
+    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
 } else {
     $status_condition = "AND p.status = '$status'";
 }
 
 $query = "SELECT DISTINCT 
-            m.nim, m.nama, k.nama_kelas, mk.nama_mk, 
+            m.nim, m.nama, m.tanggal_daftar, k.nama_kelas, mk.nama_mk, 
             j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, 
-            IF(p.status IS NULL, 'alpha', p.status) as status,
+            p.status,
             l.nama_lab
           $base_from
           $base_where
@@ -85,13 +85,23 @@ while ($row = mysqli_fetch_assoc($result)) {
     
     // Only add jadwal if exists
     if ($row['tanggal']) {
+        $status_final = $row['status'];
+        if (empty($status_final)) {
+            $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+            if ($row['tanggal_daftar'] > $jadwal_end) {
+                $status_final = 'unregistered';
+            } else {
+                $status_final = (strtotime($jadwal_end) < time()) ? 'alpha' : 'belum';
+            }
+        }
+
         $mahasiswa_list[$row['nim']]['jadwal'][] = [
             'tanggal' => format_tanggal($row['tanggal']),
             'waktu' => format_waktu($row['jam_mulai']) . ' - ' . format_waktu($row['jam_selesai']),
             'mata_kuliah' => $row['nama_mk'],
             'lab' => $row['nama_lab'],
             'materi' => $row['materi'],
-            'status' => $row['status'] ?: 'belum'
+            'status' => $status_final
         ];
     }
 }
@@ -220,6 +230,12 @@ while ($row = mysqli_fetch_assoc($result)) {
     color: #721c24;
 }
 
+.status-badge.unregistered {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
 .empty-state {
     text-align: center;
     padding: 40px 20px;
@@ -294,6 +310,7 @@ while ($row = mysqli_fetch_assoc($result)) {
 [data-theme="dark"] .status-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #6edff6; }
 [data-theme="dark"] .status-badge.belum { background: rgba(255, 255, 255, 0.1); color: #a0aec0; }
 [data-theme="dark"] .status-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+[data-theme="dark"] .status-badge.unregistered { background: rgba(255, 255, 255, 0.05); color: #6c757d; border-color: #343a40; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
@@ -496,9 +513,10 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                     $jadwal['status'] == 'hadir' ? 'check-circle' : 
                                                     ($jadwal['status'] == 'izin' ? 'clock' : 
                                                     ($jadwal['status'] == 'sakit' ? 'heartbeat' : 
-                                                    ($jadwal['status'] == 'belum' ? 'hourglass-half' : 'times-circle')))
+                                                    ($jadwal['status'] == 'belum' ? 'hourglass-half' : 
+                                                    ($jadwal['status'] == 'unregistered' ? 'user-slash' : 'times-circle'))))
                                                 ?> me-1"></i>
-                                                <?= ucfirst($jadwal['status']) ?>
+                                                <?= $jadwal['status'] == 'unregistered' ? 'Belum Daftar' : ucfirst($jadwal['status']) ?>
                                             </span>
                                         </div>
                                     <?php endforeach; ?>

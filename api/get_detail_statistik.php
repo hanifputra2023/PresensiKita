@@ -40,6 +40,7 @@ if ($status == 'alpha') {
 $query = "SELECT DISTINCT 
           m.nim, 
           m.nama, 
+          m.tanggal_daftar,
           k.nama_kelas,
           mk.nama_mk,
           j.tanggal,
@@ -80,11 +81,17 @@ while ($row = mysqli_fetch_assoc($result)) {
         // Tentukan status: jika kosong dan jadwal sudah lewat = alpha, jika belum lewat = belum
         $status_final = $row['status'];
         if (empty($status_final)) {
-            $waktu_selesai = strtotime($row['tanggal'] . ' ' . $row['jam_selesai']);
-            if (time() > $waktu_selesai) {
-                $status_final = 'alpha';
+            $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+            $waktu_selesai = strtotime($jadwal_end);
+            
+            if ($row['tanggal_daftar'] > $jadwal_end) {
+                $status_final = 'unregistered';
             } else {
-                $status_final = 'belum';
+                if (time() > $waktu_selesai) {
+                    $status_final = 'alpha';
+                } else {
+                    $status_final = 'belum';
+                }
             }
         }
 
@@ -223,6 +230,12 @@ while ($row = mysqli_fetch_assoc($result)) {
     color: #721c24;
 }
 
+.status-badge.unregistered {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    border: 1px solid #dee2e6;
+}
+
 .empty-state {
     text-align: center;
     padding: 40px 20px;
@@ -288,6 +301,7 @@ while ($row = mysqli_fetch_assoc($result)) {
 [data-theme="dark"] .status-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #6edff6; }
 [data-theme="dark"] .status-badge.belum { background: rgba(255, 255, 255, 0.1); color: #a0aec0; }
 [data-theme="dark"] .status-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+[data-theme="dark"] .status-badge.unregistered { background: rgba(255, 255, 255, 0.05); color: #6c757d; border-color: #343a40; }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 768px) {
@@ -490,9 +504,10 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                     $jadwal['status'] == 'hadir' ? 'check-circle' : 
                                                     ($jadwal['status'] == 'izin' ? 'clock' : 
                                                     ($jadwal['status'] == 'sakit' ? 'heartbeat' : 
-                                                    ($jadwal['status'] == 'belum' ? 'hourglass-half' : 'times-circle')))
+                                                    ($jadwal['status'] == 'belum' ? 'hourglass-half' : 
+                                                    ($jadwal['status'] == 'unregistered' ? 'user-slash' : 'times-circle'))))
                                                 ?> me-1"></i>
-                                                <?= ucfirst($jadwal['status']) ?>
+                                                <?= $jadwal['status'] == 'unregistered' ? 'Belum Daftar' : ucfirst($jadwal['status']) ?>
                                             </span>
                                         </div>
                                     <?php endforeach; ?>
