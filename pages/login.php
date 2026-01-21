@@ -385,23 +385,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             --primary-blue-light: #0099ff;
             --bg-gradient: linear-gradient(135deg, #0052a3 0%, #0066cc 50%, #0099ff 100%);
             
-            --container-bg: rgba(255, 255, 255, 0.96);
-            --text-main: #1e293b;
-            --text-secondary: #334155;
-            --text-muted: #64748b;
-            --input-bg: #f8fafc;
-            --input-border: #e2e8f0;
-            --card-shadow: 0 25px 50px -12px rgba(0, 102, 204, 0.15);
+            /* Glassmorphism Variables */
+            --container-bg: rgba(255, 255, 255, 0.1);
+            --text-main: #ffffff;
+            --text-secondary: #f8fafc;
+            --text-muted: #cbd5e1;
+            --input-bg: rgba(255, 255, 255, 0.1);
+            --input-border: rgba(255, 255, 255, 0.2);
+            --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
         }
 
         [data-theme="dark"] {
-            --container-bg: rgba(15, 23, 42, 0.95);
+            --container-bg: rgba(0, 0, 0, 0.4);
             --text-main: #f1f5f9;
             --text-secondary: #e2e8f0;
             --text-muted: #94a3b8;
-            --input-bg: rgba(30, 41, 59, 0.5);
-            --input-border: rgba(100, 116, 139, 0.2);
-            --card-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+            --input-bg: rgba(0, 0, 0, 0.3);
+            --input-border: rgba(255, 255, 255, 0.1);
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
         }
 
         * {
@@ -416,7 +417,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background-image: url("../uploads/logo/cc.jpg");
+            background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url("uploads/logo/Kampus-I-Balapan-1.png");
             background-size: cover;
             background-position: center;
             background-attachment: fixed;
@@ -426,32 +427,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         [data-theme="dark"] body {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            background-image: linear-gradient(rgba(0,0,0,0.65), rgba(0,0,0,0.65)), url("uploads/logo/Kampus-I-Balapan-1.png");
         }
 
         @keyframes gradientBG {
             0%, 100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
-        }
-
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: 
-                radial-gradient(circle at 20% 20%, rgba(0, 102, 204, 0.15) 0%, transparent 60%),
-                radial-gradient(circle at 80% 80%, rgba(0, 153, 255, 0.15) 0%, transparent 60%);
-            pointer-events: none;
-            animation: bgPulse 12s ease infinite;
-        }
-
-        [data-theme="dark"] body::before {
-            background: 
-                radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.08) 0%, transparent 60%),
-                radial-gradient(circle at 80% 80%, rgba(96, 165, 250, 0.08) 0%, transparent 60%);
         }
 
         @keyframes bgPulse {
@@ -549,12 +530,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             width: 100%;
             max-width: 460px;
             background: var(--container-bg);
-            backdrop-filter: blur(40px);
-            -webkit-backdrop-filter: blur(40px);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-radius: 32px;
             padding: 48px 44px 52px;
-            box-shadow: var(--card-shadow),
-                        0 0 0 1px rgba(0, 102, 204, 0.06);
+            box-shadow: var(--card-shadow);
+            border: 1px solid rgba(255, 255, 255, 0.18);
             position: relative;
             z-index: 1;
             opacity: 0;
@@ -569,30 +550,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         .theme-toggle-btn {
             position: absolute;
-            top: 24px;
-            right: 24px;
-<<<<<<< HEAD
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(12px);
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            color: white;
-=======
+            top: 20px;
+            right: 20px;
             background: rgba(255, 255, 255, 0.9);
             backdrop-filter: blur(12px);
-            border: 2px solid rgba(0, 102, 204, 0.3);
-            color: #0066cc;
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
+            border: 2px solid var(--primary-blue);
+            color: var(--primary-blue);
             width: 48px;
             height: 48px;
             border-radius: 50%;
             font-size: 1.1rem;
             cursor: pointer;
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-<<<<<<< HEAD
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-=======
             box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             z-index: 100;
             display: flex;
             align-items: center;
@@ -600,17 +570,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         .theme-toggle-btn:hover {
-<<<<<<< HEAD
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.1) rotate(15deg);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-=======
             background: #0066cc;
             color: white;
             border-color: #0066cc;
             transform: scale(1.1);
             box-shadow: 0 6px 16px rgba(0, 102, 204, 0.4);
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         }
 
         .theme-toggle-btn:active {
@@ -618,66 +582,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         [data-theme="dark"] .theme-toggle-btn {
-<<<<<<< HEAD
-            background: rgba(0, 102, 204, 0.2);
-            border-color: rgba(0, 153, 255, 0.3);
-        }
-
-        /* Logo Section */
-        .logo-section {
-            text-align: center;
-            margin-bottom: 40px;
-            padding-bottom: 36px;
-            position: relative;
-        }
-
-        .logo-section::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 60px;
-            height: 4px;
-            background: linear-gradient(90deg, transparent, var(--primary-blue), transparent);
-            border-radius: 4px;
-            opacity: 0.4;
-        }
-
-        .logo-wrapper {
-            display: inline-block;
-            position: relative;
-            margin-bottom: 24px;
-        }
-
-        .logo-wrapper::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 140px;
-            height: 140px;
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-light));
-            border-radius: 50%;
-            opacity: 0.08;
-            animation: logoPulse 5s ease-in-out infinite;
-        }
-
-        @keyframes logoPulse {
-            0%, 100% { 
-                transform: translate(-50%, -50%) scale(1); 
-                opacity: 0.08; 
-            }
-            50% { 
-                transform: translate(-50%, -50%) scale(1.12); 
-                opacity: 0.12; 
-            }
-        }
-
-        .logo-wrapper img {
-            width: 88px;
-=======
             background: rgba(30, 41, 59, 0.9);
             border-color: rgba(30, 41, 59, 0.5);
             color: white;
@@ -701,14 +605,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .logo-wrapper {
             display: inline-block;
             position: relative;
-            margin-bottom: 12px;
+            margin-bottom: 20px;
             width: 100%;
-            max-width: 150px;
+            max-width: 250px;
         }
 
         .logo-wrapper img {
             width: 100%;
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             height: auto;
             position: relative;
             z-index: 2;
@@ -721,31 +624,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             50% { transform: translateY(-8px); }
         }
 
-<<<<<<< HEAD
-        .university-name {
-            font-size: 22px;
-            font-weight: 800;
-            color: var(--text-main);
-            margin-bottom: 8px;
-            letter-spacing: -0.4px;
-            line-height: 1.2;
-        }
-
-        .system-name {
-            font-size: 13px;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 1.5px;
-            text-transform: uppercase;
-=======
         .system-title {
-            font-size: 14px;
+            font-size: 25px;
             font-weight: 600;
             color: var(--text-secondary);
             letter-spacing: 0.5px;
             text-transform: uppercase;
             margin-top: 8px;
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         }
 
         /* Login Section */
@@ -777,28 +662,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: 2px solid var(--input-border);
             border-radius: 14px;
             background: var(--input-bg);
-            color: var(--text-main);
+            color: #ffffff;
             font-size: 15px;
             font-weight: 500;
             transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .form-control::placeholder {
-            color: var(--text-muted);
-            opacity: 0.6;
+            color: rgba(255, 255, 255, 0.6);
+            opacity: 1;
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--primary-blue);
-            background: #ffffff;
-            box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.08),
-                        0 2px 8px rgba(0, 102, 204, 0.04);
+            border-color: var(--primary-blue-light);
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 4px rgba(0, 153, 255, 0.15);
             transform: translateY(-2px);
+            color: #ffffff;
         }
 
         [data-theme="dark"] .form-control:focus {
-            background: var(--input-bg);
+            background: rgba(0, 0, 0, 0.4);
         }
 
         .input-icon {
@@ -806,7 +691,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             left: 18px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--primary-blue);
+            color: var(--primary-blue-light);
             font-size: 18px;
             opacity: 0.4;
             transition: all 0.35s ease;
@@ -825,7 +710,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: var(--primary-blue);
+            color: var(--primary-blue-light);
             cursor: pointer;
             font-size: 18px;
             padding: 8px;
@@ -836,7 +721,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         .toggle-password:hover {
             opacity: 1;
-            background: rgba(0, 102, 204, 0.08);
+            background: rgba(255, 255, 255, 0.1);
             transform: translateY(-50%) scale(1.1);
         }
 
@@ -893,7 +778,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             height: 20px;
             margin-right: 10px;
             cursor: pointer;
-            accent-color: var(--primary-blue);
+            accent-color: var(--primary-blue-light);
         }
 
         .form-check-label {
@@ -909,11 +794,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 17px;
             border: none;
             border-radius: 14px;
-<<<<<<< HEAD
-            background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
-=======
             background: #0066cc;
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             color: white;
             font-size: 15px;
             font-weight: 700;
@@ -921,23 +802,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             text-transform: uppercase;
             cursor: pointer;
             transition: none;
-<<<<<<< HEAD
-            box-shadow: 0 12px 28px rgba(26, 35, 50, 0.4);
-=======
             box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
             position: relative;
             overflow: hidden;
         }
 
         [data-theme="dark"] .btn-submit {
-<<<<<<< HEAD
-            background: linear-gradient(135deg, #1a2332 0%, #2d3e50 100%);
-            box-shadow: 0 12px 28px rgba(26, 35, 50, 0.5);
-=======
             background: #1e293b;
             box-shadow: 0 4px 12px rgba(30, 41, 59, 0.5);
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
         }
 
         .btn-submit:disabled {
@@ -958,7 +830,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .login-footer {
             margin-top: 32px;
             padding-top: 24px;
-            border-top: 1px solid rgba(0, 102, 204, 0.1);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
             text-align: center;
         }
 
@@ -993,7 +865,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         .footer-link {
             font-size: 12px;
-            color: var(--primary-blue);
+            color: var(--primary-blue-light);
             text-decoration: none;
             font-weight: 600;
             transition: all 0.3s ease;
@@ -1017,11 +889,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             align-items: center;
             gap: 8px;
             padding: 8px 16px;
-            background: rgba(0, 102, 204, 0.08);
+            background: rgba(255, 255, 255, 0.1);
             border-radius: 20px;
             margin-top: 16px;
             font-size: 11px;
-            color: var(--primary-blue);
+            color: var(--primary-blue-light);
             font-weight: 600;
         }
 
@@ -1049,22 +921,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             .logo-section {
                 margin-bottom: 36px;
-<<<<<<< HEAD
-                padding-bottom: 32px;
-            }
-
-            .logo-wrapper img {
-                width: 78px;
-            }
-
-            .logo-wrapper::before {
-                width: 120px;
-                height: 120px;
-            }
-
-            .university-name {
-                font-size: 20px;
-=======
                 padding-bottom: 20px;
             }
 
@@ -1140,79 +996,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             .footer-link {
                 font-size: 11px;
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
-            }
-
-            .system-name {
-                font-size: 12px;
-            }
-
-            .login-title {
-                font-size: 23px;
-            }
-
-            .theme-toggle-btn {
-                width: 44px;
-                height: 44px;
-                top: 20px;
-                right: 20px;
-            }
-
-            .form-control {
-                padding: 15px 16px 15px 48px;
-                font-size: 14px;
-            }
-
-            .input-icon {
-                left: 16px;
-                font-size: 17px;
-            }
-
-            .toggle-password {
-                right: 16px;
-            }
-
-            .btn-submit {
-                padding: 16px;
-                font-size: 14px;
             }
         }
 
-<<<<<<< HEAD
-        @media (max-width: 480px) {
-            .login-container {
-                padding: 36px 32px 40px;
-                border-radius: 24px;
-            }
-
-            .logo-wrapper img {
-                width: 72px;
-            }
-
-            .university-name {
-                font-size: 19px;
-            }
-
-            .login-title {
-                font-size: 22px;
-            }
-
-            .login-footer {
-                margin-top: 24px;
-                padding-top: 20px;
-            }
-
-            .login-footer-links {
-                gap: 16px;
-            }
-
-            .footer-link {
-                font-size: 11px;
-            }
-        }
-
-=======
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
     </style>
 </head>
 <body>
@@ -1254,14 +1040,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <!-- Logo Section -->
         <div class="logo-section">
             <div class="logo-wrapper">
-                <img id="mainLogo" src="includes/logo-AU.png" alt="Logo Universitas AKPRIND">
+                <img id="mainLogo" src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo Universitas AKPRIND">
             </div>
-<<<<<<< HEAD
-            <h2 class="university-name">Universitas AKPRIND</h2>
-            <p class="system-name">Sistem Presensi Lab</p>
-=======
-            <p class="system-title">Sistem Presensi Lab</p>
->>>>>>> 35434af1d30bfcf21cbb7ba850cfe2550921fd2f
+            
         </div>
 
         <!-- Login Section -->
@@ -1310,24 +1091,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <i class="fas fa-shield-alt"></i>
                     <span>Sistem Presensi Lab v2.0</span>
                 </div>
-                <div class="stats-badge">
-                    <i class="fas fa-circle"></i>
-                    <span>Sistem Aktif & Aman</span>
-                </div>
-                <div class="login-footer-links">
-                    <a href="#" class="footer-link" title="Bantuan">
-                        <i class="fas fa-question-circle"></i>
-                        <span>Bantuan</span>
-                    </a>
-                    <a href="#" class="footer-link" title="Kontak Admin">
-                        <i class="fas fa-headset"></i>
-                        <span>Kontak</span>
-                    </a>
-                    <a href="#" class="footer-link" title="Panduan">
-                        <i class="fas fa-book"></i>
-                        <span>Panduan</span>
-                    </a>
-                </div>
+                
             </div>
         </div>
     </div>
@@ -1376,12 +1140,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const loadingLogo = document.getElementById('loadingLogo');
 
             function updateLogo(theme) {
-                const logoPath = theme === 'dark' 
+                const loadingPath = theme === 'dark' 
                     ? 'includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png'
                     : 'includes/logo-AU.png';
                 
-                mainLogo.src = logoPath;
-                loadingLogo.src = logoPath;
+                // Form logo tetap menggunakan logo baru (Gemini)
+                mainLogo.src = 'includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png';
+                loadingLogo.src = loadingPath;
             }
 
             function setTheme(theme) {
