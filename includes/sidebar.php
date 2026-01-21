@@ -36,6 +36,7 @@
             <li class="nav-item"><a href="index.php?page=admin_laporan" class="nav-link <?= is_active('admin_laporan') ?>"><i class="fas fa-chart-bar"></i> Laporan</a></li>
             <li class="nav-item"><a href="index.php?page=admin_statistik" class="nav-link <?= is_active('admin_statistik') ?>"><i class="fas fa-chart-pie"></i> Statistik</a></li>
             <li class="nav-item"><a href="index.php?page=admin_log" class="nav-link <?= is_active('admin_log') ?>"><i class="fas fa-history"></i> Log Aktivitas</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_bantuan" class="nav-link <?= is_active('admin_bantuan') ?>"><i class="fas fa-headset"></i> Tiket Bantuan</a></li>
 
         <?php elseif ($_SESSION['role'] == 'mahasiswa') : ?>
             <!-- MENU MAHASISWA -->
@@ -45,6 +46,7 @@
             <li class="nav-item"><a href="index.php?page=mahasiswa_riwayat" class="nav-link <?= is_active('mahasiswa_riwayat') ?>"><i class="fas fa-history"></i> Riwayat Presensi</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_izin" class="nav-link <?= is_active('mahasiswa_izin') ?>"><i class="fas fa-envelope"></i> Pengajuan Izin</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_inhall" class="nav-link <?= is_active('mahasiswa_inhall') ?>"><i class="fas fa-redo"></i> Inhall</a></li>
+            <li class="nav-item"><a href="index.php?page=mahasiswa_bantuan" class="nav-link <?= is_active('mahasiswa_bantuan') ?>"><i class="fas fa-headset"></i> Pusat Bantuan</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_profil" class="nav-link <?= is_active('mahasiswa_profil') ?>"><i class="fas fa-user-cog"></i> Profil</a></li>
 
         <?php elseif ($_SESSION['role'] == 'asisten') : ?>

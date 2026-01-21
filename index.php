@@ -200,6 +200,10 @@ switch ($page) {
         cek_role(['admin']);
         include 'pages/admin/izin_asisten.php';
         break;
+    case 'admin_bantuan':
+        cek_role(['admin']);
+        include 'pages/admin/bantuan.php';
+        break;
     
     // Asisten pages
     case 'asisten_dashboard':
@@ -275,6 +279,10 @@ switch ($page) {
     case 'mahasiswa_profil':
         cek_role(['mahasiswa']);
         include 'pages/mahasiswa/profil.php';
+        break;
+    case 'mahasiswa_bantuan':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/bantuan.php';
         break;
     
     // API endpoints

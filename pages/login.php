@@ -144,6 +144,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .loading-screen::before {
             content: '';
             position: absolute;
+            top: -50%;
+            left: -50%;
             width: 200%;
             height: 200%;
             background: 
@@ -161,8 +163,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         @keyframes gradientShift {
-            0%, 100% { transform: translate(0, 0) rotate(0deg); }
-            50% { transform: translate(-50px, -50px) rotate(180deg); }
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-50px, -50px); }
         }
 
         .loading-screen.hidden {
@@ -189,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: 8px solid transparent;
             border-top-color: #0066cc;
             border-right-color: #0099ff;
-            animation: spinLoader 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
+            animation: spinLoader 1s linear infinite;
             box-shadow: 0 0 40px rgba(0, 102, 204, 0.6),
                         0 0 80px rgba(0, 153, 255, 0.4),
                         inset 0 0 30px rgba(0, 102, 204, 0.2);
@@ -392,6 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             --text-muted: #cbd5e1;
             --input-bg: rgba(255, 255, 255, 0.1);
             --input-border: rgba(255, 255, 255, 0.2);
+            --input-border: rgba(0, 102, 204, 0.5);
             --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
         }
 
@@ -536,6 +539,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             padding: 48px 44px 52px;
             box-shadow: var(--card-shadow);
             border: 1px solid rgba(255, 255, 255, 0.18);
+            border: 1px solid rgba(0, 102, 204, 0.4);
             position: relative;
             z-index: 1;
             opacity: 0;
@@ -548,50 +552,93 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transform: translateY(0) scale(1);
         }
         
-        .theme-toggle-btn {
-            position: absolute;
+        /* Theme Switch */
+        .theme-switch-wrapper {
+            position: fixed;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(12px);
-            border: 2px solid var(--primary-blue);
-            color: var(--primary-blue);
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
-            z-index: 100;
             display: flex;
             align-items: center;
-            justify-content: center;
+            z-index: 100;
         }
 
-        .theme-toggle-btn:hover {
-            background: #0066cc;
-            color: white;
-            border-color: #0066cc;
-            transform: scale(1.1);
-            box-shadow: 0 6px 16px rgba(0, 102, 204, 0.4);
+        .theme-switch {
+            display: inline-block;
+            height: 30px;
+            position: relative;
+            width: 60px;
         }
 
-        .theme-toggle-btn:active {
-            transform: scale(0.95);
+        .theme-switch input {
+            display: none;
         }
 
-        [data-theme="dark"] .theme-toggle-btn {
-            background: rgba(30, 41, 59, 0.9);
-            border-color: rgba(30, 41, 59, 0.5);
-            color: white;
-            box-shadow: 0 4px 12px rgba(30, 41, 59, 0.5);
+        .slider {
+            background-color: rgba(255, 255, 255, 0.25);
+            bottom: 0;
+            cursor: pointer;
+            left: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(0, 102, 204, 0.5);
+            backdrop-filter: blur(4px);
         }
 
-        [data-theme="dark"] .theme-toggle-btn:hover {
-            background: #1e293b;
-            border-color: #1e293b;
-            box-shadow: 0 6px 16px rgba(30, 41, 59, 0.6);
+        .slider:before {
+            background-color: #fff;
+            bottom: 3px;
+            content: "";
+            height: 22px;
+            left: 4px;
+            position: absolute;
+            transition: .4s;
+            width: 22px;
+            border-radius: 50%;
+            z-index: 2;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        input:checked + .slider {
+            background-color: rgba(15, 23, 42, 0.6);
+            border-color: rgba(255, 255, 255, 0.1);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(30px);
+            background-color: var(--primary-blue);
+        }
+
+        .slider .fas {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 14px;
+            transition: opacity 0.3s;
+            z-index: 1;
+        }
+
+        .slider .fa-sun {
+            left: 8px;
+            color: #fbbf24;
+            opacity: 0;
+        }
+
+        .slider .fa-moon {
+            right: 8px;
+            color: #f1f5f9;
+            opacity: 1;
+        }
+
+        input:checked + .slider .fa-sun {
+            opacity: 1;
+        }
+
+        input:checked + .slider .fa-moon {
+            opacity: 0;
         }
 
         /* Logo Section */
@@ -691,11 +738,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             left: 18px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--primary-blue-light);
+            color: var(--primary-blue);
             font-size: 18px;
-            opacity: 0.4;
+            opacity: 1.8;
             transition: all 0.35s ease;
             pointer-events: none;
+            
         }
 
         .form-control:focus ~ .input-icon {
@@ -710,12 +758,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: var(--primary-blue-light);
+            color: var(--primary-blue);
             cursor: pointer;
             font-size: 18px;
             padding: 8px;
             border-radius: 8px;
-            opacity: 0.4;
+            opacity: 0.8;
             transition: all 0.3s ease;
         }
 
@@ -831,6 +879,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             margin-top: 32px;
             padding-top: 24px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid rgba(0, 102, 204, 0.3);
             text-align: center;
         }
 
@@ -925,7 +974,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             .logo-wrapper {
-                max-width: 130px;
+                max-width: 200px;
             }
 
             .logo-wrapper img {
@@ -933,18 +982,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             .system-title {
-                font-size: 13px;
+                font-size: 20px;
             }
 
             .login-title {
                 font-size: 23px;
-            }
-
-            .theme-toggle-btn {
-                width: 44px;
-                height: 44px;
-                top: 20px;
-                right: 20px;
             }
 
             .form-control {
@@ -974,7 +1016,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             .logo-wrapper {
-                max-width: 110px;
+                max-width: 200px;
             }
 
             .logo-wrapper img {
@@ -982,7 +1024,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
 
             .system-title {
-                font-size: 12px;
+                font-size: 18px;
             }
 
             .login-footer {
@@ -1030,10 +1072,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
     </div>
 
-    <!-- Theme Toggle Button -->
-    <button class="theme-toggle-btn" id="themeToggle" title="Ganti Tema">
-        <i class="fas fa-moon"></i>
-    </button>
+    <!-- Theme Switch (Moved Outside Form) -->
+    <div class="theme-switch-wrapper" title="Ganti Tema">
+        <label class="theme-switch" for="checkbox-theme">
+            <input type="checkbox" id="checkbox-theme" />
+            <div class="slider round">
+                <i class="fas fa-sun"></i>
+                <i class="fas fa-moon"></i>
+            </div>
+        </label>
+    </div>
 
     <!-- Login Container -->
     <div class="login-container" id="loginContainer">
@@ -1042,7 +1090,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             <div class="logo-wrapper">
                 <img id="mainLogo" src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo Universitas AKPRIND">
             </div>
-            
+            <div class="system-title">System Presensi Lab</div>
         </div>
 
         <!-- Login Section -->
@@ -1133,9 +1181,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }, 2500);
 
             // Theme Toggle
-            const themeToggleBtn = document.getElementById('themeToggle');
+            const themeSwitch = document.getElementById('checkbox-theme');
             const root = document.documentElement;
-            const icon = themeToggleBtn.querySelector('i');
             const mainLogo = document.getElementById('mainLogo');
             const loadingLogo = document.getElementById('loadingLogo');
 
@@ -1152,19 +1199,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             function setTheme(theme) {
                 root.setAttribute('data-theme', theme);
                 localStorage.setItem('theme', theme);
-                icon.className = `fas ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`;
+                
+                // Update switch state
+                if (themeSwitch) {
+                    themeSwitch.checked = (theme === 'dark');
+                }
+                
                 updateLogo(theme);
             }
             
-            themeToggleBtn.addEventListener('click', () => {
-                const newTheme = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                setTheme(newTheme);
-                
-                themeToggleBtn.style.animation = 'pulse 0.4s ease';
-                setTimeout(() => {
-                    themeToggleBtn.style.animation = '';
-                }, 400);
-            });
+            if (themeSwitch) {
+                themeSwitch.addEventListener('change', function(e) {
+                    const newTheme = e.target.checked ? 'dark' : 'light';
+                    setTheme(newTheme);
+                });
+            }
 
             const currentTheme = localStorage.getItem('theme') || 'light';
             setTheme(currentTheme);

@@ -45,6 +45,7 @@
             --border-color: #e3e6f0;
             --topbar-bg: #ffffff;
             --header-bg: #f8f9fc;
+            --putih: #ffffff;
             
             /* Component Variables (Light) */
             --banner-gradient: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
@@ -62,6 +63,8 @@
             --border-color: #334155;
             --topbar-bg: #1e293b;
             --header-bg: #1e293b;
+            --putih: #ffffff;
+            --primary-color: #3a8fd9;
             
             /* Component Variables (Dark) */
             --banner-gradient: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
@@ -85,6 +88,10 @@
             color: var(--text-main);
             overflow-x: hidden;
             transition: background-color 0.3s, color 0.3s;
+        }
+        .modal-header{
+            background-color: var(--primary-color);
+            color: var(--putih);
         }
         
         .sidebar {
@@ -175,9 +182,9 @@
         }
         
         .card-header {
-            background-color: var(--header-bg);
+            background-color: var(--primary-color);
             border-bottom: 1px solid var(--border-color);
-            color: var(--text-main);
+            color: var(--putih);
             font-weight: bold;
         }
         
