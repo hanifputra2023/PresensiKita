@@ -104,7 +104,7 @@ if (mysqli_num_rows($check) > 0) {
                     <div class="col-lg-4 mb-4">
                         <div class="card h-100">
                             <div class="card-header">
-                                <i class="fas fa-pen me-2"></i>Buat Tiket Baru
+                                <i class="fas fa-pen me-2"></i>Buat Pesan Baru
                             </div>
                             <div class="card-body">
                                 <form method="POST" enctype="multipart/form-data">
@@ -142,7 +142,7 @@ if (mysqli_num_rows($check) > 0) {
                     <div class="col-lg-8">
                         <div class="card h-100">
                             <div class="card-header">
-                                <i class="fas fa-history me-2"></i>Riwayat Tiket Anda
+                                <i class="fas fa-history me-2"></i>Riwayat Pesan Anda
                             </div>
                             <div class="card-body p-0">
                                 <?php if (empty($riwayat)): ?>

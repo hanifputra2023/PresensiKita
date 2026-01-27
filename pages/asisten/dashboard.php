@@ -115,6 +115,16 @@ $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
     AND j.tanggal BETWEEN '$start_month' AND '$end_month'
 "));
 
+// [BARU] Hitung Rating Rata-rata Asisten
+$rating_query = mysqli_query($conn, "SELECT AVG(fp.rating) as avg_rating, COUNT(fp.id) as total_ulasan
+                                     FROM feedback_praktikum fp
+                                     JOIN jadwal j ON fp.jadwal_id = j.id
+                                     WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')");
+$rating_data = mysqli_fetch_assoc($rating_query);
+$avg_rating = $rating_data['avg_rating'] ? number_format($rating_data['avg_rating'], 1) : '0.0';
+$total_ulasan = $rating_data['total_ulasan'];
+
+
 // Total presensi mahasiswa bulan ini (di jadwal asisten)
 $total_jadwal_bulan = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT COUNT(*) as total FROM presensi_mahasiswa pm
@@ -426,7 +436,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 /* Stat Cards */
 .stat-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr); /* Ubah jadi 5 kolom */
     gap: 20px;
     margin-bottom: 28px;
 }
@@ -458,6 +468,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .stat-icon.green { background: linear-gradient(135deg, #d4edda, #c3e6cb); color: #66cc00; }
 .stat-icon.yellow { background: linear-gradient(135deg, #fff3cd, #ffeeba); color: #ffaa00; }
 .stat-icon.cyan { background: linear-gradient(135deg, #d1ecf1, #b8e5eb); color: #00ccff; }
+.stat-icon.orange { background: linear-gradient(135deg, #ffe5d0, #ffccb0); color: #fd7e14; }
 
 .stat-info h3 {
     font-size: 1.6rem;
@@ -980,6 +991,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 [data-theme="dark"] .stat-icon.green { background: rgba(102, 204, 0, 0.2); color: #85e085; }
 [data-theme="dark"] .stat-icon.yellow { background: rgba(255, 170, 0, 0.2); color: #ffcc00; }
 [data-theme="dark"] .stat-icon.cyan { background: rgba(0, 204, 255, 0.2); color: #33d6ff; }
+[data-theme="dark"] .stat-icon.orange { background: rgba(253, 126, 20, 0.2); color: #fd7e14; }
 
 [data-theme="dark"] .jadwal-info .materi {
     background: rgba(255,255,255,0.05);
@@ -1702,6 +1714,16 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                         <div class="stat-info">
                             <h3 id="stat-jadwal-bulan"><?= $total_jadwal_bulan ?></h3>
                             <p>Jadwal Bulan Ini</p>
+                        </div>
+                    </div>
+                    <!-- [BARU] Card Rating -->
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $avg_rating ?></h3>
+                            <p><?= $total_ulasan ?> Ulasan</p>
                         </div>
                     </div>
                 </div>

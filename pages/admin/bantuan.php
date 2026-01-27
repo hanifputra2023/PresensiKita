@@ -74,10 +74,14 @@ $count_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tota
 $count_proses = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'proses'"))['total'];
 
 // Ambil Data Tiket (Join dengan tabel mahasiswa dan kelas untuk info lengkap)
-$query = "SELECT t.*, m.nama as nama_mhs, k.nama_kelas 
+$query = "SELECT t.*, 
+          COALESCE(m.nama, a.nama) as nama_pengirim, 
+          COALESCE(k.nama_kelas, 'Asisten') as info_tambahan,
+          t.nim as id_pengirim
           FROM tiket_bantuan t 
           LEFT JOIN mahasiswa m ON t.nim = m.nim 
           LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+          LEFT JOIN asisten a ON t.nim = a.kode_asisten
           $where_clause
           ORDER BY t.created_at DESC";
 $result = mysqli_query($conn, $query);
@@ -98,7 +102,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4 class="mb-0"><i class="fas fa-headset me-2"></i>Manajemen Tiket Bantuan</h4>
+                    <h4 class="mb-0"><i class="fas fa-headset me-2"></i>Manajemen Pesan Bantuan</h4>
                 </div>
                 
                 <?= show_alert() ?>
@@ -143,7 +147,7 @@ while ($row = mysqli_fetch_assoc($result)) {
                                     <tr>
                                         <th>Status</th>
                                         <th>Tanggal</th>
-                                        <th>Mahasiswa</th>
+                                        <th>Pengirim</th>
                                         <th>Kategori</th>
                                         <th>Subjek</th>
                                         <th class="text-end">Aksi</th>
@@ -165,8 +169,8 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                 </td>
                                                 <td><small><?= date('d/m/Y H:i', strtotime($row['created_at'])) ?></small></td>
                                                 <td>
-                                                    <strong><?= htmlspecialchars($row['nama_mhs']) ?></strong><br>
-                                                    <small class="text-muted"><?= $row['nim'] ?> - <?= $row['nama_kelas'] ?></small>
+                                                    <strong><?= htmlspecialchars($row['nama_pengirim']) ?></strong><br>
+                                                    <small class="text-muted"><?= $row['id_pengirim'] ?> - <?= $row['info_tambahan'] ?></small>
                                                 </td>
                                                 <td><?= htmlspecialchars($row['kategori']) ?></td>
                                                 <td>
@@ -180,7 +184,7 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                         <button type="button" class="btn btn-sm btn-info text-white btn-balas" 
                                                                 data-bs-toggle="modal" data-bs-target="#modalBalas"
                                                                 data-id="<?= $row['id'] ?>"
-                                                                data-mhs="<?= htmlspecialchars($row['nama_mhs']) ?>"
+                                                                data-pengirim="<?= htmlspecialchars($row['nama_pengirim']) ?>"
                                                                 data-pesan="<?= htmlspecialchars($row['pesan']) ?>"
                                                                 data-lampiran="<?= htmlspecialchars($row['lampiran'] ?? '') ?>"
                                                                 data-tanggapan="<?= htmlspecialchars($row['tanggapan']) ?>"
@@ -229,14 +233,14 @@ while ($row = mysqli_fetch_assoc($result)) {
                                                 <?php endif; ?>
                                             </h6>
                                             <div class="small text-muted mb-3">
-                                                <i class="fas fa-user me-1"></i><?= htmlspecialchars($row['nama_mhs']) ?> (<?= $row['nim'] ?>)
+                                                <i class="fas fa-user me-1"></i><?= htmlspecialchars($row['nama_pengirim']) ?> (<?= $row['id_pengirim'] ?>)
                                             </div>
                                             
                                             <div class="d-flex gap-2">
                                                 <button type="button" class="btn btn-sm btn-info text-white flex-fill" 
                                                         data-bs-toggle="modal" data-bs-target="#modalBalas"
                                                         data-id="<?= $row['id'] ?>"
-                                                        data-mhs="<?= htmlspecialchars($row['nama_mhs']) ?>"
+                                                        data-pengirim="<?= htmlspecialchars($row['nama_pengirim']) ?>"
                                                         data-pesan="<?= htmlspecialchars($row['pesan']) ?>"
                                                         data-lampiran="<?= htmlspecialchars($row['lampiran'] ?? '') ?>"
                                                         data-tanggapan="<?= htmlspecialchars($row['tanggapan']) ?>"
@@ -269,7 +273,7 @@ while ($row = mysqli_fetch_assoc($result)) {
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Tanggapi Tiket</h5>
+                <h5 class="modal-title">Tanggapi Pesan</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST">
@@ -277,7 +281,7 @@ while ($row = mysqli_fetch_assoc($result)) {
                     <input type="hidden" name="ticket_id" id="ticket_id">
                     
                     <div class="mb-3">
-                        <label class="form-label fw-bold">Pesan Mahasiswa (<span id="nama_mhs"></span>)</label>
+                        <label class="form-label fw-bold">Pesan Dari (<span id="nama_pengirim"></span>)</label>
                         <div class="p-3 bg-light border rounded" id="isi_pesan" style="white-space: pre-wrap;"></div>
                     </div>
                     
@@ -350,7 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const button = event.relatedTarget;
         
         document.getElementById('ticket_id').value = button.getAttribute('data-id');
-        document.getElementById('nama_mhs').textContent = button.getAttribute('data-mhs');
+        document.getElementById('nama_pengirim').textContent = button.getAttribute('data-pengirim');
         document.getElementById('isi_pesan').textContent = button.getAttribute('data-pesan');
         
         const lampiran = button.getAttribute('data-lampiran');

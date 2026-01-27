@@ -269,6 +269,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             set_alert('success', $success_count . ' Mahasiswa berhasil dihapus!');
         }
+    } elseif ($aksi == 'toggle_status') {
+        $id = (int)$_POST['id'];
+        $current_status = escape($_POST['status']);
+        $new_status = ($current_status == 'aktif') ? 'nonaktif' : 'aktif';
+        
+        $stmt = mysqli_prepare($conn, "UPDATE mahasiswa SET status = ? WHERE id = ?");
+        mysqli_stmt_bind_param($stmt, "si", $new_status, $id);
+        mysqli_stmt_execute($stmt);
+        
+        set_alert('success', 'Status mahasiswa berhasil diubah menjadi ' . ucfirst($new_status) . '!');
     }
     
     header("Location: index.php?page=admin_mahasiswa");
@@ -306,7 +316,7 @@ $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
 if ($filter_kelas && $search) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -314,7 +324,7 @@ if ($filter_kelas && $search) {
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "sssii", $filter_kelas, $search_param, $search_param, $offset, $per_page);
 } elseif ($filter_kelas) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -322,7 +332,7 @@ if ($filter_kelas && $search) {
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "sii", $filter_kelas, $offset, $per_page);
 } elseif ($search) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -330,7 +340,7 @@ if ($filter_kelas && $search) {
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "ssii", $search_param, $search_param, $offset, $per_page);
 } else {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -355,21 +365,32 @@ if (isset($_GET['ajax_search'])) {
                                    onchange="toggleSelection(<?= $m['id'] ?>)">
                         </div>
                         <div class="card-body d-flex flex-column">
-                            <div class="text-center mb-3">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex align-items-center gap-3">
                                 <?php 
                                 $foto_profil = (!empty($m['foto']) && file_exists($m['foto'])) ? $m['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($m['nama']) . '&background=random&color=fff&rounded=true';
                                 ?>
-                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;" loading="lazy">
+                                    <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="rounded-circle border" style="width: 50px; height: 50px; object-fit: cover;" loading="lazy">
+                                    <div>
+                                        <h5 class="card-title mb-0"><?= htmlspecialchars($m['nama']) ?></h5>
+                                        <small class="text-muted d-block mb-1">@<?= htmlspecialchars($m['username']) ?></small>
+                                        <span class="badge bg-info"><?= htmlspecialchars($m['nim']) ?></span>
+                                    </div>
+                                </div>
+                                <?php $status = $m['status'] ?? 'aktif'; ?>
+                                <span class="badge <?= $status == 'aktif' ? 'bg-success' : 'bg-secondary' ?> text-capitalize">
+                                    <?= ucfirst($status) ?>
+                                </span>
                             </div>
-                            <h5 class="card-title text-center mb-1"><?= htmlspecialchars($m['nama']) ?></h5>
-                            <p class="text-center text-muted small"><?= htmlspecialchars($m['nim']) ?></p>
-                            <p class="text-center text-muted small" style="font-size: 0.75rem;"><i class="fas fa-user me-1"></i><?= htmlspecialchars($m['username']) ?></p>
                             
-                            <p class="text-muted mb-2 mt-3"><i class="fas fa-university me-2"></i><?= htmlspecialchars($m['prodi']) ?: 'N/A' ?></p>
-                            <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i><?= htmlspecialchars($m['nama_kelas']) ?: 'N/A' ?></p>
-                            <p class="text-muted mb-2"><i class="fas fa-phone-alt me-2"></i><?= htmlspecialchars($m['no_hp']) ?: 'N/A' ?></p>
+                            <p class="text-muted mb-1"><i class="fas fa-university me-2" style="width:20px;text-align:center;"></i><?= htmlspecialchars($m['prodi']) ?: '-' ?></p>
+                            <p class="text-muted mb-1"><i class="fas fa-chalkboard-teacher me-2" style="width:20px;text-align:center;"></i><?= htmlspecialchars($m['nama_kelas']) ?: '-' ?></p>
+                            <p class="text-muted mb-3"><i class="fas fa-phone-alt me-2" style="width:20px;text-align:center;"></i><?= htmlspecialchars($m['no_hp']) ?: '-' ?></p>
                             
                             <div class="mt-auto action-buttons">
+                                <button class="btn btn-sm <?= $status == 'aktif' ? 'btn-outline-secondary' : 'btn-outline-success' ?>" onclick="toggleStatus(<?= $m['id'] ?>, '<?= $status ?>')" title="<?= $status == 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                    <i class="fas <?= $status == 'aktif' ? 'fa-ban' : 'fa-check' ?>"></i>
+                                </button>
                                 <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
@@ -541,20 +562,32 @@ if (isset($_GET['ajax_search'])) {
                                                onchange="toggleSelection(<?= $m['id'] ?>)">
                                     </div>
                                     <div class="card-body d-flex flex-column">
-                                        <div class="text-center mb-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div class="d-flex align-items-center gap-3">
                                             <?php 
                                             $foto_profil = (!empty($m['foto']) && file_exists($m['foto'])) ? $m['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($m['nama']) . '&background=random&color=fff&rounded=true';
                                             ?>
-                                            <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="img-fluid" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%;" loading="lazy">
+                                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($m['nama']) ?>" class="rounded-circle border" style="width: 50px; height: 50px; object-fit: cover;" loading="lazy">
+                                                <div>
+                                                    <h5 class="card-title mb-0"><?= htmlspecialchars($m['nama']) ?></h5>
+                                                    <small class="text-muted d-block mb-1">@<?= htmlspecialchars($m['username']) ?></small>
+                                                    <span class="badge bg-info"><?= htmlspecialchars($m['nim']) ?></span>
+                                                </div>
+                                            </div>
+                                            <?php $status = $m['status'] ?? 'aktif'; ?>
+                                            <span class="badge <?= $status == 'aktif' ? 'bg-success' : 'bg-secondary' ?> text-capitalize">
+                                                <?= ucfirst($status) ?>
+                                            </span>
                                         </div>
-                                        <h5 class="card-title text-center mb-1"><?= htmlspecialchars($m['nama']) ?></h5>
-                                        <p class="text-center text-muted small"><?= htmlspecialchars($m['nim']) ?></p>
                                         
-                                        <p class="text-muted mb-2 mt-3"><i class="fas fa-university me-2"></i><?= htmlspecialchars($m['prodi']) ?: 'N/A' ?></p>
-                                        <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i><?= htmlspecialchars($m['nama_kelas']) ?: 'N/A' ?></p>
-                                        <p class="text-muted mb-2"><i class="fas fa-phone-alt me-2"></i><?= htmlspecialchars($m['no_hp']) ?: 'N/A' ?></p>
+                                        <p class="text-muted mb-1"><i class="fas fa-university me-2" style="width:20px;text-align:center;"></i><?= htmlspecialchars($m['prodi']) ?: '-' ?></p>
+                                        <p class="text-muted mb-1"><i class="fas fa-chalkboard-teacher me-2" style="width:20px;text-align:center;"></i><?= htmlspecialchars($m['nama_kelas']) ?: '-' ?></p>
+                                        <p class="text-muted mb-3"><i class="fas fa-phone-alt me-2" style="width:20px;text-align:center;"></i><?= htmlspecialchars($m['no_hp']) ?: '-' ?></p>
                                         
                                         <div class="mt-auto action-buttons">
+                                            <button class="btn btn-sm <?= $status == 'aktif' ? 'btn-outline-secondary' : 'btn-outline-success' ?>" onclick="toggleStatus(<?= $m['id'] ?>, '<?= $status ?>')" title="<?= $status == 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?>">
+                                                <i class="fas <?= $status == 'aktif' ? 'fa-ban' : 'fa-check' ?>"></i>
+                                            </button>
                                             <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
@@ -714,6 +747,12 @@ if (isset($_GET['ajax_search'])) {
 <form id="formHapus" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus"><input type="hidden" name="id" id="hapus_id"></form>
 <form id="formHapusBulk" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_banyak"><div id="bulkInputs"></div></form>
 
+<form id="formToggle" method="POST" class="d-none">
+    <input type="hidden" name="aksi" value="toggle_status">
+    <input type="hidden" name="id" id="toggle_id">
+    <input type="hidden" name="status" id="toggle_status">
+</form>
+
 <script>
 // --- CRUD Functions ---
 function editMhs(id, nama, kelas, prodi, hp) {
@@ -727,6 +766,12 @@ function editMhs(id, nama, kelas, prodi, hp) {
 
 function hapusMhs(id) {
     confirmSlideDelete('single', id);
+}
+
+function toggleStatus(id, currentStatus) {
+    document.getElementById('toggle_id').value = id;
+    document.getElementById('toggle_status').value = currentStatus;
+    document.getElementById('formToggle').submit();
 }
 
 // --- Selection & Bulk Action Logic ---

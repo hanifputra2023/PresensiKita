@@ -142,19 +142,39 @@ $foto_profil = $data['foto'] ?? null;
 
 if (isset($_POST['update_profil'])) {
     $new_hp = htmlspecialchars($_POST['no_hp']);
+    $new_username = htmlspecialchars(trim($_POST['username']));
     
     if (!is_numeric($new_hp)) {
         set_alert('danger', 'Nomor HP harus berupa angka!');
+    } elseif (empty($new_username)) {
+        set_alert('danger', 'Username tidak boleh kosong!');
+    } elseif (!preg_match('/^[a-zA-Z0-9._-]+$/', $new_username)) {
+        set_alert('danger', 'Username hanya boleh berisi huruf, angka, titik (.), underscore (_), dan strip (-)');
     } else {
-        // Prepared statement untuk update no_hp
-        $stmt_hp = mysqli_prepare($conn, "UPDATE mahasiswa SET no_hp = ? WHERE nim = ?");
-        mysqli_stmt_bind_param($stmt_hp, "ss", $new_hp, $nim);
-        $update = mysqli_stmt_execute($stmt_hp);
-        if ($update) {
-            set_alert('success', 'Informasi kontak berhasil diperbarui!');
-            echo "<meta http-equiv='refresh' content='1'>";
+        // Cek username unik (kecuali punya sendiri)
+        $stmt_cek = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ? AND id != ?");
+        mysqli_stmt_bind_param($stmt_cek, "si", $new_username, $user_id);
+        mysqli_stmt_execute($stmt_cek);
+        if (mysqli_num_rows(mysqli_stmt_get_result($stmt_cek)) > 0) {
+            set_alert('danger', 'Username sudah digunakan, silakan pilih yang lain.');
         } else {
-            set_alert('danger', 'Gagal memperbarui profil: ' . mysqli_error($conn));
+            // Update users table (username)
+            $stmt_user_upd = mysqli_prepare($conn, "UPDATE users SET username = ? WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_user_upd, "si", $new_username, $user_id);
+            $upd_user = mysqli_stmt_execute($stmt_user_upd);
+
+            // Update mahasiswa table (no_hp)
+            $stmt_hp = mysqli_prepare($conn, "UPDATE mahasiswa SET no_hp = ? WHERE nim = ?");
+            mysqli_stmt_bind_param($stmt_hp, "ss", $new_hp, $nim);
+            $upd_mhs = mysqli_stmt_execute($stmt_hp);
+            
+            if ($upd_user && $upd_mhs) {
+                $_SESSION['username'] = $new_username; // Update session
+                set_alert('success', "Profil berhasil diperbarui! Username Anda sekarang: <strong>$new_username</strong>");
+                echo "<meta http-equiv='refresh' content='1'>";
+            } else {
+                set_alert('danger', 'Gagal memperbarui profil: ' . mysqli_error($conn));
+            }
         }
     }
 }
@@ -209,6 +229,9 @@ function get_avatar_color($nim) {
 
 $inisial = get_inisial($nama_lengkap);
 $avatar_color = get_avatar_color($nim);
+
+// Fetch Login History
+$log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$user_id' AND aksi LIKE '%LOGIN%' ORDER BY created_at DESC LIMIT 5");
 ?>
 
 <style>
@@ -1270,6 +1293,11 @@ $avatar_color = get_avatar_color($nim);
                                                 <i class="fas fa-lock me-2"></i>Keamanan Akun
                                             </button>
                                         </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button" role="tab">
+                                                <i class="fas fa-history me-2"></i>Riwayat Login
+                                            </button>
+                                        </li>
                                     </ul>
                                     
                                     <div class="tab-content" id="profileTabContent">
@@ -1295,6 +1323,12 @@ $avatar_color = get_avatar_color($nim);
                                                     <div class="col-md-6">
                                                         <label class="form-label fw-semibold"><i class="fas fa-graduation-cap me-2 text-primary"></i>Program Studi</label>
                                                         <input type="text" class="form-control form-control-custom" value="<?= $prodi ?>" readonly style="background: #f8f9ff;">
+                                                    </div>
+                                                    
+                                                    <div class="col-12">
+                                                        <label class="form-label fw-semibold"><i class="fas fa-user-tag me-2 text-primary"></i>Username</label>
+                                                        <input type="text" name="username" class="form-control form-control-custom" value="<?= $data['username'] ?>" required>
+                                                        <small class="text-muted">Username digunakan untuk login (Default: NIM)</small>
                                                     </div>
                                                     
                                                     <div class="col-12">
@@ -1376,6 +1410,34 @@ $avatar_color = get_avatar_color($nim);
                                                     </div>
                                                 </div>
                                             </form>
+                                        </div>
+                                        
+                                        <!-- Tab Riwayat Login -->
+                                        <div class="tab-pane fade" id="activity" role="tabpanel">
+                                            <h6 class="mb-3 fw-bold text-primary">Aktivitas Login Terakhir</h6>
+                                            <div class="table-responsive">
+                                                <table class="table table-hover table-borderless align-middle">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Waktu</th>
+                                                            <th>Aktivitas</th>
+                                                            <th>Detail</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php while($log = mysqli_fetch_assoc($log_login)): ?>
+                                                        <tr>
+                                                            <td><small><?= date('d M Y, H:i', strtotime($log['created_at'])) ?></small></td>
+                                                            <td><span class="badge bg-success bg-opacity-10 text-success">Login Berhasil</span></td>
+                                                            <td class="small text-muted"><?= $log['detail'] ?: 'Login ke sistem' ?></td>
+                                                        </tr>
+                                                        <?php endwhile; ?>
+                                                        <?php if(mysqli_num_rows($log_login) == 0): ?>
+                                                            <tr><td colspan="3" class="text-center text-muted">Belum ada riwayat login.</td></tr>
+                                                        <?php endif; ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

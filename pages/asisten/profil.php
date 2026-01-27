@@ -83,15 +83,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['hapus_foto'])) {
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['update_profil'])) {
         $no_hp = escape($_POST['no_hp']);
+        $new_username = htmlspecialchars(trim($_POST['username']));
         $id_asisten = $asisten['id'];
+        $user_id = $user['id'];
         
-        // Prepared statement untuk update no_hp
-        $stmt_hp = mysqli_prepare($conn, "UPDATE asisten SET no_hp = ? WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_hp, "si", $no_hp, $id_asisten);
-        mysqli_stmt_execute($stmt_hp);
-        set_alert('success', 'Profil berhasil diperbarui!');
-        header("Location: index.php?page=asisten_profil");
-        exit;
+        if (empty($new_username)) {
+            set_alert('danger', 'Username tidak boleh kosong!');
+        } elseif (!preg_match('/^[a-zA-Z0-9._-]+$/', $new_username)) {
+            set_alert('danger', 'Username hanya boleh berisi huruf, angka, titik (.), underscore (_), dan strip (-)');
+        } else {
+            // Cek username unik
+            $stmt_cek = mysqli_prepare($conn, "SELECT id FROM users WHERE username = ? AND id != ?");
+            mysqli_stmt_bind_param($stmt_cek, "si", $new_username, $user_id);
+            mysqli_stmt_execute($stmt_cek);
+            
+            if (mysqli_num_rows(mysqli_stmt_get_result($stmt_cek)) > 0) {
+                set_alert('danger', 'Username sudah digunakan, silakan pilih yang lain.');
+            } else {
+                // Update users (username)
+                $stmt_user = mysqli_prepare($conn, "UPDATE users SET username = ? WHERE id = ?");
+                mysqli_stmt_bind_param($stmt_user, "si", $new_username, $user_id);
+                $upd_user = mysqli_stmt_execute($stmt_user);
+
+                // Update asisten (no_hp)
+                $stmt_hp = mysqli_prepare($conn, "UPDATE asisten SET no_hp = ? WHERE id = ?");
+                mysqli_stmt_bind_param($stmt_hp, "si", $no_hp, $id_asisten);
+                $upd_ast = mysqli_stmt_execute($stmt_hp);
+
+                if ($upd_user && $upd_ast) {
+                    $_SESSION['username'] = $new_username;
+                    set_alert('success', "Profil berhasil diperbarui! Username Anda sekarang: <strong>$new_username</strong>");
+                    echo "<meta http-equiv='refresh' content='1'>";
+                } else {
+                    set_alert('danger', 'Gagal memperbarui profil.');
+                }
+            }
+        }
     }
     
     if (isset($_POST['ganti_password'])) {
@@ -1432,8 +1459,8 @@ $tanggal_daftar = $user['created_at'] ?? date('Y-m-d H:i:s');
                                                             <i class="fas fa-user-tag me-2 text-primary"></i>Username
                                                         </label>
                                                         <div class="input-group">
-                                                            <input type="text" class="form-control form-control-custom" 
-                                                                   value="<?= $user['username'] ?>" readonly style="background: #f8f9ff;">
+                                                            <input type="text" name="username" class="form-control form-control-custom" 
+                                                                   value="<?= $user['username'] ?>" required>
                                                         </div>
                                                     </div>
                                                     
@@ -1775,6 +1802,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Tambahkan efek hover untuk button upload foto di card
     const uploadFotoBtn = document.querySelector('.btn-upload-foto');
     if (uploadFotoBtn) {
+        uploadFotoBtn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-3px)';
+        });
+        
+        uploadFotoBtn.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+        });
+    }
+});
+</script>
+
+<?php include 'includes/footer.php'; ?>
         uploadFotoBtn.addEventListener('mouseenter', function() {
             this.style.transform = 'translateY(-3px)';
         });

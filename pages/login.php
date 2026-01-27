@@ -56,39 +56,59 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         if ($password_match) {
-            session_regenerate_id(true); // Regenerate session ID untuk keamanan
-            
-            $_SESSION['user_id'] = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role'] = $user['role'];
-            
-            if ($remember) {
-                $token = bin2hex(random_bytes(32));
-                $expires = time() + (30 * 24 * 60 * 60);
-                
-                // [SECURITY] Gunakan Prepared Statement juga di sini
-                $stmt_token = mysqli_prepare($conn, "UPDATE users SET remember_token = ?, token_expires = FROM_UNIXTIME(?) WHERE id = ?");
-                mysqli_stmt_bind_param($stmt_token, "sii", $token, $expires, $user['id']);
-                mysqli_stmt_execute($stmt_token);
+            // Cek status aktif/nonaktif
+            $is_active = true;
+            if ($user['role'] == 'mahasiswa') {
+                $stmt_chk = mysqli_prepare($conn, "SELECT status FROM mahasiswa WHERE user_id = ?");
+                mysqli_stmt_bind_param($stmt_chk, "i", $user['id']);
+                mysqli_stmt_execute($stmt_chk);
+                $mhs_data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+                if ($mhs_data && $mhs_data['status'] == 'nonaktif') $is_active = false;
+            } elseif ($user['role'] == 'asisten') {
+                $stmt_chk = mysqli_prepare($conn, "SELECT status FROM asisten WHERE user_id = ?");
+                mysqli_stmt_bind_param($stmt_chk, "i", $user['id']);
+                mysqli_stmt_execute($stmt_chk);
+                $ast_data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+                if ($ast_data && $ast_data['status'] == 'nonaktif') $is_active = false;
+            }
 
-                setcookie('remember_token', $token, $expires, '/', '', false, true);
-                setcookie('remember_user', $user['id'], $expires, '/', '', false, true);
+            if (!$is_active) {
+                $error = "Akun Anda telah dinonaktifkan. Silakan hubungi admin.";
+            } else {
+                session_regenerate_id(true); // Regenerate session ID untuk keamanan
+                
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role'] = $user['role'];
+                
+                if ($remember) {
+                    $token = bin2hex(random_bytes(32));
+                    $expires = time() + (30 * 24 * 60 * 60);
+                    
+                    // [SECURITY] Gunakan Prepared Statement juga di sini
+                    $stmt_token = mysqli_prepare($conn, "UPDATE users SET remember_token = ?, token_expires = FROM_UNIXTIME(?) WHERE id = ?");
+                    mysqli_stmt_bind_param($stmt_token, "sii", $token, $expires, $user['id']);
+                    mysqli_stmt_execute($stmt_token);
+    
+                    setcookie('remember_token', $token, $expires, '/', '', false, true);
+                    setcookie('remember_user', $user['id'], $expires, '/', '', false, true);
+                }
+                
+                log_aktivitas($user['id'], 'LOGIN', 'users', $user['id'], 'User login berhasil sebagai ' . $user['role']);
+                
+                switch ($user['role']) {
+                    case 'admin':
+                        header("Location: index.php?page=admin_dashboard");
+                        break;
+                    case 'asisten':
+                        header("Location: index.php?page=asisten_dashboard");
+                        break;
+                    case 'mahasiswa':
+                        header("Location: index.php?page=mahasiswa_dashboard");
+                        break;
+                }
+                exit;
             }
-            
-            log_aktivitas($user['id'], 'LOGIN', 'users', $user['id'], 'User login berhasil sebagai ' . $user['role']);
-            
-            switch ($user['role']) {
-                case 'admin':
-                    header("Location: index.php?page=admin_dashboard");
-                    break;
-                case 'asisten':
-                    header("Location: index.php?page=asisten_dashboard");
-                    break;
-                case 'mahasiswa':
-                    header("Location: index.php?page=mahasiswa_dashboard");
-                    break;
-            }
-            exit;
         } else {
             $error = "Password salah!";
         }
@@ -1095,6 +1115,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         <!-- Login Section -->
         <div class="login-section">
+            <?= show_alert() ?>
             <?php if (!empty($error)): ?>
                 <div class="alert">
                     <i class="fas fa-exclamation-circle"></i>

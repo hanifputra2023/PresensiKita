@@ -1,3 +1,23 @@
+<?php
+// Fetch foto profil untuk digunakan di Header (Mobile) dan Sidebar (Desktop)
+$header_foto = '';
+if (isset($_SESSION['user_id'])) {
+    $uid_head = $_SESSION['user_id'];
+    $role_head = $_SESSION['role'];
+    
+    if ($role_head == 'mahasiswa') {
+        $q_head = mysqli_query($conn, "SELECT foto FROM mahasiswa WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+    } elseif ($role_head == 'asisten') {
+        $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+    }
+}
+// Fallback jika foto kosong atau file tidak ada
+if (empty($header_foto) || !file_exists($header_foto)) {
+    $header_foto = 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['username'] ?? 'User') . '&background=random&color=fff&rounded=true&size=128';
+}
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -526,6 +546,21 @@
             border-left-color: #0dcaf0 !important;
             color: #6edff6 !important;
         }
+        [data-theme="dark"] .alert-success {
+            background-color: rgba(25, 135, 84, 0.15) !important;
+            border-left-color: #198754 !important;
+            color: #75b798 !important;
+        }
+        [data-theme="dark"] .alert-warning {
+            background-color: rgba(255, 193, 7, 0.15) !important;
+            border-left-color: #ffc107 !important;
+            color: #ffda6a !important;
+        }
+        [data-theme="dark"] .alert-danger {
+            background-color: rgba(220, 53, 69, 0.15) !important;
+            border-left-color: #dc3545 !important;
+            color: #ea868f !important;
+        }
         [data-theme="dark"] .alert-info .text-muted {
             color: rgba(255,255,255,0.6) !important;
         }
@@ -784,6 +819,10 @@
                 font-size: 0.9rem;
             }
             
+            .mobile-header {
+                padding: 0.5rem 0.75rem !important;
+            }
+            
             .stat-card .h3 {
                 font-size: 1.25rem;
             }
@@ -1001,8 +1040,11 @@
         <i class="fas fa-bars"></i>
     </button>
     <span class="brand"><?= APP_NAME ?></span>
-    <div class="d-flex align-items-center">
-        <button class="btn-toggle me-3 theme-toggle" title="Ganti Tema">
+    <div class="d-flex align-items-center gap-2">
+        <!-- Foto Profil Mobile -->
+        <img src="<?= $header_foto ?>" alt="User" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
+        
+        <button class="btn-toggle theme-toggle" title="Ganti Tema">
             <i class="fas fa-moon"></i>
         </button>
         <a href="index.php?page=logout" class="btn-toggle" title="Logout">

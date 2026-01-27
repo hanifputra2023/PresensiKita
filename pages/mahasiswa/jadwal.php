@@ -114,6 +114,50 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
     echo '</tbody></table></body></html>';
     exit;
 }
+
+// Export ICS (Calendar)
+if (isset($_GET['export']) && $_GET['export'] == 'ics') {
+    if (ob_get_length()) ob_end_clean();
+    
+    $filename = 'jadwal_praktikum_' . $nim . '.ics';
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    
+    echo "BEGIN:VCALENDAR\r\n";
+    echo "VERSION:2.0\r\n";
+    echo "PRODID:-//" . APP_NAME . "//Mahasiswa//ID\r\n";
+    echo "CALSCALE:GREGORIAN\r\n";
+    echo "METHOD:PUBLISH\r\n";
+    
+    mysqli_data_seek($jadwal, 0);
+    while ($row = mysqli_fetch_assoc($jadwal)) {
+        // Format waktu untuk ICS: YYYYMMDDTHHMMSS
+        $start_time = date('Ymd\THis', strtotime($row['tanggal'] . ' ' . $row['jam_mulai']));
+        $end_time = date('Ymd\THis', strtotime($row['tanggal'] . ' ' . $row['jam_selesai']));
+        $now = date('Ymd\THis\Z');
+        
+        $asisten = $row['asisten1_nama'] ?: '-';
+        if ($row['asisten2_nama']) $asisten .= ', ' . $row['asisten2_nama'];
+        
+        $description = "Mata Kuliah: " . $row['nama_mk'] . "\\n";
+        $description .= "Materi: " . $row['materi'] . "\\n";
+        $description .= "Asisten: " . $asisten . "\\n";
+        $description .= "Pertemuan ke: " . $row['pertemuan_ke'];
+        
+        echo "BEGIN:VEVENT\r\n";
+        echo "UID:jadwal-" . $row['id'] . "@" . $_SERVER['HTTP_HOST'] . "\r\n";
+        echo "DTSTAMP:" . $now . "\r\n";
+        echo "DTSTART:" . $start_time . "\r\n";
+        echo "DTEND:" . $end_time . "\r\n";
+        echo "SUMMARY:" . $row['nama_mk'] . " (" . $row['nama_lab'] . ")\r\n";
+        echo "DESCRIPTION:" . $description . "\r\n";
+        echo "LOCATION:" . $row['nama_lab'] . "\r\n";
+        echo "END:VEVENT\r\n";
+    }
+    
+    echo "END:VCALENDAR";
+    exit;
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -203,6 +247,9 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
                     <div class="d-grid d-md-flex gap-2 justify-content-md-end">
                         <a href="index.php?page=mahasiswa_jadwal&export=excel&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-success">
                             <i class="fas fa-file-excel me-1"></i>Excel
+                        </a>
+                        <a href="index.php?page=mahasiswa_jadwal&export=ics&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-info text-white">
+                            <i class="fas fa-calendar-plus me-1"></i>Kalender
                         </a>
                         <button onclick="exportPDF()" class="btn btn-danger">
                             <i class="fas fa-file-pdf me-1"></i>PDF

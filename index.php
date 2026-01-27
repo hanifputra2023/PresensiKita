@@ -18,17 +18,35 @@ if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && isset($
     $result = mysqli_stmt_get_result($stmt);
     
     if ($user = mysqli_fetch_assoc($result)) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'];
-        
-        // Refresh token expiry - menggunakan prepared statement
-        $expires = time() + (30 * 24 * 60 * 60);
-        $stmt_refresh = mysqli_prepare($conn, "UPDATE users SET token_expires = FROM_UNIXTIME(?) WHERE id = ?");
-        mysqli_stmt_bind_param($stmt_refresh, "ii", $expires, $user['id']);
-        mysqli_stmt_execute($stmt_refresh);
-        setcookie('remember_token', $token, $expires, '/', '', false, true);
-        setcookie('remember_user', $user['id'], $expires, '/', '', false, true);
+        // Cek status aktif/nonaktif sebelum auto-login
+        $is_active = true;
+        if ($user['role'] == 'mahasiswa') {
+            $stmt_chk = mysqli_prepare($conn, "SELECT status FROM mahasiswa WHERE user_id = ?");
+            mysqli_stmt_bind_param($stmt_chk, "i", $user['id']);
+            mysqli_stmt_execute($stmt_chk);
+            $mhs_data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+            if ($mhs_data && $mhs_data['status'] == 'nonaktif') $is_active = false;
+        } elseif ($user['role'] == 'asisten') {
+            $stmt_chk = mysqli_prepare($conn, "SELECT status FROM asisten WHERE user_id = ?");
+            mysqli_stmt_bind_param($stmt_chk, "i", $user['id']);
+            mysqli_stmt_execute($stmt_chk);
+            $ast_data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+            if ($ast_data && $ast_data['status'] == 'nonaktif') $is_active = false;
+        }
+
+        if ($is_active) {
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            
+            // Refresh token expiry - menggunakan prepared statement
+            $expires = time() + (30 * 24 * 60 * 60);
+            $stmt_refresh = mysqli_prepare($conn, "UPDATE users SET token_expires = FROM_UNIXTIME(?) WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_refresh, "ii", $expires, $user['id']);
+            mysqli_stmt_execute($stmt_refresh);
+            setcookie('remember_token', $token, $expires, '/', '', false, true);
+            setcookie('remember_user', $user['id'], $expires, '/', '', false, true);
+        }
     } else {
         // Token tidak valid, hapus cookie
         setcookie('remember_token', '', time() - 3600, '/');
@@ -41,6 +59,38 @@ if (!in_array($page, $public_pages)) {
     if (!isset($_SESSION['user_id'])) {
         header("Location: index.php?page=login");
         exit;
+    }
+
+    // [SECURITY CHECK] Cek status aktif/nonaktif user yang sedang login
+    if (isset($_SESSION['role'])) {
+        $uid_check = $_SESSION['user_id'];
+        $is_active_session = true;
+        
+        if ($_SESSION['role'] == 'mahasiswa') {
+            $stmt_chk = mysqli_prepare($conn, "SELECT status FROM mahasiswa WHERE user_id = ?");
+            mysqli_stmt_bind_param($stmt_chk, "i", $uid_check);
+            mysqli_stmt_execute($stmt_chk);
+            $mhs_data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+            if ($mhs_data && $mhs_data['status'] == 'nonaktif') $is_active_session = false;
+        } elseif ($_SESSION['role'] == 'asisten') {
+            $stmt_chk = mysqli_prepare($conn, "SELECT status FROM asisten WHERE user_id = ?");
+            mysqli_stmt_bind_param($stmt_chk, "i", $uid_check);
+            mysqli_stmt_execute($stmt_chk);
+            $ast_data = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_chk));
+            if ($ast_data && $ast_data['status'] == 'nonaktif') $is_active_session = false;
+        }
+        
+        if (!$is_active_session) {
+            // Force logout jika nonaktif
+            session_unset();
+            session_destroy();
+            setcookie('remember_token', '', time() - 3600, '/');
+            setcookie('remember_user', '', time() - 3600, '/');
+            session_start();
+            $_SESSION['alert'] = ['type' => 'danger', 'message' => 'Akun Anda telah dinonaktifkan. Silakan hubungi admin.'];
+            header("Location: index.php?page=login");
+            exit;
+        }
     }
     
     // [OPTIMASI] Fungsi auto_set_alpha() dinonaktifkan dari sini karena membebani setiap page load.
@@ -180,6 +230,10 @@ switch ($page) {
         cek_role(['admin']);
         include 'pages/admin/laporan.php';
         break;
+    case 'admin_berita_acara':
+        cek_role(['admin']);
+        include 'pages/admin/berita_acara.php';
+        break;
     case 'admin_log':
         cek_role(['admin']);
         include 'pages/admin/log.php';
@@ -191,6 +245,10 @@ switch ($page) {
      case 'admin_pengumuman':
         cek_role(['admin']);
         include 'pages/admin/pengumuman.php';
+        break;
+    case 'admin_broadcast':
+        cek_role(['admin']);
+        include 'pages/admin/broadcast.php';
         break;
     case 'admin_sync_alpha':
         cek_role(['admin']);
@@ -217,6 +275,10 @@ switch ($page) {
     case 'asisten_jadwal':
         cek_role(['asisten']);
         include 'pages/asisten/jadwal.php';
+        break;
+    case 'asisten_berita_acara':
+        cek_role(['asisten']);
+        include 'pages/asisten/berita_acara.php';
         break;
     case 'asisten_qrcode':
         cek_role(['asisten']);
@@ -246,9 +308,21 @@ switch ($page) {
         cek_role(['asisten']);
         include 'pages/asisten/profil.php';
         break;
+    case 'asisten_bantuan':
+        cek_role(['asisten']);
+        include 'pages/asisten/bantuan.php';
+        break;
     case 'asisten_materi':
         cek_role(['asisten']);
         include 'pages/asisten/materi.php';
+        break;
+    case 'asisten_kuis':
+        cek_role(['asisten']);
+        include 'pages/asisten/kuis.php';
+        break;
+    case 'asisten_kuis_detail':
+        cek_role(['asisten']);
+        include 'pages/asisten/kuis_detail.php';
         break;
     
     // Mahasiswa pages
@@ -284,6 +358,32 @@ switch ($page) {
         cek_role(['mahasiswa']);
         include 'pages/mahasiswa/bantuan.php';
         break;
+    case 'mahasiswa_jurnal':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/jurnal.php';
+        break;
+    case 'mahasiswa_leaderboard':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/leaderboard.php';
+        break;
+    case 'mahasiswa_kuis':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/kuis.php';
+        break;
+    case 'mahasiswa_kuis_kerjakan':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/kuis_kerjakan.php';
+        break;
+    case 'mahasiswa_kuis_hasil':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/kuis_hasil.php';
+        break;
+    case 'mahasiswa_leaderboard':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/leaderboard.php';
+        break;
+   
+
     
     // API endpoints
     case 'api_scan_qr':

@@ -145,6 +145,14 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                         WHERE target_role IN ('semua', 'mahasiswa')
                                         AND status = 'active'
                                         ORDER BY created_at DESC LIMIT 3");
+
+// Get Badges
+$badges = get_mahasiswa_badges($nim);
+
+// Get Points & Level (Fitur Baru)
+$my_points = get_mahasiswa_points($nim);
+$my_level = get_mahasiswa_level($my_points);
+$next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my_level['min']) * 100;
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -272,8 +280,6 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
-    display: grid;
-    grid-template-columns: 1fr auto;
     min-height: 160px;
 }
 /* OPTIMISASI: Matikan animasi berat di mobile */
@@ -355,9 +361,15 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .welcome-stats {
     padding: 28px 32px;
     display: flex;
-    align-items: center;
-    position: relative;
+    align-items: flex-start;
+    justify-content: flex-end;
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 100%;
     z-index: 2;
+    pointer-events: none;
 }
 .stats-glass {
     background: rgba(255,255,255,0.15);
@@ -367,6 +379,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     gap: 28px;
     border: 1px solid rgba(255,255,255,0.2);
+    pointer-events: auto;
 }
 .stats-glass .stat-item {
     text-align: center;
@@ -640,6 +653,8 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .quick-btn.riwayat::before { background: linear-gradient(135deg, #0066cc, #0099ff); }
 .quick-btn.jadwal::before { background: linear-gradient(135deg, #00ccff, #258391); }
 .quick-btn.izin::before { background: linear-gradient(135deg, #ffaa00, #dda20a); }
+.quick-btn.jurnal::before { background: linear-gradient(135deg, #6f42c1, #8540f5); }
+.quick-btn.ulasan::before { background: linear-gradient(135deg, #e83e8c, #f66d9b); }
 .quick-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 18px rgba(0,0,0,0.12);
@@ -661,6 +676,8 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .quick-btn.riwayat i { color: #0066cc; }
 .quick-btn.jadwal i { color: #00ccff; }
 .quick-btn.izin i { color: #ffaa00; }
+.quick-btn.jurnal i { color: #6f42c1; }
+.quick-btn.ulasan i { color: #e83e8c; }
 .quick-btn:hover i {
     color: white;
 }
@@ -842,6 +859,23 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
         grid-template-columns: 1fr;
     }
 }
+@media (max-width: 1110px) {
+    .welcome-banner {
+        min-height: auto;
+    }
+    .welcome-stats {
+        position: relative;
+        padding: 0 32px 28px;
+        width: 100%;
+        height: auto;
+        justify-content: flex-start;
+        pointer-events: auto;
+    }
+    .stats-glass {
+        width: 100%;
+        justify-content: space-around;
+    }
+}
 @media (max-width: 992px) {
     .stat-cards-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -863,6 +897,12 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     }
     .welcome-stats {
         padding: 0 24px 20px;
+        position: relative;
+        width: auto;
+        height: auto;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
     }
     .stats-glass {
         width: 100%;
@@ -1111,6 +1151,8 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 [data-theme="dark"] .quick-btn.riwayat i { color: #66b0ff; }
 [data-theme="dark"] .quick-btn.jadwal i { color: #33d6ff; }
 [data-theme="dark"] .quick-btn.izin i { color: #ffc107; }
+[data-theme="dark"] .quick-btn.jurnal i { color: #a57ccf; }
+[data-theme="dark"] .quick-btn.ulasan i { color: #f08eb3; }
 [data-theme="dark"] .quick-btn:hover {
     box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     border-color: transparent;
@@ -1218,6 +1260,22 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <span class="info-badge"><i class="fas fa-users me-1"></i>Kelas <?= $mahasiswa['nama_kelas'] ?></span>
                             <span class="info-badge"><i class="fas fa-calendar-alt me-1"></i><?= format_tanggal($today) ?></span>
                         </div>
+                        
+                        <!-- Level Progress -->
+                        <div class="mt-3 p-2 rounded" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(5px);">
+                            <div class="d-flex justify-content-between align-items-center mb-1 text-white">
+                                <small class="fw-bold"><i class="fas fa-<?= $my_level['icon'] ?> me-1"></i><?= $my_level['name'] ?></small>
+                                <small><?= $my_points ?> / <?= $my_level['max'] ?> XP</small>
+                            </div>
+                            <div class="progress" style="height: 6px; background: rgba(0,0,0,0.2);">
+                                <div class="progress-bar bg-warning" role="progressbar" 
+                                     style="width: <?= $next_level_progress ?>%" 
+                                     aria-valuenow="<?= $next_level_progress ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="text-end mt-1">
+                                <small style="font-size: 0.65rem; opacity: 0.8;">Kumpulkan poin dengan hadir tepat waktu!</small>
+                            </div>
+                        </div>
                     </div>
                     <div class="welcome-stats">
                         <div class="stats-glass">
@@ -1237,6 +1295,30 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                     </div>
                 </div>
                 
+                <!-- Gamification Badges -->
+                <?php if (!empty($badges)): ?>
+                <div class="mb-4">
+                    <h5 class="mb-3 d-flex align-items-center"><i class="fas fa-trophy text-warning me-2 flex-shrink-0"></i>Pencapaian Kamu</h5>
+                    <div class="row g-3">
+                        <?php foreach($badges as $badge): ?>
+                        <div class="col-12">
+                        <div class="card border-<?= $badge['color'] ?> shadow-sm h-100">
+                            <div class="card-body d-flex align-items-center p-3">
+                                <div class="rounded-circle bg-<?= $badge['color'] ?> text-white d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-<?= $badge['icon'] ?> fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold"><?= $badge['title'] ?></h6>
+                                    <small class="text-muted"><?= $badge['desc'] ?></small>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Jadwal Aktif Alert - Tampilkan SEMUA jadwal aktif hari ini -->
                 <?php if (mysqli_num_rows($jadwal_hari_ini) > 0): ?>
                     <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): ?>
@@ -1369,6 +1451,14 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                     <a href="index.php?page=mahasiswa_riwayat" class="quick-btn riwayat">
                                         <i class="fas fa-history"></i>
                                         <span>Riwayat</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_jurnal" class="quick-btn jurnal">
+                                        <i class="fas fa-book-open"></i>
+                                        <span>Jurnal</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_riwayat" class="quick-btn ulasan">
+                                        <i class="fas fa-star"></i>
+                                        <span>Ulasan</span>
                                     </a>
                                     <a href="index.php?page=mahasiswa_jadwal" class="quick-btn jadwal">
                                         <i class="fas fa-calendar-alt"></i>

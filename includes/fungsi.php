@@ -720,4 +720,112 @@ function optimize_and_save_image($source_path, $destination_path, $max_width, $m
     return $result;
 }
 
+// ============ FITUR TAMBAHAN (GAMIFIKASI & NOTIFIKASI) ============
+
+/**
+ * Hitung Badges untuk Mahasiswa
+ */
+function get_mahasiswa_badges($nim) {
+    global $conn;
+    $badges = [];
+    
+    // 1. Badge "Rajin Presensi" (Kehadiran > 90%)
+    $q_stat = mysqli_query($conn, "SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir
+        FROM presensi_mahasiswa WHERE nim = '$nim'");
+    $stat = mysqli_fetch_assoc($q_stat);
+    
+    if ($stat['total'] > 0 && ($stat['hadir'] / $stat['total']) >= 0.9) {
+        $badges[] = ['icon' => 'medal', 'color' => 'warning', 'title' => 'Sobat Rajin', 'desc' => 'Kehadiran di atas 90%'];
+    }
+
+    // 2. Badge "Early Bird" (Selalu datang sebelum jam mulai)
+    // Cek 5 presensi terakhir, apakah waktu_presensi <= jam_mulai jadwal
+    $q_early = mysqli_query($conn, "SELECT p.waktu_presensi, j.jam_mulai 
+                                    FROM presensi_mahasiswa p
+                                    JOIN jadwal j ON p.jadwal_id = j.id
+                                    WHERE p.nim = '$nim' AND p.status = 'hadir'
+                                    ORDER BY p.waktu_presensi DESC LIMIT 5");
+    
+    $is_early = true;
+    $count = 0;
+    while($row = mysqli_fetch_assoc($q_early)) {
+        $count++;
+        // Bandingkan waktu (H:i:s)
+        if (date('H:i:s', strtotime($row['waktu_presensi'])) > $row['jam_mulai']) {
+            $is_early = false;
+            break;
+        }
+    }
+    
+    if ($count >= 3 && $is_early) {
+        $badges[] = ['icon' => 'bolt', 'color' => 'info', 'title' => 'Early Bird', 'desc' => 'Selalu datang tepat waktu'];
+    }
+    
+    return $badges;
+}
+
+/**
+ * Kirim Notifikasi (Stub/Placeholder)
+ * Di sistem real, ini bisa dihubungkan ke API WhatsApp (Fonnte/Twilio) atau PHPMailer
+ */
+function kirim_notifikasi($target, $pesan, $tipe = 'wa') {
+    // Konfigurasi API WhatsApp (Contoh menggunakan Fonnte)
+    // Silakan daftar di https://fonnte.com untuk dapat token gratis
+    $token = "r3xT7ppTj28hxKamgjJE"; 
+
+    if ($tipe == 'wa') {
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+          CURLOPT_URL => 'https://api.fonnte.com/send',
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_ENCODING => '',
+          CURLOPT_MAXREDIRS => 10,
+          CURLOPT_TIMEOUT => 0,
+          CURLOPT_FOLLOWLOCATION => true,
+          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+          CURLOPT_CUSTOMREQUEST => 'POST',
+          CURLOPT_POSTFIELDS => array(
+            'target' => $target,
+            'message' => $pesan,
+          ),
+          CURLOPT_HTTPHEADER => array(
+            "Authorization: $token"
+          ),
+        ));
+
+        $response = curl_exec($curl);
+        curl_close($curl);
+        return $response;
+    }
+    
+    return false;
+}
+
+// ============ GAMIFIKASI MAHASISWA ============
+
+function get_mahasiswa_points($nim) {
+    global $conn;
+    // Hadir = 10 poin, Izin/Sakit = 5 poin
+    $q = mysqli_query($conn, "SELECT 
+        SUM(CASE 
+            WHEN status = 'hadir' THEN 10 
+            WHEN status = 'izin' THEN 5 
+            WHEN status = 'sakit' THEN 5 
+            ELSE 0 
+        END) as points 
+        FROM presensi_mahasiswa WHERE nim = '$nim'");
+    $r = mysqli_fetch_assoc($q);
+    return (int)($r['points'] ?? 0);
+}
+
+function get_mahasiswa_level($points) {
+    if ($points < 50) return ['name' => 'Novice', 'icon' => 'seedling', 'color' => 'secondary', 'min' => 0, 'max' => 50];
+    if ($points < 150) return ['name' => 'Apprentice', 'icon' => 'book-reader', 'color' => 'info', 'min' => 50, 'max' => 150];
+    if ($points < 300) return ['name' => 'Practitioner', 'icon' => 'user-graduate', 'color' => 'primary', 'min' => 150, 'max' => 300];
+    if ($points < 500) return ['name' => 'Expert', 'icon' => 'star', 'color' => 'warning', 'min' => 300, 'max' => 500];
+    return ['name' => 'Master', 'icon' => 'crown', 'color' => 'danger', 'min' => 500, 'max' => 1000];
+}
 ?>
