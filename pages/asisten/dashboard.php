@@ -112,6 +112,7 @@ $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
     JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim
     WHERE $jadwal_asisten_clause
+    AND (j.sesi = 0 OR j.sesi = m.sesi)
     AND j.tanggal BETWEEN '$start_month' AND '$end_month'
 "));
 
@@ -505,19 +506,23 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--header-bg);
+    background: var(--banner-gradient);
 }
 .card-box .card-header-custom h3 {
     font-size: 1rem;
     font-weight: 600;
     margin: 0;
-    color: var(--text-main);
+    color: var(--putih);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .card-box .card-header-custom h3 i {
-    color: #0066cc;
+    color: var(--putih);
+}
+.card-box .card-header-custom a.btn-outline {
+    color: var(--putih);
+    border-color: var(--putih);
 }
 .card-box .card-body-custom {
     padding: 20px 24px;
@@ -1734,7 +1739,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                     <div class="card-box">
                         <div class="card-header-custom">
                             <h3><i class="fas fa-calendar-day"></i> Jadwal Mengajar Hari Ini</h3>
-                            <a href="index.php?page=asisten_jadwal" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                            <a href="index.php?page=asisten_jadwal" class="btn btn-sm btn-outline">Lihat Semua</a>
                         </div>
                         <div class="card-body-custom">
                             <?php if (count($all_jadwal) > 0): ?>
@@ -1869,7 +1874,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                     <div class="card-box">
                         <div class="card-header-custom">
                             <h3><i class="fas fa-history"></i> Riwayat Mengajar Terakhir</h3>
-                            <a href="index.php?page=asisten_rekap" class="btn btn-sm btn-outline-primary">Lihat Rekap</a>
+                            <a href="index.php?page=asisten_rekap" class="btn btn-sm btn-outline">Lihat Rekap</a>
                         </div>
                         <div class="card-body-custom">
                             <?php if (mysqli_num_rows($riwayat) > 0): ?>

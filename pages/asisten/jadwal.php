@@ -45,12 +45,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['aksi'])) {
             set_alert('danger', 'Error! Anda tidak memiliki hak untuk mengubah jadwal ini.');
         } else {
             $materi = escape($_POST['materi']);
+            $sesi = (int)$_POST['sesi'];
             
             // Hanya update materi, tidak semua field seperti admin - prepared statement
-            $stmt_upd = mysqli_prepare($conn, "UPDATE jadwal SET materi=? WHERE id=?");
-            mysqli_stmt_bind_param($stmt_upd, "si", $materi, $id);
+            $stmt_upd = mysqli_prepare($conn, "UPDATE jadwal SET materi=?, sesi=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "sii", $materi, $sesi, $id);
             mysqli_stmt_execute($stmt_upd);
-            set_alert('success', 'Judul Materi berhasil diupdate!');
+            set_alert('success', 'Jadwal berhasil diupdate!');
         }
     }
     
@@ -128,6 +129,7 @@ if (isset($_GET['ajax_search'])) {
                     <th>Lab</th>
                     <th>Materi</th>
                     <th>Jenis</th>
+                    <th>Sesi</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -155,6 +157,9 @@ if (isset($_GET['ajax_search'])) {
                             <span class="badge bg-<?= ($j['jenis'] == 'responsi' || $j['jenis'] == 'ujikom') ? 'danger' : ($j['jenis'] == 'inhall' ? 'warning' : ($j['jenis'] == 'praresponsi' ? 'primary' : 'info')) ?>">
                                 <?= ucfirst($j['jenis']) ?>
                             </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary"><?= $j['sesi'] == 0 ? 'Semua' : 'Sesi ' . $j['sesi'] ?></span>
                         </td>
                         <td>
                             <div class="btn-group btn-group-sm">
@@ -435,6 +440,15 @@ if (isset($_GET['ajax_search'])) {
                         <input type="text" name="materi" id="edit_materi" class="form-control" required>
                         <small class="text-muted">Anda hanya dapat mengubah judul materi di sini.</small>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sesi</label>
+                        <select name="sesi" id="edit_sesi" class="form-select">
+                            <option value="0">Semua Sesi (0)</option>
+                            <option value="1">Sesi 1</option>
+                            <option value="2">Sesi 2</option>
+                            <option value="3">Sesi 3</option>
+                        </select>
+                    </div>
                     <div class="alert alert-info small">
                         Untuk mengubah detail jadwal lain seperti jam, tanggal, atau lab, silakan hubungi Admin.
                     </div>
@@ -452,6 +466,7 @@ if (isset($_GET['ajax_search'])) {
 function editJadwal(j) {
     document.getElementById('edit_id').value = j.id;
     document.getElementById('edit_materi').value = j.materi;
+    document.getElementById('edit_sesi').value = j.sesi;
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 </script>

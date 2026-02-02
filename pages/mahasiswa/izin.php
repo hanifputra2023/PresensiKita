@@ -3,6 +3,7 @@ $page = 'mahasiswa_izin';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 $kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'];
 
 // Proses hapus pengajuan (hanya yang masih pending)
 if (isset($_GET['hapus'])) {
@@ -158,9 +159,10 @@ $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, mk.nama_mk FROM jadwal j
                                           LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = ?
                                           WHERE j.kode_kelas = ? 
                                           AND j.tanggal BETWEEN ? AND ?
+                                          AND (j.sesi = 0 OR j.sesi = ?)
                                           AND (p.status IS NULL OR p.status = 'belum')
                                           ORDER BY j.tanggal, j.jam_mulai");
-mysqli_stmt_bind_param($stmt_jadwal, "ssss", $nim, $kelas, $today, $tomorrow);
+mysqli_stmt_bind_param($stmt_jadwal, "ssssi", $nim, $kelas, $today, $tomorrow, $sesi);
 mysqli_stmt_execute($stmt_jadwal);
 $jadwal_available = mysqli_stmt_get_result($stmt_jadwal);
 

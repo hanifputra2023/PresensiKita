@@ -16,10 +16,11 @@ $qr_code = escape($input['qr_code']);
 $nim = escape($input['nim']);
 $lat_user = isset($input['latitude']) ? (float)$input['latitude'] : null;
 $long_user = isset($input['longitude']) ? (float)$input['longitude'] : null;
+$client_fingerprint = isset($input['device_fingerprint']) ? escape($input['device_fingerprint']) : '';
 
 // VALIDASI 1: Cek QR Code valid dan belum expired
 $stmt_qr = mysqli_prepare($conn, "SELECT qs.*, j.id as jadwal_id, j.kode_kelas, j.kode_mk, j.tanggal, j.jam_mulai, j.jam_selesai,
-                                                       j.materi, j.jenis, mk.nama_mk, l.nama_lab, l.latitude as lab_lat, l.longitude as lab_long
+                                                       j.materi, j.jenis, j.sesi, mk.nama_mk, l.nama_lab, l.latitude as lab_lat, l.longitude as lab_long
                                                        FROM qr_code_session qs
                                                        JOIN jadwal j ON qs.jadwal_id = j.id
                                                        LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
@@ -91,6 +92,12 @@ if ($is_inhall) {
     // Untuk jadwal BIASA: Kelas harus sama
     if ($mahasiswa['kode_kelas'] != $qr_session['kode_kelas']) {
         echo json_encode(['success' => false, 'message' => 'Anda bukan dari kelas yang dijadwalkan di lab ini. Kelas Anda: ' . $mahasiswa['kode_kelas'] . ', Jadwal untuk: ' . $qr_session['kode_kelas']]);
+        exit;
+    }
+
+    // VALIDASI SESI: Cek apakah sesi mahasiswa sesuai dengan sesi jadwal
+    if ($qr_session['sesi'] != 0 && $qr_session['sesi'] != $mahasiswa['sesi']) {
+        echo json_encode(['success' => false, 'message' => 'Jadwal ini khusus untuk Sesi ' . $qr_session['sesi'] . '. Anda terdaftar di Sesi ' . $mahasiswa['sesi']]);
         exit;
     }
 }
@@ -166,7 +173,10 @@ if ($qr_session['lab_lat'] && $qr_session['lab_long']) {
 
 // VALIDASI 5: Cek Penggunaan Perangkat (Mencegah 1 HP untuk banyak NIM)
 // Gunakan escape() untuk keamanan dan perpanjang durasi blokir jadi 5 menit
-$device_id = escape(substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 100));
+// Prioritaskan fingerprint dari client, fallback ke User Agent jika tidak ada
+$user_agent = substr($_SERVER['HTTP_USER_AGENT'] ?? '', 0, 100);
+$device_id = !empty($client_fingerprint) ? $client_fingerprint : escape($user_agent);
+
 $stmt_device = mysqli_prepare($conn, "SELECT * FROM presensi_mahasiswa
                                          WHERE jadwal_id = ?
                                          AND device_id = ?

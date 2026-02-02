@@ -52,6 +52,7 @@ $query = "SELECT DISTINCT
           FROM mahasiswa m
           LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
           LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
+              AND (j.sesi = 0 OR j.sesi = m.sesi)
               AND j.tanggal BETWEEN '$start_date' AND '$end_date'
               AND j.tanggal <= CURDATE()
               AND j.jenis != 'inhall'

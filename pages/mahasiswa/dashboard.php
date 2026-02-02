@@ -3,6 +3,7 @@ $page = 'mahasiswa_dashboard';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 $kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'] ?? 1;
 
 // Jadwal hari ini yang SEDANG AKTIF (dalam rentang waktu)
 $today = date('Y-m-d');
@@ -27,6 +28,7 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                         WHERE j.tanggal = '$today' AND j.kode_kelas = '$kelas'
                                         AND j.jam_mulai <= '$waktu_batas_masuk'
+                                        AND (j.sesi = 0 OR j.sesi = '$sesi')
                                         AND j.jam_selesai > '$now_time'
                                         AND (
                                             j.jenis != 'inhall'
@@ -58,6 +60,7 @@ $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
     JOIN mahasiswa m ON m.nim = '$nim'
     WHERE j.kode_kelas = '$kelas'
+    AND (j.sesi = 0 OR j.sesi = '$sesi')
     AND j.jenis != 'inhall'
     AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
     AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW())
@@ -76,6 +79,7 @@ $jadwal_terdekat = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                          LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
                                          LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                          WHERE j.kode_kelas = '$kelas'
+                                         AND (j.sesi = 0 OR j.sesi = '$sesi')
                                          AND (
                                              j.tanggal > '$today'
                                              OR (
@@ -555,19 +559,19 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--bg-body);
+    background: var(--banner-gradient);
 }
 .card-box .card-header-custom h3 {
     font-size: 1rem;
     font-weight: 600;
     margin: 0;
-    color: var(--text-main);
+    color: var(--putih);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .card-box .card-header-custom h3 i {
-    color: #0066cc;
+    color: var(--putih);
 }
 .card-box .card-body-custom {
     padding: 20px 24px;
@@ -1332,6 +1336,9 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
                             <div class="meta">
                                 <span><i class="fas fa-clock me-1"></i><?= format_waktu($jhi['jam_mulai']) ?> - <?= format_waktu($jhi['jam_selesai']) ?></span>
                                 <span><i class="fas fa-map-marker-alt me-1"></i><?= $jhi['nama_lab'] ?></span>
+                                <?php if ($jhi['sesi'] != 0): ?>
+                                    <span><i class="fas fa-users me-1"></i>Sesi <?= $jhi['sesi'] ?></span>
+                                <?php endif; ?>
                                 <span><i class="fas fa-user-tie me-1"></i><?= $jhi['asisten1_nama'] ?: '-' ?><?php if ($jhi['asisten2_nama']): ?>, <?= $jhi['asisten2_nama'] ?><?php endif; ?></span>
                             </div>
                         </div>
@@ -1503,6 +1510,9 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
                                                 <div class="meta">
                                                     <span><i class="fas fa-clock me-1"></i><?= format_waktu($j['jam_mulai']) ?></span>
                                                     <span><i class="fas fa-map-marker-alt me-1"></i><?= $j['nama_lab'] ?></span>
+                                                    <?php if ($j['sesi'] != 0): ?>
+                                                        <span><i class="fas fa-users me-1"></i>Sesi <?= $j['sesi'] ?></span>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div class="asisten">
                                                     <i class="fas fa-user-tie me-1"></i><?= $j['asisten1_nama'] ?: '-' ?>

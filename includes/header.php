@@ -57,7 +57,7 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             --danger-color: #ff3333;
 
             /* Theme Variables (Light Default) */
-            --bg-body: #f8f9fc;
+            --bg-body: #b8caff;
             --bg-card: #ffffff;
             --bg-input: #ffffff;
             --text-main: #333333;
@@ -864,18 +864,19 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             .row > .col-md-3.col-lg-2 {
                 position: fixed;
                 top: 0;
-                left: -280px;
+                left: 0;
+                transform: translateX(-100%);
                 width: 280px !important;
-                max-width: 280px !important;
+                max-width: 80vw !important;
                 height: 100vh;
                 z-index: 1050;
-                transition: left 0.3s ease;
+                transition: transform 0.3s ease;
                 padding: 0 !important;
                 overflow-y: auto;
             }
             
             .row > .col-md-3.col-lg-2.show {
-                left: 0;
+                transform: translateX(0);
             }
             
             /* Sidebar mobile - reset padding untuk brand full width */

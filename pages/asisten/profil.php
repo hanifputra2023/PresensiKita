@@ -242,7 +242,7 @@ $tanggal_daftar = $user['created_at'] ?? date('Y-m-d H:i:s');
 <style>
     /* Main Container */
     .profile-container {
-        background: linear-gradient(135deg, #f8f9ff 0%, #eef1ff 100%);
+        background: #b8caff;
         min-height: 100vh;
     }
     
@@ -1802,18 +1802,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Tambahkan efek hover untuk button upload foto di card
     const uploadFotoBtn = document.querySelector('.btn-upload-foto');
     if (uploadFotoBtn) {
-        uploadFotoBtn.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-3px)';
-        });
-        
-        uploadFotoBtn.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-        });
-    }
-});
-</script>
-
-<?php include 'includes/footer.php'; ?>
         uploadFotoBtn.addEventListener('mouseenter', function() {
             this.style.transform = 'translateY(-3px)';
         });

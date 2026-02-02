@@ -455,7 +455,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 }
 .data-card-header {
     padding: 18px 24px;
-    background: var(--bg-body);
+    background: var(--banner-gradient);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -466,13 +466,13 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .data-card-header h5 {
     margin: 0;
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--putih);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .data-card-header h5 i {
-    color: #0066cc;
+    color: var(--putih);
 }
 .data-card-header .period-badge {
     background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
@@ -502,6 +502,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .stat-table tbody td {
     padding: 14px 16px;
     vertical-align: middle;
+    color: var(--text-main);
     border-bottom: 1px solid var(--border-color);
 }
 .stat-table tbody tr:hover {

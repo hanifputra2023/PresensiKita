@@ -12,9 +12,10 @@ if (isset($_GET['ajax_detail'])) {
     $lab = escape($_GET['lab']);
     
     // [FIX] Ambil tanggal daftar mahasiswa untuk validasi status (agar sesuai laporan)
-    $mhs_qry = mysqli_query($conn, "SELECT tanggal_daftar FROM mahasiswa WHERE nim = '$nim'");
+    $mhs_qry = mysqli_query($conn, "SELECT tanggal_daftar, sesi FROM mahasiswa WHERE nim = '$nim'");
     $mhs_data = mysqli_fetch_assoc($mhs_qry);
     $tanggal_daftar = $mhs_data['tanggal_daftar'] ?? '2099-12-31';
+    $sesi_mhs = $mhs_data['sesi'] ?? 1;
 
     // [MODIFIED] Gunakan Rentang Tanggal
     $start_date_detail = escape($_GET['start_date']);
@@ -31,6 +32,7 @@ if (isset($_GET['ajax_detail'])) {
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
                                          WHERE j.kode_kelas = '$kelas' 
+                                         AND (j.sesi = 0 OR j.sesi = '$sesi_mhs')
                                          AND j.tanggal BETWEEN '$start_date_detail' AND '$end_date_detail'
                                          $mk_condition
                                          $lab_condition
@@ -145,6 +147,256 @@ if (isset($_GET['ajax_detail'])) {
     exit;
 }
 
+// [BARU] Handler Export Rekap Nilai Praktikum (Custom Excel)
+if (isset($_GET['export_rekap_nilai'])) {
+    if (ob_get_length()) ob_end_clean();
+
+    $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
+    $filter_mk = isset($_GET['mk']) ? escape($_GET['mk']) : '';
+    $filter_lab = isset($_GET['lab']) ? escape($_GET['lab']) : '';
+    $start_date_exp = isset($_GET['start_date']) ? escape($_GET['start_date']) : date('Y-m-01');
+    $end_date_exp = isset($_GET['end_date']) ? escape($_GET['end_date']) : date('Y-m-t');
+
+    if (empty($filter_kelas) || empty($filter_mk)) {
+        echo "<script>alert('Harap pilih Kelas dan Mata Kuliah untuk export rekap nilai.'); window.location.href='index.php?page=admin_laporan';</script>";
+        exit;
+    }
+
+    // Info Header
+    $mk_info = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nama_mk FROM mata_kuliah WHERE kode_mk = '$filter_mk'"));
+    $kelas_info = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nama_kelas FROM kelas WHERE kode_kelas = '$filter_kelas'"));
+    $nama_mk = $mk_info['nama_mk'] ?? $filter_mk;
+    $nama_kelas = $kelas_info['nama_kelas'] ?? $filter_kelas;
+
+    // Filter Jadwal
+    $where_jadwal = "kode_kelas = '$filter_kelas' AND kode_mk = '$filter_mk' AND tanggal BETWEEN '$start_date_exp' AND '$end_date_exp'";
+    if ($filter_lab) $where_jadwal .= " AND kode_lab = '$filter_lab'";
+
+    $nama_lab = 'SEMUA LAB';
+    if ($filter_lab) {
+        $lab_info = mysqli_fetch_assoc(mysqli_query($conn, "SELECT nama_lab FROM lab WHERE kode_lab = '$filter_lab'"));
+        $nama_lab = $lab_info['nama_lab'] ?? $filter_lab;
+    } else {
+        // Ambil daftar lab yang digunakan dalam jadwal ini
+        $q_labs = mysqli_query($conn, "SELECT DISTINCT l.nama_lab FROM jadwal j JOIN lab l ON j.kode_lab = l.kode_lab WHERE $where_jadwal ORDER BY l.nama_lab");
+        $lab_names = [];
+        while ($row_l = mysqli_fetch_assoc($q_labs)) {
+            $lab_names[] = $row_l['nama_lab'];
+        }
+        if (!empty($lab_names)) {
+            $nama_lab = implode(' / ', $lab_names);
+        }
+    }
+
+    // Ambil Data Jadwal untuk Header Kolom
+    $q_jadwal = mysqli_query($conn, "SELECT * FROM jadwal WHERE $where_jadwal ORDER BY pertemuan_ke ASC");
+    $meetings = [];
+    $session_info = "";
+    
+    // [BARU] Mapping jadwal berdasarkan pertemuan dan sesi untuk lookup cepat
+    $schedule_map = []; // [pertemuan][sesi] = id
+    $sessions_found = []; // [sesi] => info string
+
+    while ($row = mysqli_fetch_assoc($q_jadwal)) {
+        $p = $row['pertemuan_ke'];
+        if ($row['jenis'] == 'praresponsi') $p = 'prares';
+        if ($row['jenis'] == 'responsi') $p = 'responsi';
+
+        $schedule_map[$p][$row['sesi']] = $row;
+
+        // Collect session info (ambil yang pertama ketemu per sesi, karena urut ASC)
+        $s_num = $row['sesi'];
+        if (!isset($sessions_found[$s_num])) {
+            $days = ['Sunday'=>'MINGGU', 'Monday'=>'SENIN', 'Tuesday'=>'SELASA', 'Wednesday'=>'RABU', 'Thursday'=>'KAMIS', 'Friday'=>'JUMAT', 'Saturday'=>'SABTU'];
+            $day = $days[date('l', strtotime($row['tanggal']))] ?? '';
+            $time = date('H.i', strtotime($row['jam_mulai'])) . ' - ' . date('H.i', strtotime($row['jam_selesai']));
+            $sessions_found[$s_num] = "$day / $time";
+        }
+    }
+    
+    // Build session info string
+    ksort($sessions_found);
+    $session_info_parts = [];
+    foreach ($sessions_found as $s_num => $info) {
+        $label = ($s_num == 0) ? "SEMUA SESI" : "SESI $s_num";
+        $session_info_parts[] = "$label : $info";
+    }
+    $session_info = implode("<br>", $session_info_parts);
+
+    mysqli_data_seek($q_jadwal, 0); // Reset pointer
+    
+    while ($row = mysqli_fetch_assoc($q_jadwal)) {
+        if ($row['jenis'] == 'inhall') continue; // Skip inhall di kolom pertemuan
+        
+        $p = $row['pertemuan_ke'];
+        // Prioritaskan jenis khusus jika ada (praresponsi/responsi)
+        if ($row['jenis'] == 'praresponsi') $p = 'prares';
+        if ($row['jenis'] == 'responsi') $p = 'responsi';
+        
+        if (!isset($meetings[$p])) {
+            $meetings[$p] = [
+                'tanggal' => date('d/m/Y', strtotime($row['tanggal'])),
+                'id' => $row['id'] // Ambil ID jadwal utama
+            ];
+        }
+    }
+    
+    // Build session info string
+    ksort($sessions_found);
+    $session_info_parts = [];
+    foreach ($sessions_found as $s_num => $info) {
+        $label = ($s_num == 0) ? "SEMUA SESI" : "SESI $s_num";
+        $session_info_parts[] = "$label : $info";
+    }
+    $session_info = implode("<br>", $session_info_parts);
+
+    mysqli_data_seek($q_jadwal, 0); // Reset pointer
+    
+    while ($row = mysqli_fetch_assoc($q_jadwal)) {
+        if (empty($session_info) && $row['pertemuan_ke'] == 1) {
+            $days = ['Sunday'=>'MINGGU', 'Monday'=>'SENIN', 'Tuesday'=>'SELASA', 'Wednesday'=>'RABU', 'Thursday'=>'KAMIS', 'Friday'=>'JUMAT', 'Saturday'=>'SABTU'];
+            $day = $days[date('l', strtotime($row['tanggal']))] ?? '';
+            $time = date('H.i', strtotime($row['jam_mulai'])) . ' - ' . date('H.i', strtotime($row['jam_selesai']));
+            $session_info = "SESI - $day<br>$time";
+        }
+        if ($row['jenis'] == 'inhall') continue; // Skip inhall di kolom pertemuan
+        
+        $p = $row['pertemuan_ke'];
+        // Prioritaskan jenis khusus jika ada (praresponsi/responsi)
+        if ($row['jenis'] == 'praresponsi') $p = 'prares';
+        if ($row['jenis'] == 'responsi') $p = 'responsi';
+        
+        if (!isset($meetings[$p])) {
+            $meetings[$p] = [
+                'tanggal' => date('d/m/Y', strtotime($row['tanggal'])),
+                'id' => $row['id'] // Ambil ID jadwal utama
+            ];
+        }
+    }
+
+    // Ambil Mahasiswa
+    $q_mhs = mysqli_query($conn, "SELECT * FROM mahasiswa WHERE kode_kelas = '$filter_kelas' AND status = 'aktif' ORDER BY sesi ASC, nama ASC");
+
+    $filename = 'Rekap_Nilai_' . preg_replace('/[^A-Za-z0-9]/', '_', $nama_mk . '_' . $nama_kelas) . '.xls';
+    header("Content-Type: application/vnd.ms-excel");
+    header("Content-Disposition: attachment; filename=\"$filename\"");
+
+    echo '<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8" /><style>
+            body { font-family: Arial, sans-serif; font-size: 12px; }
+            table { border-collapse: collapse; width: 100%; }
+            th, td { border: 1px solid #000; padding: 5px; text-align: center; vertical-align: middle; }
+            .bg-pink { background-color: #FFC0CB; }
+            .bg-blue { background-color: #ADD8E6; }
+            .bg-yellow { background-color: #FFFF00; }
+            .text-green { color: #008000; font-weight: bold; }
+            .text-blue { color: #0000FF; font-weight: bold; }
+            .text-red { color: #FF0000; font-weight: bold; }
+          </style></head><body>';
+
+    echo '<h3 style="text-align:center; margin-bottom:5px;">REKAP NILAI PRAKTIKUM_' . strtoupper($nama_mk) . '</h3>';
+    echo '<div style="font-weight:bold; margin-bottom:10px;">
+            KELAS : ' . strtoupper($nama_kelas) . '<br>
+            LAB : ' . strtoupper($nama_lab) . '<br>
+            ' . $session_info . '
+          </div>';
+
+    echo '<table><thead>';
+    echo '<tr>
+            <th rowspan="2">NO</th><th rowspan="2">NAMA MAHASISWA</th>
+            <th rowspan="2">SESI</th>
+            <th colspan="4" class="bg-pink">PERTEMUAN 1 - 4</th>
+            <th colspan="4" class="bg-blue">PERTEMUAN 5 - 8</th>
+            <th rowspan="2" class="bg-yellow">PRARES</th>
+            <th rowspan="2" class="bg-yellow">RESPONSI</th>
+            <th rowspan="2">TOTAL ALPHA</th>
+            <th rowspan="2">KET INHALL</th>
+            <th rowspan="2">TOTAL JUMLAH PRESENSI</th>
+            <th rowspan="2">KETERANGAN</th>
+          </tr><tr>';
+    
+    for ($i=1; $i<=4; $i++) echo '<th class="bg-pink">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
+    for ($i=5; $i<=8; $i++) echo '<th class="bg-blue">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
+    echo '</tr></thead><tbody>';
+
+    $no = 1;
+    $current_sesi = null;
+    while ($m = mysqli_fetch_assoc($q_mhs)) {
+        $nim = $m['nim'];
+        $sesi_mhs = $m['sesi'] ?? 1;
+        
+        if ($current_sesi !== $sesi_mhs) {
+            $current_sesi = $sesi_mhs;
+            echo '<tr><td colspan="17" style="background-color:#e0e0e0; font-weight:bold; text-align:left;">SESI ' . $current_sesi . '</td></tr>';
+        }
+        
+        $stats = ['hadir'=>0, 'izin'=>0, 'sakit'=>0, 'alpha'=>0];
+        
+        echo '<tr><td>' . $no++ . '</td><td style="text-align:left;">' . strtoupper($m['nama']) . '</td>';
+        echo '<td>' . $sesi_mhs . '</td>';
+        
+        // Loop P1-P8
+        for ($i=1; $i<=8; $i++) {
+            $status = '-'; $cls = '';
+            
+            // Cari jadwal yang sesuai sesi mahasiswa
+            $jadwal_target = $schedule_map[$i][$sesi_mhs] ?? ($schedule_map[$i][0] ?? null);
+            
+            if ($jadwal_target) {
+                $jid = $jadwal_target['id'];
+                $pres = mysqli_fetch_assoc(mysqli_query($conn, "SELECT status FROM presensi_mahasiswa WHERE nim='$nim' AND jadwal_id='$jid'"));
+                $st = $pres['status'] ?? 'alpha'; // Default alpha jika tidak ada record (asumsi jadwal sudah lewat)
+                // Cek jika jadwal belum lewat
+                $j_check = mysqli_fetch_assoc(mysqli_query($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id='$jid'"));
+                if (strtotime($j_check['tanggal'].' '.$j_check['jam_selesai']) > time() && !$pres) $st = '';
+                
+                if ($st == 'hadir') { $status = 'HADIR'; $cls = 'text-green'; $stats['hadir']++; }
+                elseif ($st == 'izin') { $status = 'IZIN'; $cls = 'text-blue'; $stats['izin']++; }
+                elseif ($st == 'sakit') { $status = 'SAKIT'; $cls = 'text-blue'; $stats['sakit']++; }
+                elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; $stats['alpha']++; }
+            }
+            echo '<td class="'.$cls.'">'.$status.'</td>';
+        }
+
+        // Prares & Responsi
+        foreach (['prares', 'responsi'] as $type) {
+            $status = '-'; $cls = '';
+            $jadwal_target = $schedule_map[$type][$sesi_mhs] ?? ($schedule_map[$type][0] ?? null);
+            
+            if ($jadwal_target) {
+                $jid = $jadwal_target['id'];
+                $pres = mysqli_fetch_assoc(mysqli_query($conn, "SELECT status FROM presensi_mahasiswa WHERE nim='$nim' AND jadwal_id='$jid'"));
+                $st = $pres['status'] ?? 'alpha';
+                if ($st == 'hadir') { $status = 'HADIR'; $cls = 'text-green'; $stats['hadir']++; }
+                elseif ($st == 'izin' || $st == 'sakit') { $status = 'IZIN'; $cls = 'text-blue'; $stats['izin']++; }
+                elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; $stats['alpha']++; }
+            }
+            echo '<td class="'.$cls.'">'.$status.'</td>';
+        }
+
+        // Total Alpha
+        echo '<td>' . $stats['alpha'] . '</td>';
+
+        // Inhall
+        $cek_inhall = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM penggantian_inhall WHERE nim='$nim' AND status='hadir' AND jadwal_asli_id IN (SELECT id FROM jadwal WHERE kode_mk='$filter_mk')"));
+        $is_inhall = $cek_inhall ? 'Inhall' : 'No';
+        echo '<td>' . $is_inhall . '</td>';
+
+        // Total Jumlah Presensi (Hadir)
+        echo '<td>' . $stats['hadir'] . '</td>';
+
+        // Ket Tambahan
+        $ket = [];
+        if ($stats['sakit'] > 0) $ket[] = "Sakit: " . $stats['sakit'];
+        if ($stats['izin'] > 0) $ket[] = "Izin: " . $stats['izin'];
+        if ($is_inhall == 'Inhall') $ket[] = "Total Inhall: 1";
+        echo '<td>' . implode(', ', $ket) . '</td>';
+
+        echo '</tr>';
+    }
+    echo '</tbody></table></body></html>';
+    exit;
+}
+
 // [BARU] Handler Export Detail Mahasiswa (Single - Excel)
 if (isset($_GET['export_detail_mhs'])) {
     if (ob_get_length()) ob_end_clean();
@@ -157,11 +409,12 @@ if (isset($_GET['export_detail_mhs'])) {
     $end_date = escape($_GET['end_date']);
     
     // Ambil data mahasiswa & kelas untuk judul
-    $mhs_qry = mysqli_query($conn, "SELECT m.nama, k.nama_kelas, m.tanggal_daftar FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas WHERE m.nim = '$nim'");
+    $mhs_qry = mysqli_query($conn, "SELECT m.nama, k.nama_kelas, m.tanggal_daftar, m.sesi FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas WHERE m.nim = '$nim'");
     $mhs_data = mysqli_fetch_assoc($mhs_qry);
     $nama_mhs = $mhs_data['nama'] ?? $nim;
     $nama_kelas = $mhs_data['nama_kelas'] ?? $kelas;
     $tanggal_daftar = $mhs_data['tanggal_daftar'] ?? '2099-12-31';
+    $sesi_mhs = $mhs_data['sesi'] ?? 1;
 
     // Query Data (Menggunakan logika yang sama dengan ajax_detail)
     $mk_condition = $mk ? "AND j.kode_mk = '$mk'" : "";
@@ -174,6 +427,7 @@ if (isset($_GET['export_detail_mhs'])) {
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
                                          WHERE j.kode_kelas = '$kelas' 
+                                         AND (j.sesi = 0 OR j.sesi = '$sesi_mhs')
                                          AND j.tanggal BETWEEN '$start_date' AND '$end_date'
                                          $mk_condition
                                          $lab_condition
@@ -197,7 +451,7 @@ if (isset($_GET['export_detail_mhs'])) {
     echo "<strong>Periode:</strong> " . date('d-m-Y', strtotime($start_date)) . " s/d " . date('d-m-Y', strtotime($end_date)) . "</p>";
     
     echo '<table><thead><tr>
-            <th>No</th><th>Pertemuan</th><th>Tanggal</th><th>Jam</th><th>Mata Kuliah</th><th>Materi</th><th>Jenis</th><th>Lab</th><th>Status</th><th>Waktu Presensi</th>
+            <th>No</th><th>Pertemuan</th><th>Tanggal</th><th>Jam</th><th>Mata Kuliah</th><th>Materi</th><th>Jenis</th><th>Sesi</th><th>Lab</th><th>Status</th><th>Waktu Presensi</th>
           </tr></thead><tbody>';
           
     $no = 1;
@@ -231,6 +485,7 @@ if (isset($_GET['export_detail_mhs'])) {
             <td>" . $row['nama_mk'] . "</td>
             <td>" . $row['materi'] . "</td>
             <td class='text-center'>" . ucfirst($row['jenis']) . "</td>
+            <td class='text-center'>" . ($row['sesi'] == 0 ? 'Semua' : $row['sesi']) . "</td>
             <td>" . ($row['nama_lab'] ?: '-') . "</td>
             <td class='text-center'>" . $status . "</td>
             <td class='text-center'>" . ($row['waktu_presensi'] ?: '-') . "</td>
@@ -307,7 +562,7 @@ if (isset($_GET['export'])) {
     if ($filter_lab_exp) $where_jadwal_for_inhall_exp_arr[] = "jpi.kode_lab = '$filter_lab_exp'";
     $where_jadwal_for_inhall_exp = !empty($where_jadwal_for_inhall_exp_arr) ? " AND " . implode(" AND ", $where_jadwal_for_inhall_exp_arr) : "";
 
-    $rekap_export_query = "SELECT m.nim, m.nama, k.nama_kelas, 
+    $rekap_export_query = "SELECT m.nim, m.nama, k.nama_kelas, m.sesi,
                                GROUP_CONCAT(DISTINCT mk.nama_mk SEPARATOR ', ') as all_mk,
                                GROUP_CONCAT(DISTINCT l.nama_lab SEPARATOR ', ') as all_lab,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
@@ -318,11 +573,11 @@ if (isset($_GET['export'])) {
                                COUNT(DISTINCT CASE WHEN j.jenis != 'inhall' AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN j.id END) as total_pertemuan,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'terdaftar' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_for_inhall_exp) as perlu_inhall,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_for_inhall_exp) as sudah_inhall
-                               FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND j.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_exp 
+                               FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi) AND j.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_exp 
                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
-                               WHERE $where_mhs_sql_exp GROUP BY m.nim, m.nama, k.nama_kelas ORDER BY k.nama_kelas, m.nama";
+                               WHERE $where_mhs_sql_exp GROUP BY m.nim, m.nama, k.nama_kelas, m.sesi ORDER BY k.nama_kelas, m.nama";
     $rekap_export = mysqli_query($conn, $rekap_export_query);
     
     $sertakan_detail = isset($_GET['detail']) && $_GET['detail'] == '1';
@@ -333,7 +588,7 @@ if (isset($_GET['export'])) {
         // Ambil detail pertemuan untuk kolom tambahan (P1, P2, dst)
         $detail_sql = "SELECT m.nim, m.tanggal_daftar, j.pertemuan_ke, j.tanggal, j.jam_selesai, l.nama_lab, p.status
                        FROM mahasiswa m
-                       JOIN jadwal j ON m.kode_kelas = j.kode_kelas
+                       JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi)
                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                        WHERE $where_mhs_sql_exp 
@@ -376,7 +631,7 @@ if (isset($_GET['export'])) {
     }
 
     // Header CSV (menggunakan semicolon)
-    $header = ["No", "NIM", "Nama", "Kelas", "Daftar Mata Kuliah", "Daftar Lab", "Hadir", "Izin", "Sakit", "Alpha", "Belum", "Perlu Inhall", "Sudah Inhall", "Total Pertemuan", "Persentase Kehadiran"];
+    $header = ["No", "NIM", "Nama", "Kelas", "Sesi", "Daftar Mata Kuliah", "Daftar Lab", "Hadir", "Izin", "Sakit", "Alpha", "Belum", "Perlu Inhall", "Sudah Inhall", "Total Pertemuan", "Persentase Kehadiran"];
     
     if ($sertakan_detail) {
         // Tambahkan kolom pertemuan dinamis ke header
@@ -398,7 +653,7 @@ if (isset($_GET['export'])) {
         $sudah_presensi = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
         $persen = $sudah_presensi > 0 ? round(($row['hadir'] / $sudah_presensi) * 100) : 0;
         
-        $line = [$no++, $row['nim'], $row['nama'], $row['nama_kelas'], $row['all_mk'] ?: '-', $row['all_lab'] ?: '-', $row['hadir'], $row['izin'], $row['sakit'], $row['alpha'], $row['belum'], $row['perlu_inhall'], $row['sudah_inhall'], $row['total_pertemuan'], $persen . '%'];
+        $line = [$no++, $row['nim'], $row['nama'], $row['nama_kelas'], $row['sesi'], $row['all_mk'] ?: '-', $row['all_lab'] ?: '-', $row['hadir'], $row['izin'], $row['sakit'], $row['alpha'], $row['belum'], $row['perlu_inhall'], $row['sudah_inhall'], $row['total_pertemuan'], $persen . '%'];
         
         if ($sertakan_detail) {
             // Isi data pertemuan per mahasiswa
@@ -468,7 +723,8 @@ $current_page = get_current_page();
 // Hitung total data untuk pagination - hitung berdasarkan grouping
 $count_sql = "SELECT COUNT(DISTINCT m.nim) as total
               FROM mahasiswa m
-              LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal
+              LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi) 
+                  AND j.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal
               WHERE $where_mhs_sql";
 $count_query = mysqli_query($conn, $count_sql);
 $total_data = mysqli_fetch_assoc($count_query)['total'];
@@ -480,7 +736,7 @@ if ($filter_mk) $where_jadwal_for_inhall_arr[] = "jpi.kode_mk = '$filter_mk'";
 if ($filter_lab) $where_jadwal_for_inhall_arr[] = "jpi.kode_lab = '$filter_lab'";
 $where_jadwal_for_inhall = !empty($where_jadwal_for_inhall_arr) ? " AND " . implode(" AND ", $where_jadwal_for_inhall_arr) : "";
 
-$base_query = "SELECT m.nim, m.nama, k.nama_kelas, m.kode_kelas,
+$base_query = "SELECT m.nim, m.nama, k.nama_kelas, m.kode_kelas, m.sesi,
                                GROUP_CONCAT(DISTINCT mk.nama_mk SEPARATOR ', ') as all_mk,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
@@ -490,14 +746,15 @@ $base_query = "SELECT m.nim, m.nama, k.nama_kelas, m.kode_kelas,
                                COUNT(DISTINCT CASE WHEN j.jenis != 'inhall' AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN j.id END) as total_pertemuan,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'terdaftar' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal_for_inhall) as perlu_inhall,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal_for_inhall) as sudah_inhall
-                               FROM mahasiswa m 
+                               FROM mahasiswa m
                                LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
-                               LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal
+                               LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi) 
+                                   AND j.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal
                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                                WHERE $where_mhs_sql
-                               GROUP BY m.nim, m.nama, k.nama_kelas, m.kode_kelas
+                               GROUP BY m.nim, m.nama, k.nama_kelas, m.kode_kelas, m.sesi
                                ORDER BY k.nama_kelas, m.nama";
 
 // Data rekap dengan pagination (menambahkan LIMIT ke query dasar)
@@ -517,7 +774,7 @@ $meetings = [];
 // Query diperbarui untuk mengambil kode_mk untuk grouping
 $detail_print_sql = "SELECT m.nim, m.tanggal_daftar, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, l.nama_lab, p.status, j.kode_mk
                FROM mahasiswa m
-               JOIN jadwal j ON m.kode_kelas = j.kode_kelas
+               JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi)
                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                WHERE $where_mhs_sql 
@@ -620,6 +877,9 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                         </div>
                         <button onclick="exportExcel()" class="btn btn-success">
                             <i class="fas fa-file-excel me-1"></i>Export Excel
+                        </button>
+                        <button onclick="exportRekapNilai()" class="btn btn-warning text-dark">
+                            <i class="fas fa-file-excel me-1"></i>Rekap Nilai
                         </button>
                         <button class="btn btn-danger" onclick="exportPDF()">
                             <i class="fas fa-file-pdf me-1"></i>Export PDF
@@ -837,6 +1097,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                         <th>NIM</th>
                                         <th>Nama</th>
                                         <th>Kelas</th>
+                                        <th>Sesi</th>
                                         <th>Mata Kuliah</th>
                                         <th class="text-center">H</th>
                                         <th class="text-center">I</th>
@@ -863,6 +1124,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                             <td><?= $r_print['nim'] ?></td>
                                             <td><?= $r_print['nama'] ?></td>
                                             <td><?= $r_print['nama_kelas'] ?></td>
+                                            <td><?= $r_print['sesi'] ?></td>
                                             <td><?= $r_print['all_mk'] ?: '-' ?></td>
                                             <td class="text-center"><?= $r_print['hadir'] ?></td>
                                             <td class="text-center"><?= $r_print['izin'] ?></td>
@@ -1024,6 +1286,11 @@ function exportExcel() {
     if (sertakanDetail) {
         url += '&detail=1';
     }
+    window.location.href = url;
+}
+
+function exportRekapNilai() {
+    let url = `index.php?page=admin_laporan&export_rekap_nilai=1&start_date=<?= $start_date ?>&end_date=<?= $end_date ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>`;
     window.location.href = url;
 }
 

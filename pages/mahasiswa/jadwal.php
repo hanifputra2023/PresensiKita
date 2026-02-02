@@ -3,6 +3,7 @@ $page = 'mahasiswa_jadwal';
 $mahasiswa = get_mahasiswa_login();
 $kelas = $mahasiswa['kode_kelas'];
 $nim = $mahasiswa['nim'];
+$sesi = $mahasiswa['sesi'] ?? 1;
 
 // Variabel waktu untuk cek status jadwal
 $today = date('Y-m-d');
@@ -15,18 +16,21 @@ $list_mk = mysqli_query($conn, "SELECT DISTINCT mk.kode_mk, mk.nama_mk
                                 FROM jadwal j
                                 JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                 WHERE j.kode_kelas = '$kelas'
+                                AND (j.sesi = 0 OR j.sesi = '$sesi')
                                 ORDER BY mk.nama_mk");
 
 // Ambil daftar bulan yang tersedia di jadwal
 $list_bulan_query = mysqli_query($conn, "SELECT DISTINCT DATE_FORMAT(tanggal, '%Y-%m') as bulan 
                                          FROM jadwal 
                                          WHERE kode_kelas = '$kelas' 
+                                         AND (sesi = 0 OR sesi = '$sesi')
                                          ORDER BY bulan DESC");
 
 $filter_mk = isset($_GET['mk']) ? mysqli_real_escape_string($conn, $_GET['mk']) : '';
 $filter_bulan = isset($_GET['bulan']) ? mysqli_real_escape_string($conn, $_GET['bulan']) : '';
 
 $where_clause = "WHERE j.kode_kelas = '$kelas'
+                 AND (j.sesi = 0 OR j.sesi = '$sesi')
                  AND (
                      j.jenis != 'inhall'
                      OR EXISTS (

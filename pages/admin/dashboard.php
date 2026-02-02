@@ -520,23 +520,23 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--bg-body);
+    background: var(--banner-gradient);
 }
 .card-box .card-header h2 {
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--putih);
     margin: 0;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .card-box .card-header h2 i {
-    color: #0066cc;
+    color: var(--putih);
     font-size: 1rem;
 }
 .card-box .card-header .btn-link {
-    color: #0066cc;
+    color: var(--putih);
     text-decoration: none;
     font-size: 0.8rem;
     font-weight: 500;

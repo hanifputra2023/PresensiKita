@@ -14,10 +14,10 @@ if (isset($_GET['download_template'])) {
     echo chr(0xEF) . chr(0xBB) . chr(0xBF);
     
     // Header dengan semicolon sebagai delimiter (lebih kompatibel dengan Excel Indonesia)
-    echo "NIM;Username;Nama;Kode Kelas;Program Studi;No HP;Password\n";
+    echo "NIM;Username;Nama;Kode Kelas;Program Studi;No HP;Password;Sesi\n";
     // Contoh data
-    echo "12345678;budi.santoso;Budi Santoso;TI-1A;Teknik Informatika;081234567890;123456\n";
-    echo "12345679;ani.wijaya;Ani Wijaya;TI-1A;Teknik Informatika;081234567891;123456\n";
+    echo "12345678;budi.santoso;Budi Santoso;TI-1A;Teknik Informatika;081234567890;123456;1\n";
+    echo "12345679;ani.wijaya;Ani Wijaya;TI-1A;Teknik Informatika;081234567891;123456;2\n";
     exit;
 }
 
@@ -29,7 +29,7 @@ if (isset($_GET['export'])) {
     $filter_kelas_exp = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
     $where_exp = $filter_kelas_exp ? "WHERE m.kode_kelas = '$filter_kelas_exp'" : '';
     
-    $data_export = mysqli_query($conn, "SELECT m.nim, u.username, m.nama, m.kode_kelas, k.nama_kelas, m.prodi, m.no_hp 
+    $data_export = mysqli_query($conn, "SELECT m.nim, u.username, m.nama, m.kode_kelas, k.nama_kelas, m.sesi, m.prodi, m.no_hp 
                                          FROM mahasiswa m 
                                          LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                          JOIN users u ON m.user_id = u.id 
@@ -43,7 +43,7 @@ if (isset($_GET['export'])) {
     echo chr(0xEF) . chr(0xBB) . chr(0xBF);
     
     // Header
-    echo "No;NIM;Username;Nama;Kode Kelas;Nama Kelas;Program Studi;No HP\n";
+    echo "No;NIM;Username;Nama;Kode Kelas;Nama Kelas;Sesi;Program Studi;No HP\n";
     
     // Data
     $no = 1;
@@ -54,6 +54,7 @@ if (isset($_GET['export'])) {
              $row['nama'] . ";" . 
              $row['kode_kelas'] . ";" . 
              $row['nama_kelas'] . ";" . 
+             $row['sesi'] . ";" . 
              $row['prodi'] . ";" . 
              $row['no_hp'] . "\n";
         $no++;
@@ -93,6 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         if (strpos($col_name, 'prodi') !== false || strpos($col_name, 'program studi') !== false) $header_map['prodi'] = $index;
                         if (strpos($col_name, 'hp') !== false) $header_map['hp'] = $index;
                         if (strpos($col_name, 'password') !== false) $header_map['password'] = $index;
+                        if (strpos($col_name, 'sesi') !== false) $header_map['sesi'] = $index;
                     }
 
                     // Validasi header
@@ -129,6 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     $prodi = isset($header_map['prodi']) ? escape(trim($data[$header_map['prodi']])) : '';
                     $hp = isset($header_map['hp']) ? escape(trim($data[$header_map['hp']])) : '';
                     $password = isset($header_map['password']) && !empty(trim($data[$header_map['password']])) ? trim($data[$header_map['password']]) : '123456';
+                    $sesi = isset($header_map['sesi']) && !empty(trim($data[$header_map['sesi']])) ? (int)trim($data[$header_map['sesi']]) : 1;
                     
                     if (empty($nim) && empty($nama)) continue;
                     if (!preg_match('/^[a-zA-Z0-9]+$/', $nim)) { $gagal++; $errors[] = "Baris $row_num: NIM tidak valid."; continue; }
@@ -156,8 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     mysqli_stmt_execute($stmt_user);
                     $user_id = mysqli_insert_id($conn);
                     
-                    $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                    mysqli_stmt_bind_param($stmt_mhs, "sisssss", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
+                    $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar, sesi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    mysqli_stmt_bind_param($stmt_mhs, "sisssssi", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar, $sesi);
                     $q = mysqli_stmt_execute($stmt_mhs);
                     if ($q) { $success++; } else { $gagal++; $errors[] = "Baris $row_num: Gagal insert database."; }
                 }
@@ -189,6 +192,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $prodi = escape($_POST['prodi']);
         $hp = escape($_POST['no_hp']);
         $password = $_POST['password'];
+        $sesi = (int)($_POST['sesi'] ?? 1);
         $tanggal_daftar = (isset($_POST['tanggal_daftar']) && !empty($_POST['tanggal_daftar'])) ? escape($_POST['tanggal_daftar']) : date('Y-m-d');
         $waktu_daftar = (isset($_POST['waktu_daftar']) && !empty($_POST['waktu_daftar'])) ? escape($_POST['waktu_daftar']) . ':00' : date('H:i:s');
         $tanggal_daftar = $tanggal_daftar . ' ' . $waktu_daftar;
@@ -213,8 +217,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             mysqli_stmt_bind_param($stmt_user, "ss", $username, $hashed_password);
             mysqli_stmt_execute($stmt_user);
             $user_id = mysqli_insert_id($conn);
-            $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar) VALUES (?, ?, ?, ?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt_mhs, "sisssss", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar);
+            $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar, sesi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_mhs, "sisssssi", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar, $sesi);
             mysqli_stmt_execute($stmt_mhs);
             set_alert('success', 'Mahasiswa berhasil ditambahkan!');
             }
@@ -225,9 +229,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $kelas = escape($_POST['kode_kelas']);
         $prodi = escape($_POST['prodi']);
         $hp = escape($_POST['no_hp']);
+        $sesi = (int)($_POST['sesi'] ?? 1);
         
-        $stmt_upd = mysqli_prepare($conn, "UPDATE mahasiswa SET nama=?, kode_kelas=?, prodi=?, no_hp=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt_upd, "ssssi", $nama, $kelas, $prodi, $hp, $id);
+        $stmt_upd = mysqli_prepare($conn, "UPDATE mahasiswa SET nama=?, kode_kelas=?, prodi=?, no_hp=?, sesi=? WHERE id=?");
+        mysqli_stmt_bind_param($stmt_upd, "ssssii", $nama, $kelas, $prodi, $hp, $sesi, $id);
         mysqli_stmt_execute($stmt_upd);
         set_alert('success', 'Data mahasiswa berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
@@ -316,7 +321,7 @@ $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
 if ($filter_kelas && $search) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, m.sesi, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -324,7 +329,7 @@ if ($filter_kelas && $search) {
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "sssii", $filter_kelas, $search_param, $search_param, $offset, $per_page);
 } elseif ($filter_kelas) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, m.sesi, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -332,7 +337,7 @@ if ($filter_kelas && $search) {
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "sii", $filter_kelas, $offset, $per_page);
 } elseif ($search) {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, m.sesi, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -340,7 +345,7 @@ if ($filter_kelas && $search) {
                                    ORDER BY m.nim LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_mhs, "ssii", $search_param, $search_param, $offset, $per_page);
 } else {
-    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, k.nama_kelas, u.username 
+    $stmt_mhs = mysqli_prepare($conn, "SELECT m.id, m.nim, m.nama, m.prodi, m.no_hp, m.foto, m.kode_kelas, m.status, m.sesi, k.nama_kelas, u.username 
                                    FROM mahasiswa m 
                                    LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    JOIN users u ON m.user_id = u.id
@@ -391,7 +396,7 @@ if (isset($_GET['ajax_search'])) {
                                 <button class="btn btn-sm <?= $status == 'aktif' ? 'btn-outline-secondary' : 'btn-outline-success' ?>" onclick="toggleStatus(<?= $m['id'] ?>, '<?= $status ?>')" title="<?= $status == 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?>">
                                     <i class="fas <?= $status == 'aktif' ? 'fa-ban' : 'fa-check' ?>"></i>
                                 </button>
-                                <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
+                                <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>', '<?= $m['sesi'] ?? 1 ?>')">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
                                 <button class="btn btn-sm btn-danger" onclick="hapusMhs(<?= $m['id'] ?>)">
@@ -588,7 +593,7 @@ if (isset($_GET['ajax_search'])) {
                                             <button class="btn btn-sm <?= $status == 'aktif' ? 'btn-outline-secondary' : 'btn-outline-success' ?>" onclick="toggleStatus(<?= $m['id'] ?>, '<?= $status ?>')" title="<?= $status == 'aktif' ? 'Nonaktifkan' : 'Aktifkan' ?>">
                                                 <i class="fas <?= $status == 'aktif' ? 'fa-ban' : 'fa-check' ?>"></i>
                                             </button>
-                                            <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>')">
+                                <button class="btn btn-sm btn-warning text-dark" onclick="editMhs(<?= $m['id'] ?>, '<?= htmlspecialchars($m['nama'], ENT_QUOTES) ?>', '<?= $m['kode_kelas'] ?>', '<?= htmlspecialchars($m['prodi'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['no_hp'], ENT_QUOTES) ?>', '<?= $m['sesi'] ?? 1 ?>')">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="hapusMhs(<?= $m['id'] ?>)">
@@ -654,6 +659,14 @@ if (isset($_GET['ajax_search'])) {
                     <div class="mb-3"><label class="form-label">Program Studi</label><input type="text" name="prodi" class="form-control"></div>
                     <div class="mb-3"><label class="form-label">No. HP</label><input type="text" name="no_hp" class="form-control"></div>
                     <div class="mb-3">
+                        <label class="form-label">Sesi</label>
+                        <select name="sesi" class="form-select">
+                            <option value="1" selected>Sesi 1</option>
+                            <option value="2">Sesi 2</option>
+                            <option value="3">Sesi 3</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Tgl & Waktu Mulai Aktif</label>
                         <div class="row g-2">
                             <div class="col-7"><input type="date" name="tanggal_daftar" class="form-control" value="<?= date('Y-m-d') ?>"></div>
@@ -686,6 +699,14 @@ if (isset($_GET['ajax_search'])) {
                     </div>
                     <div class="mb-3"><label class="form-label">Program Studi</label><input type="text" name="prodi" id="edit_prodi" class="form-control"></div>
                     <div class="mb-3"><label class="form-label">No. HP</label><input type="text" name="no_hp" id="edit_hp" class="form-control"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Sesi</label>
+                        <select name="sesi" id="edit_sesi" class="form-select">
+                            <option value="1">Sesi 1</option>
+                            <option value="2">Sesi 2</option>
+                            <option value="3">Sesi 3</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Update</button></div>
             </form>
@@ -755,12 +776,13 @@ if (isset($_GET['ajax_search'])) {
 
 <script>
 // --- CRUD Functions ---
-function editMhs(id, nama, kelas, prodi, hp) {
+function editMhs(id, nama, kelas, prodi, hp, sesi) {
     document.getElementById('edit_id').value = id;
     document.getElementById('edit_nama').value = nama;
     document.getElementById('edit_kelas').value = kelas;
     document.getElementById('edit_prodi').value = prodi;
     document.getElementById('edit_hp').value = hp;
+    document.getElementById('edit_sesi').value = sesi;
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 

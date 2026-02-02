@@ -28,6 +28,7 @@ $prodi = $data['prodi'];
 $no_hp = $data['no_hp'];
 $tanggal_daftar = $data['tanggal_daftar'];
 $kode_kelas = $data['kode_kelas'];
+$sesi_mhs = $data['sesi'] ?? 1;
 
 // Prepared statement untuk statistik presensi
 $stmt_stat = mysqli_prepare($conn, "SELECT 
@@ -237,7 +238,7 @@ $log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$u
 <style>
     /* Main Container */
     .profile-container {
-        background: linear-gradient(135deg, #f0f7ff 0%, #e6f2ff 100%);
+        background: #b8caff;
         min-height: 100vh;
     }
     
@@ -1114,6 +1115,9 @@ $log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$u
                                     <span class="info-badge">
                                         <i class="fas fa-user-check me-2"></i>Mahasiswa Aktif
                                     </span>
+                                    <span class="info-badge">
+                                        <i class="fas fa-layer-group me-2"></i>Sesi <?= $sesi_mhs ?>
+                                    </span>
                                     
                                 </div>
                             </div>
@@ -1158,6 +1162,16 @@ $log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$u
                                             <div>
                                                 <small class="text-muted d-block">Kelas</small>
                                                 <strong class="fs-6"><?= $kelas ?></strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="info-item">
+                                        <div class="d-flex align-items-center">
+                                            <div class="info-icon"><i class="fas fa-layer-group"></i></div>
+                                            <div>
+                                                <small class="text-muted d-block">Sesi</small>
+                                                <strong class="fs-6"><?= $sesi_mhs ?></strong>
                                             </div>
                                         </div>
                                     </div>

@@ -5,13 +5,21 @@ $nim = $mahasiswa['nim'];
 $kuis_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 // Validasi Kuis
-$stmt = mysqli_prepare($conn, "SELECT * FROM kuis WHERE id = ? AND status = 'aktif'");
+$stmt = mysqli_prepare($conn, "SELECT k.*, j.sesi as jadwal_sesi FROM kuis k JOIN jadwal j ON k.jadwal_id = j.id WHERE k.id = ? AND k.status = 'aktif'");
 mysqli_stmt_bind_param($stmt, "i", $kuis_id);
 mysqli_stmt_execute($stmt);
 $kuis = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt));
 
 if (!$kuis) {
     set_alert('danger', 'Kuis tidak ditemukan atau sudah ditutup.');
+    header("Location: index.php?page=mahasiswa_kuis");
+    exit;
+}
+
+// Validasi Sesi
+$sesi_mhs = $mahasiswa['sesi'] ?? 1;
+if ($kuis['jadwal_sesi'] != 0 && $kuis['jadwal_sesi'] != $sesi_mhs) {
+    set_alert('danger', 'Kuis ini tidak tersedia untuk sesi Anda.');
     header("Location: index.php?page=mahasiswa_kuis");
     exit;
 }

@@ -191,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $asisten1 = escape($_POST['kode_asisten_1']) ?: null;
         $asisten2 = escape($_POST['kode_asisten_2']) ?: null;
         $hari = (int)$_POST['hari'];
+        $split_sesi = isset($_POST['split_sesi']) ? true : false;
         $rotasi_offset = isset($_POST['rotasi_offset']) ? (int)$_POST['rotasi_offset'] : 0;
         
         // Ambil daftar lab aktif yang sesuai dengan mata kuliah yang dipilih (SUDAH DIPERBAIKI)
@@ -222,115 +223,166 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $ast1_sql = $asisten1 ? "'$asisten1'" : "NULL";
                 $ast2_sql = $asisten2 ? "'$asisten2'" : "NULL";
                 $lab_count = count($labs);
-                $tanggal = strtotime($tanggal_mulai);
                 
-                // [FIX] Cari tanggal pertama yang sesuai dengan hari yang dipilih
-                while (date('w', $tanggal) != $hari) {
-                    $tanggal = strtotime('+1 day', $tanggal);
+                // Konfigurasi Sesi
+                $configs = [];
+                if ($split_sesi) {
+                    // [MODIFIED] Cek sesi mana yang diaktifkan
+                    $enable_s1 = isset($_POST['enable_sesi_1']);
+                    $enable_s2 = isset($_POST['enable_sesi_2']);
+
+                    if (!$enable_s1 && !$enable_s2) {
+                        throw new Exception('Harap pilih minimal satu sesi (Sesi 1 atau Sesi 2) jika menggunakan mode Split Sesi.');
+                    }
+
+                    if ($enable_s1) {
+                        $configs[] = [
+                            'sesi' => 1,
+                            'hari' => (int)$_POST['hari_1'],
+                            'jam_mulai' => $_POST['jam_mulai_1'],
+                            'jam_selesai' => $_POST['jam_selesai_1']
+                        ];
+                    }
+                    if ($enable_s2) {
+                        $configs[] = [
+                            'sesi' => 2,
+                            'hari' => (int)$_POST['hari_2'],
+                            'jam_mulai' => $_POST['jam_mulai_2'],
+                            'jam_selesai' => $_POST['jam_selesai_2']
+                        ];
+                    }
+                } else {
+                    $configs[] = [
+                        'sesi' => 0, // 0 = Semua Sesi
+                        'hari' => (int)$_POST['hari'],
+                        'jam_mulai' => $_POST['jam_mulai'],
+                        'jam_selesai' => $_POST['jam_selesai']
+                    ];
                 }
                 
                 $materi_list = [ 'Pertemuan 1 - Pengenalan', 'Pertemuan 2 - Dasar', 'Pertemuan 3 - Lanjutan I', 'Pertemuan 4 - Lanjutan II', 'Pertemuan 5 - Praktik I', 'Pertemuan 6 - Praktik II', 'Pertemuan 7 - Praktik III', 'Pertemuan 8 - Review', 'Praresponsi', 'Inhall', 'Responsi' ];
                 
                 $konflik_list = [];
-                $jadwal_temp = [];
+                $jadwal_to_insert = [];
+                $praresponsi_data = []; // [sesi => data] untuk referensi inhall
                 
-                $temp_tanggal = $tanggal;
-                for ($i = 1; $i <= 11; $i++) {
-                    $is_inhall = ($i == 10);
-                    $pertemuan_ke = ($i <= 9) ? $i : ($is_inhall ? 9 : 10);
-                    $current_jam_mulai = $jam_mulai;
-                    $current_jam_selesai = $jam_selesai;
-
-                    // [FIX] Logika penentuan waktu dan tanggal untuk Inhall dan pertemuan biasa
-                    if ($is_inhall) {
-                        // Logika Inhall: bergantung pada jadwal Praresponsi (indeks array ke-8)
-                        if (isset($jadwal_temp[8])) {
-                            $praresponsi_schedule = $jadwal_temp[8];
-                            $tgl_str = $praresponsi_schedule['tanggal'];
-                            $praresponsi_end_time = strtotime($praresponsi_schedule['jam_selesai']);
-                            $duration = $praresponsi_end_time - strtotime($praresponsi_schedule['jam_mulai']);
-                            $current_jam_mulai = date('H:i:s', $praresponsi_end_time);
-                            $current_jam_selesai = date('H:i:s', $praresponsi_end_time + $duration);
-                        } else {
-                            // Jika jadwal Praresponsi tidak ada (karena konflik), lewati pembuatan Inhall
-                            $konflik_list[] = "Inhall (P9) - Gagal dibuat karena jadwal Praresponsi (P9) tidak dapat di-generate.";
-                            continue; // Lanjut ke iterasi berikutnya (Responsi)
-                        }
-                    } else {
-                        // Logika pertemuan biasa
-                        $tgl_str = date('Y-m-d', $temp_tanggal);
+                foreach ($configs as $cfg) {
+                    $sesi_num = $cfg['sesi'];
+                    $target_hari = $cfg['hari'];
+                    
+                    // Cari tanggal mulai yang sesuai dengan hari yang dipilih
+                    $tgl_cursor = strtotime($tanggal_mulai);
+                    while (date('w', $tgl_cursor) != $target_hari) {
+                        $tgl_cursor = strtotime('+1 day', $tgl_cursor);
                     }
-                
-                    $kode_lab = null;
-                    $p_label = $is_inhall ? "Inhall (P9)" : "Pertemuan $pertemuan_ke";
+                    
+                    for ($i = 1; $i <= 11; $i++) {
+                        $is_inhall = ($i == 10);
+                        $pertemuan_ke = ($i <= 9) ? $i : ($is_inhall ? 9 : 10);
+                        
+                        $current_jam_mulai = $cfg['jam_mulai'];
+                        $current_jam_selesai = $cfg['jam_selesai'];
+                        $tgl_str = date('Y-m-d', $tgl_cursor);
+                        
+                        // Logika Inhall: bergantung pada jadwal Praresponsi sesi yang sama
+                        if ($is_inhall) {
+                            if (isset($praresponsi_data[$sesi_num])) {
+                                $prares = $praresponsi_data[$sesi_num];
+                                $tgl_str = $prares['tanggal'];
+                                
+                                // Waktu inhall: setelah praresponsi (durasi sama)
+                                $prares_end = strtotime($prares['jam_selesai']);
+                                $duration = $prares_end - strtotime($prares['jam_mulai']);
+                                $current_jam_mulai = date('H:i:s', $prares_end);
+                                $current_jam_selesai = date('H:i:s', $prares_end + $duration);
+                            } else {
+                                $konflik_list[] = "Inhall (P9) Sesi $sesi_num - Gagal dibuat karena Praresponsi tidak ada.";
+                                continue;
+                            }
+                        }
+                        
+                        $kode_lab = null;
+                        $p_label = ($is_inhall ? "Inhall (P9)" : "Pertemuan $pertemuan_ke") . ($sesi_num > 0 ? " Sesi $sesi_num" : "");
 
-                    if ($is_inhall) {
-                        // Untuk INHALL, lab harus sama dengan PRARESPONSI.
-                        // Praresponsi adalah jadwal ke-9 yang di-generate (indeks array 8).
-                        if (isset($jadwal_temp[8]) && !empty($jadwal_temp[8]['kode_lab'])) {
-                            $kode_lab = $jadwal_temp[8]['kode_lab'];
-
-                            // Tetap cek konflik waktu, seandainya ada jadwal kelas lain yang masuk di antara praresponsi dan inhall
+                        if ($is_inhall) {
+                            // Inhall pakai lab yang sama dengan Praresponsi
+                            $kode_lab = $praresponsi_data[$sesi_num]['kode_lab'];
+                            
+                            // Cek konflik
                             $konflik_db = cekKonflikLab($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $kode_lab);
                             if ($konflik_db) {
-                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Lab " . htmlspecialchars($konflik_db['nama_lab']) . " (mengikuti Praresponsi) bentrok dengan jadwal kelas " . htmlspecialchars($konflik_db['nama_kelas']);
+                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Lab bentrok dengan " . htmlspecialchars($konflik_db['nama_kelas']);
                                 continue;
                             }
+                            // Cek asisten
                             $konflik_ast1 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten1);
                             $konflik_ast2 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten2);
-                            if ($konflik_ast1) {
-                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 1 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast1['nama_kelas']);
-                                continue;
-                            } elseif ($konflik_ast2) {
-                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 2 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast2['nama_kelas']);
+                            if ($konflik_ast1 || $konflik_ast2) {
+                                $konflik_list[] = "$p_label - Asisten bentrok.";
                                 continue;
                             }
                         } else {
-                            // Ini terjadi jika jadwal Praresponsi tidak ada, sudah ditangani di atas, tapi sebagai pengaman tambahan.
-                            $konflik_list[] = "$p_label - Gagal menemukan lab dari jadwal Praresponsi.";
-                            continue;
-                        }
-                    } else {
-                        // Untuk semua pertemuan lain (termasuk PRARESPONSI), cari lab yang tersedia
-                        $lab_ditemukan = false;
-                        if ($lab_count > 0) {
-                            for ($j = 0; $j < $lab_count; $j++) {
-                                $lab_index_coba = ($pertemuan_ke - 1 + $rotasi_offset + $j) % $lab_count;
-                                $lab_coba = $labs[$lab_index_coba];
+                            // Cari lab tersedia
+                            $lab_ditemukan = false;
+                            if ($lab_count > 0) {
+                                for ($j = 0; $j < $lab_count; $j++) {
+                                    $lab_index_coba = ($pertemuan_ke - 1 + $rotasi_offset + $j) % $lab_count;
+                                    $lab_coba = $labs[$lab_index_coba];
 
-                                // Cek konflik dengan jadwal lain yang sudah ada di database
-                                $konflik_db = cekKonflikLab($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $lab_coba);
-                                if (!$konflik_db) {
-                                    // [FIX] Cek konflik asisten juga
-                                    $konflik_ast1 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten1);
-                                    $konflik_ast2 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten2);
-                                    if ($konflik_ast1) {
-                                        $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 1 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast1['nama_kelas']);
-                                        continue 2; // Coba lab berikutnya
-                                    } elseif ($konflik_ast2) {
-                                        $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Asisten 2 bentrok dengan jadwal kelas " . htmlspecialchars($konflik_ast2['nama_kelas']);
-                                        continue 2; // Coba lab berikutnya
+                                    $konflik_db = cekKonflikLab($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $lab_coba);
+                                    if (!$konflik_db) {
+                                        $konflik_ast1 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten1);
+                                        $konflik_ast2 = cekKonflikAsisten($conn, $tgl_str, $current_jam_mulai, $current_jam_selesai, $asisten2);
+                                        
+                                        if (!$konflik_ast1 && !$konflik_ast2) {
+                                            $kode_lab = $lab_coba;
+                                            $lab_ditemukan = true;
+                                            break;
+                                        } else {
+                                            // Jika asisten bentrok, coba lab lain tidak akan membantu jika waktu sama,
+                                            // tapi loop ini untuk lab. Jika asisten bentrok di waktu ini, 
+                                            // ganti lab tidak ngaruh. Asisten bentrok = waktu ini tidak bisa dipakai.
+                                            // Tapi kita asumsikan asisten available, hanya lab yang rotasi.
+                                            // Jika asisten bentrok, kita catat dan break loop lab (karena waktu sama).
+                                            $konflik_list[] = "$p_label - Asisten bentrok pada jam ini.";
+                                            break; 
+                                        }
                                     }
-                                    $kode_lab = $lab_coba;
-                                    $lab_ditemukan = true;
-                                    break;
                                 }
                             }
-                        }
 
-                        if (!$lab_ditemukan) {
-                            $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Semua lab untuk mata kuliah ini penuh pada jam tersebut.";
-                            continue;
+                            if (!$lab_ditemukan && empty($konflik_ast1) && empty($konflik_ast2)) {
+                                $konflik_list[] = "$p_label (" . format_tanggal($tgl_str) . ") - Semua lab penuh.";
+                                continue;
+                            } elseif (!$lab_ditemukan) {
+                                continue; // Sudah dicatat konflik asisten
+                            }
                         }
-                    }
-                
-                    $jenis = ($pertemuan_ke <= 8) ? 'materi' : (($pertemuan_ke == 9) ? ($is_inhall ? 'inhall' : 'praresponsi') : 'responsi');
-                    $materi = $materi_list[$i - 1];
-                
-                    $jadwal_temp[] = [ 'pertemuan' => $pertemuan_ke, 'tanggal' => $tgl_str, 'jam_mulai' => $current_jam_mulai, 'jam_selesai' => $current_jam_selesai, 'kode_lab' => $kode_lab, 'jenis' => $jenis, 'materi' => $materi ];
-                
-                    if (!$is_inhall) {
-                        $temp_tanggal = strtotime('+1 week', $temp_tanggal);
+                        
+                        $jenis = ($pertemuan_ke <= 8) ? 'materi' : (($pertemuan_ke == 9) ? ($is_inhall ? 'inhall' : 'praresponsi') : 'responsi');
+                        $materi = $materi_list[$i - 1];
+                        
+                        $jadwal_item = [
+                            'pertemuan' => $pertemuan_ke,
+                            'tanggal' => $tgl_str,
+                            'jam_mulai' => $current_jam_mulai,
+                            'jam_selesai' => $current_jam_selesai,
+                            'kode_lab' => $kode_lab,
+                            'jenis' => $jenis,
+                            'materi' => $materi,
+                            'sesi' => $sesi_num
+                        ];
+                        
+                        $jadwal_to_insert[] = $jadwal_item;
+                        
+                        // Simpan data Praresponsi (P9, bukan inhall) untuk referensi Inhall
+                        if ($pertemuan_ke == 9 && !$is_inhall) {
+                            $praresponsi_data[$sesi_num] = $jadwal_item;
+                        }
+                        
+                        if (!$is_inhall) {
+                            $tgl_cursor = strtotime('+1 week', $tgl_cursor);
+                        }
                     }
                 }
                 
@@ -338,10 +390,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     throw new Exception('Tidak dapat generate jadwal karena ada konflik:<br>- ' . implode('<br>- ', array_unique($konflik_list)));
                 }
                 
-                foreach ($jadwal_temp as $jt) {
-                    $stmt_gen = mysqli_prepare($conn, "INSERT INTO jadwal (pertemuan_ke, tanggal, jam_mulai, jam_selesai, kode_lab, kode_kelas, kode_mk, materi, jenis, kode_asisten_1, kode_asisten_2) 
-                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                    mysqli_stmt_bind_param($stmt_gen, "issssssssss", $jt['pertemuan'], $jt['tanggal'], $jt['jam_mulai'], $jt['jam_selesai'], $jt['kode_lab'], $kelas, $mk, $jt['materi'], $jt['jenis'], $asisten1, $asisten2);
+                foreach ($jadwal_to_insert as $jt) {
+                    $stmt_gen = mysqli_prepare($conn, "INSERT INTO jadwal (pertemuan_ke, tanggal, jam_mulai, jam_selesai, kode_lab, kode_kelas, kode_mk, materi, jenis, kode_asisten_1, kode_asisten_2, sesi) 
+                                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    mysqli_stmt_bind_param($stmt_gen, "issssssssssi", $jt['pertemuan'], $jt['tanggal'], $jt['jam_mulai'], $jt['jam_selesai'], $jt['kode_lab'], $kelas, $mk, $jt['materi'], $jt['jenis'], $asisten1, $asisten2, $jt['sesi']);
                     $q = mysqli_stmt_execute($stmt_gen);
                     if (!$q) throw new Exception("Gagal menyimpan jadwal ke database.");
                 }
@@ -1092,10 +1144,42 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
     </div>
     <div id="warning_asisten2_generate" style="display: none;" class="mb-3"></div>
     <div class="mb-3"><label class="form-label">Urutan Rotasi Lab (Offset)</label><input type="number" name="rotasi_offset" class="form-control" value="0" min="0"><small class="text-muted">0 = Mulai Lab ke-1, 1 = Mulai Lab ke-2. Gunakan angka berbeda untuk kelas yang jadwalnya bentrok.</small></div>
-    <div class="row"><div class="col-md-6 mb-3"><label class="form-label">Hari Praktikum <span class="text-danger">*</span></label><select name="hari" class="form-select" required><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div><div class="col-md-6 mb-3"><label class="form-label">Mulai Tanggal <span class="text-danger">*</span></label><input type="date" name="tanggal_mulai" class="form-control" required value="<?= date('Y-m-d') ?>"></div></div>
-    <div class="row"><div class="col-md-6 mb-3"><label class="form-label">Jam Mulai <span class="text-danger">*</span></label><input type="time" name="jam_mulai" class="form-control" required value="08:00"></div><div class="col-md-6 mb-3"><label class="form-label">Jam Selesai <span class="text-danger">*</span></label><input type="time" name="jam_selesai" class="form-control" required value="10:00"></div></div>
+    
+    <div class="mb-3"><label class="form-label">Mulai Tanggal <span class="text-danger">*</span></label><input type="date" name="tanggal_mulai" class="form-control" required value="<?= date('Y-m-d') ?>"></div>
+    
+    <div class="form-check mb-3">
+        <input class="form-check-input" type="checkbox" id="split_sesi" name="split_sesi" onchange="toggleSplitSesi()">
+        <label class="form-check-label" for="split_sesi">Bagi menjadi 2 Sesi (Sesi 1 & Sesi 2)</label>
+    </div>
+
+    <div id="single_sesi_inputs">
+        <div class="row"><div class="col-md-4 mb-3"><label class="form-label">Hari</label><select name="hari" class="form-select"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div><div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai" class="form-control" value="08:00"></div><div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai" class="form-control" value="10:00"></div></div>
+    </div>
+
+    <div id="split_sesi_inputs" style="display:none;">
+        <div class="card mb-3 border-primary">
+            <div class="card-header bg-primary text-white py-2">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" name="enable_sesi_1" id="enable_sesi_1" checked onchange="toggleSesiInputs()">
+                    <label class="form-check-label fw-bold" for="enable_sesi_1">Generate Sesi 1</label>
+                </div>
+            </div>
+            <div class="card-body p-3" id="sesi_1_container"><div class="row"><div class="col-md-4 mb-3"><label class="form-label">Hari</label><select name="hari_1" class="form-select"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div><div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai_1" class="form-control" value="08:00"></div><div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai_1" class="form-control" value="10:00"></div></div></div>
+        </div>
+
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white py-2">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" name="enable_sesi_2" id="enable_sesi_2" checked onchange="toggleSesiInputs()">
+                    <label class="form-check-label fw-bold" for="enable_sesi_2">Generate Sesi 2</label>
+                </div>
+            </div>
+            <div class="card-body p-3" id="sesi_2_container"><div class="row"><div class="col-md-4 mb-3"><label class="form-label">Hari</label><select name="hari_2" class="form-select"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div><div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai_2" class="form-control" value="10:00"></div><div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai_2" class="form-control" value="12:00"></div></div></div>
+        </div>
+    </div>
+
 </div>
-<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-success"><i class="fas fa-magic me-2"></i>Generate Jadwal</button></div>
+<div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-success"><i class="fas fa-magic me-2"></i>Generate</button></div>
 </form></div></div></div>
 
 <script>
@@ -1103,6 +1187,40 @@ const labData = <?= json_encode($lab_array) ?>;
 const mahasiswaPerKelas = <?= json_encode($mhs_per_kelas) ?>;
 const calendarEvents = <?= json_encode($calendar_events) ?>; // Data untuk FullCalendar
 const BATAS_ASISTEN2 = 20;
+
+function toggleSplitSesi() {
+    const isSplit = document.getElementById('split_sesi').checked;
+    document.getElementById('single_sesi_inputs').style.display = isSplit ? 'none' : 'block';
+    document.getElementById('split_sesi_inputs').style.display = isSplit ? 'block' : 'none';
+    
+    const singleInputs = document.querySelectorAll('#single_sesi_inputs select, #single_sesi_inputs input');
+    
+    singleInputs.forEach(el => el.required = !isSplit);
+    
+    if (isSplit) {
+        toggleSesiInputs();
+    } else {
+        // Disable split inputs requirements
+        document.querySelectorAll('#split_sesi_inputs select, #split_sesi_inputs input').forEach(el => {
+            if(el.type !== 'checkbox') el.required = false;
+        });
+    }
+}
+
+function toggleSesiInputs() {
+    const s1 = document.getElementById('enable_sesi_1').checked;
+    const s2 = document.getElementById('enable_sesi_2').checked;
+    
+    const inputs1 = document.querySelectorAll('#sesi_1_container select, #sesi_1_container input');
+    const inputs2 = document.querySelectorAll('#sesi_2_container select, #sesi_2_container input');
+    
+    inputs1.forEach(el => { el.disabled = !s1; el.required = s1; });
+    inputs2.forEach(el => { el.disabled = !s2; el.required = s2; });
+    
+    // Visual feedback
+    document.getElementById('sesi_1_container').style.opacity = s1 ? '1' : '0.5';
+    document.getElementById('sesi_2_container').style.opacity = s2 ? '1' : '0.5';
+}
 
 function filterLab(mkSelectId, labSelectId, selectedLabValue = '') {
     const mkSelect = document.getElementById(mkSelectId);
@@ -1226,19 +1344,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    const inputTanggalMulai = document.querySelector('#modalGenerate input[name="tanggal_mulai"]');
-    const selectHari = document.querySelector('#modalGenerate select[name="hari"]');
-    if (inputTanggalMulai && selectHari) {
-        inputTanggalMulai.addEventListener('change', function() {
+    // Auto-select hari based on tanggal mulai for single session
+    const genTanggal = document.querySelector('#modalGenerate input[name="tanggal_mulai"]');
+    const genHari = document.querySelector('#modalGenerate select[name="hari"]');
+    if (genTanggal && genHari) {
+        genTanggal.addEventListener('change', function() {
             const d = new Date(this.value);
             const day = d.getDay();
-            if (day >= 1 && day <= 6) selectHari.value = day;
+            if (day >= 1 && day <= 6) genHari.value = day;
         });
     }
 
     // [BARU] Inisialisasi FullCalendar
     initCalendar();
 });
+
+// Initialize split toggle on load
+toggleSplitSesi();
 
 // [BARU] Fungsi Switch View
 function switchView(mode) {

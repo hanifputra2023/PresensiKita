@@ -34,7 +34,7 @@ $tanggal_hari_ini = date('Y-m-d');
 
 if ($role == 'mahasiswa') {
     // 1. Ambil kode kelas mahasiswa - prepared statement
-    $stmt_cek_mhs = mysqli_prepare($conn, "SELECT kode_kelas FROM mahasiswa WHERE nim = ?");
+    $stmt_cek_mhs = mysqli_prepare($conn, "SELECT kode_kelas, sesi FROM mahasiswa WHERE nim = ?");
     mysqli_stmt_bind_param($stmt_cek_mhs, "s", $username);
     mysqli_stmt_execute($stmt_cek_mhs);
     $cek_mhs = mysqli_stmt_get_result($stmt_cek_mhs);
@@ -42,6 +42,7 @@ if ($role == 'mahasiswa') {
     if ($cek_mhs && mysqli_num_rows($cek_mhs) > 0) {
         $mhs = mysqli_fetch_assoc($cek_mhs);
         $kode_kelas = $mhs['kode_kelas'];
+        $sesi_mhs = $mhs['sesi'] ?? 1;
         
         // 2. Cari jadwal HARI INI yang:
         //    a. Akan mulai dalam 30 menit ke depan (Upcoming)
@@ -57,6 +58,7 @@ if ($role == 'mahasiswa') {
                   JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                   LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                   WHERE j.kode_kelas = ? 
+                  AND (j.sesi = 0 OR j.sesi = ?)
                   AND j.tanggal = ?
                   AND (
                       (j.jam_mulai > ? AND j.jam_mulai <= ADDTIME(?, '00:30:00'))
@@ -67,7 +69,7 @@ if ($role == 'mahasiswa') {
                       SELECT 1 FROM presensi_mahasiswa p 
                       WHERE p.jadwal_id = j.id AND p.nim = ? AND p.status IN ('hadir', 'izin', 'sakit', 'alpha')
                   )");
-        mysqli_stmt_bind_param($stmt_jadwal, "sssssss", $kode_kelas, $tanggal_hari_ini, $waktu_sekarang, $waktu_sekarang, $waktu_sekarang, $waktu_sekarang, $username);
+        mysqli_stmt_bind_param($stmt_jadwal, "sissssss", $kode_kelas, $sesi_mhs, $tanggal_hari_ini, $waktu_sekarang, $waktu_sekarang, $waktu_sekarang, $waktu_sekarang, $username);
         mysqli_stmt_execute($stmt_jadwal);
         $result = mysqli_stmt_get_result($stmt_jadwal);
         while ($row = mysqli_fetch_assoc($result)) {

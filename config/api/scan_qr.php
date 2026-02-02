@@ -17,7 +17,7 @@ $nim = escape($input['nim']);
 
 // VALIDASI 1: Cek QR Code valid dan belum expired
 $qr_session = mysqli_fetch_assoc(mysqli_query($conn, "SELECT qs.*, j.id as jadwal_id, j.kode_kelas, j.kode_mk, j.tanggal, j.jam_mulai, j.jam_selesai, 
-                                                       j.materi, j.jenis, mk.nama_mk, l.nama_lab
+                                                       j.materi, j.jenis, j.sesi, mk.nama_mk, l.nama_lab
                                                        FROM qr_code_session qs
                                                        JOIN jadwal j ON qs.jadwal_id = j.id
                                                        LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
@@ -75,6 +75,12 @@ if ($is_inhall) {
     // Untuk jadwal BIASA: Kelas harus sama
     if ($mahasiswa['kode_kelas'] != $qr_session['kode_kelas']) {
         echo json_encode(['success' => false, 'message' => 'Anda bukan dari kelas yang dijadwalkan di lab ini. Kelas Anda: ' . $mahasiswa['kode_kelas'] . ', Jadwal untuk: ' . $qr_session['kode_kelas']]);
+        exit;
+    }
+
+    // VALIDASI SESI
+    if ($qr_session['sesi'] != 0 && $qr_session['sesi'] != $mahasiswa['sesi']) {
+        echo json_encode(['success' => false, 'message' => 'Jadwal ini khusus untuk Sesi ' . $qr_session['sesi'] . '. Anda terdaftar di Sesi ' . $mahasiswa['sesi']]);
         exit;
     }
 }
