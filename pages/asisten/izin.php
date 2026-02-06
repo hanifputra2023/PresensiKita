@@ -10,6 +10,41 @@ if (!$asisten) {
 
 $kode_asisten = $asisten['kode_asisten'];
 
+// [BARU] AJAX Handler untuk mengambil jadwal Alpha/Belum mahasiswa (untuk input manual)
+if (isset($_GET['action']) && $_GET['action'] == 'get_mhs_jadwal') {
+    if (ob_get_length()) ob_end_clean();
+    header('Content-Type: application/json');
+    
+    $nim_cari = escape($_GET['nim']);
+    
+    // Cari jadwal yang sudah lewat, diajar oleh asisten ini, dan statusnya Alpha/Belum/Null
+    $query_jadwal = "SELECT j.id, j.tanggal, j.jam_mulai, j.materi, mk.nama_mk, 
+                     COALESCE(p.status, 'belum') as status_sekarang
+                     FROM jadwal j
+                     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
+                     LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
+                     WHERE m.nim = '$nim_cari' 
+                     AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                     AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
+                     AND (p.status IS NULL OR p.status IN ('alpha', 'belum'))
+                     AND j.jenis != 'inhall'
+                     ORDER BY j.tanggal DESC";
+                     
+    $res = mysqli_query($conn, $query_jadwal);
+    $data = [];
+    while ($row = mysqli_fetch_assoc($res)) {
+        $data[] = [
+            'id' => $row['id'],
+            'label' => format_tanggal($row['tanggal']) . ' - ' . $row['nama_mk'] . ' (' . ucfirst($row['status_sekarang']) . ')',
+            'materi' => $row['materi']
+        ];
+    }
+    
+    echo json_encode($data);
+    exit;
+}
+
 // Proses Approve/Reject - HARUS DI ATAS SEBELUM OUTPUT HTML
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'] ?? '';
@@ -73,6 +108,56 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         } else {
             set_alert('danger', 'Anda tidak berhak memproses pengajuan ini!');
+        }
+    } elseif ($action == 'manual_izin') {
+        // [BARU] Proses Input Izin Manual (Force Majeure)
+        $nim_input = escape($_POST['nim']);
+        $jadwal_id_input = (int)$_POST['jadwal_id'];
+        $jenis_input = escape($_POST['jenis']);
+        $alasan_input = escape($_POST['alasan']);
+        
+        // Validasi kepemilikan jadwal
+        $cek_jadwal = mysqli_query($conn, "SELECT id FROM jadwal WHERE id = '$jadwal_id_input' AND (kode_asisten_1 = '$kode_asisten' OR kode_asisten_2 = '$kode_asisten')");
+        
+        if (mysqli_num_rows($cek_jadwal) > 0) {
+            // 1. Update/Insert Presensi Mahasiswa
+            $cek_presensi = mysqli_query($conn, "SELECT id FROM presensi_mahasiswa WHERE jadwal_id = '$jadwal_id_input' AND nim = '$nim_input'");
+            if (mysqli_num_rows($cek_presensi) > 0) {
+                $stmt_upd = mysqli_prepare($conn, "UPDATE presensi_mahasiswa SET status = ?, waktu_presensi = NOW(), metode = 'manual', validated_by = ? WHERE jadwal_id = ? AND nim = ?");
+                mysqli_stmt_bind_param($stmt_upd, "ssis", $jenis_input, $kode_asisten, $jadwal_id_input, $nim_input);
+                mysqli_stmt_execute($stmt_upd);
+            } else {
+                $stmt_ins = mysqli_prepare($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, waktu_presensi, metode, validated_by) VALUES (?, ?, ?, NOW(), 'manual', ?)");
+                mysqli_stmt_bind_param($stmt_ins, "isss", $jadwal_id_input, $nim_input, $jenis_input, $kode_asisten);
+                mysqli_stmt_execute($stmt_ins);
+            }
+            
+            // 2. Buat Tiket Inhall (Langsung Approved)
+            // Cek dulu biar ga duplikat
+            $cek_inhall = mysqli_query($conn, "SELECT id, status_approval FROM penggantian_inhall WHERE nim = '$nim_input' AND jadwal_asli_id = '$jadwal_id_input'");
+            $existing_inhall = mysqli_fetch_assoc($cek_inhall);
+            
+            if (!$existing_inhall) {
+                $stmt_inhall = mysqli_prepare($conn, "INSERT INTO penggantian_inhall 
+                    (nim, jadwal_asli_id, materi_diulang, status, alasan_izin, status_approval, approved_by, approved_at) 
+                    VALUES (?, ?, ?, 'terdaftar', ?, 'approved', ?, NOW())");
+                mysqli_stmt_bind_param($stmt_inhall, "sisss", $nim_input, $jadwal_id_input, $jenis_input, $alasan_input, $kode_asisten);
+                mysqli_stmt_execute($stmt_inhall);
+                
+                log_aktivitas($_SESSION['user_id'], 'MANUAL_IZIN', 'penggantian_inhall', mysqli_insert_id($conn), 
+                              "Asisten input izin manual (Force Majeure) untuk $nim_input");
+                set_alert('success', 'Izin susulan berhasil diinput. Mahasiswa kini terdaftar untuk Inhall.');
+            } elseif ($existing_inhall['status_approval'] == 'rejected' || $existing_inhall['status_approval'] == 'pending') {
+                // [UPDATE] Jika sebelumnya ditolak atau pending, override jadi approved
+                $stmt_upd_inhall = mysqli_prepare($conn, "UPDATE penggantian_inhall SET materi_diulang = ?, alasan_izin = ?, status_approval = 'approved', approved_by = ?, approved_at = NOW(), alasan_reject = NULL WHERE id = ?");
+                mysqli_stmt_bind_param($stmt_upd_inhall, "sssi", $jenis_input, $alasan_input, $kode_asisten, $existing_inhall['id']);
+                mysqli_stmt_execute($stmt_upd_inhall);
+                set_alert('success', 'Status pengajuan sebelumnya diperbarui menjadi Disetujui (Force Majeure).');
+            } else {
+                set_alert('warning', 'Data inhall untuk jadwal ini sudah ada dan sudah disetujui.');
+            }
+        } else {
+            set_alert('danger', 'Jadwal tidak valid atau bukan hak akses Anda.');
         }
     }
     
@@ -652,7 +737,12 @@ while ($row = mysqli_fetch_assoc($daftar_izin)) {
         <div class="col-md-9 col-lg-10">
             <div class="izin-page">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-file-alt me-2"></i>Persetujuan Izin & Sakit Mahasiswa</h4>
+                <div class="d-flex justify-content-between align-items-center mb-4 pt-2">
+                    <h4 class="mb-0"><i class="fas fa-file-alt me-2"></i>Persetujuan Izin & Sakit</h4>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalManual">
+                        <i class="fas fa-plus-circle me-1"></i>Input Susulan
+                    </button>
+                </div>
                 
                 <?= show_alert() ?>
                 
@@ -1005,6 +1095,61 @@ while ($row = mysqli_fetch_assoc($daftar_izin)) {
     </div>
 </div>
 
+<!-- Modal Input Manual (Force Majeure) -->
+<div class="modal fade" id="modalManual" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST">
+                <input type="hidden" name="action" value="manual_izin">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-edit me-2"></i>Input Izin Susulan</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info small">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Fitur ini untuk kasus <strong>Force Majeure</strong> (Kecelakaan/Bencana) dimana mahasiswa tidak sempat izin sebelumnya. Status Alpha akan diubah dan hak Inhall diberikan.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">NIM Mahasiswa</label>
+                        <div class="input-group">
+                            <input type="text" name="nim" id="manual_nim" class="form-control" placeholder="Masukkan NIM" required>
+                            <button type="button" class="btn btn-outline-secondary" onclick="cekJadwalAlpha()">
+                                <i class="fas fa-search"></i> Cek Jadwal
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Pilih Jadwal (Alpha/Belum)</label>
+                        <select name="jadwal_id" id="manual_jadwal" class="form-select" required disabled>
+                            <option value="">-- Masukkan NIM & Klik Cek --</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <select name="jenis" class="form-select" required>
+                            <option value="sakit">Sakit</option>
+                            <option value="izin">Izin</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Alasan / Keterangan</label>
+                        <textarea name="alasan" class="form-control" rows="2" required placeholder="Contoh: Kecelakaan lalu lintas, surat menyusul"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Simpan & Beri Inhall</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Modal Bukti -->
 <?php if (!empty($r['bukti_file'])): ?>
 <div class="modal fade" id="modalBukti<?= $idx ?>" tabindex="-1" aria-hidden="true">
@@ -1037,6 +1182,37 @@ function approveIzin(id) {
         document.getElementById('approveId').value = id;
         document.getElementById('formApprove').submit();
     }
+}
+
+function cekJadwalAlpha() {
+    const nim = document.getElementById('manual_nim').value;
+    const select = document.getElementById('manual_jadwal');
+    
+    if (!nim) {
+        alert('Masukkan NIM terlebih dahulu!');
+        return;
+    }
+    
+    select.innerHTML = '<option>Memuat...</option>';
+    select.disabled = true;
+    
+    fetch(`index.php?page=asisten_izin&action=get_mhs_jadwal&nim=${nim}`)
+        .then(response => response.json())
+        .then(data => {
+            select.innerHTML = '<option value="">-- Pilih Jadwal --</option>';
+            if (data.length > 0) {
+                data.forEach(item => {
+                    select.innerHTML += `<option value="${item.id}">${item.label}</option>`;
+                });
+                select.disabled = false;
+            } else {
+                select.innerHTML = '<option value="">Tidak ada jadwal Alpha/Belum yang lewat</option>';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            select.innerHTML = '<option value="">Gagal memuat data</option>';
+        });
 }
 </script>
 

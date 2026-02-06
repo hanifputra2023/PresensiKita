@@ -23,16 +23,20 @@ $total_pages = get_total_pages($total_data, $per_page);
 $offset = get_offset($current_page, $per_page);
 
 if ($search) {
-    $stmt_logs = mysqli_prepare($conn, "SELECT l.*, u.username FROM log_presensi l 
+    $stmt_logs = mysqli_prepare($conn, "SELECT l.*, u.username, COALESCE(m.foto, a.foto) as foto FROM log_presensi l 
                               LEFT JOIN users u ON l.user_id = u.id 
+                              LEFT JOIN mahasiswa m ON u.id = m.user_id
+                              LEFT JOIN asisten a ON u.id = a.user_id
                               WHERE l.aksi LIKE ? OR l.tabel LIKE ? OR l.detail LIKE ? OR u.username LIKE ?
                               ORDER BY l.created_at DESC LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_logs, "ssssii", $search_param, $search_param, $search_param, $search_param, $offset, $per_page);
     mysqli_stmt_execute($stmt_logs);
     $logs = mysqli_stmt_get_result($stmt_logs);
 } else {
-    $stmt_logs = mysqli_prepare($conn, "SELECT l.*, u.username FROM log_presensi l 
+    $stmt_logs = mysqli_prepare($conn, "SELECT l.*, u.username, COALESCE(m.foto, a.foto) as foto FROM log_presensi l 
                               LEFT JOIN users u ON l.user_id = u.id 
+                              LEFT JOIN mahasiswa m ON u.id = m.user_id
+                              LEFT JOIN asisten a ON u.id = a.user_id
                               ORDER BY l.created_at DESC LIMIT ?, ?");
     mysqli_stmt_bind_param($stmt_logs, "ii", $offset, $per_page);
     mysqli_stmt_execute($stmt_logs);
@@ -172,9 +176,13 @@ if ($search) {
                                             </td>
                                             <td>
                                                 <div class="d-flex align-items-center gap-2">
-                                                    <div class="avatar-circle">
-                                                        <?= strtoupper(substr($l['username'] ?? 'S', 0, 1)) ?>
-                                                    </div>
+                                                    <?php if (!empty($l['foto']) && file_exists($l['foto'])): ?>
+                                                        <img src="<?= htmlspecialchars($l['foto']) ?>" alt="User" class="avatar-circle" style="object-fit: cover;">
+                                                    <?php else: ?>
+                                                        <div class="avatar-circle">
+                                                            <?= strtoupper(substr($l['username'] ?? 'S', 0, 1)) ?>
+                                                        </div>
+                                                    <?php endif; ?>
                                                     <span class="fw-medium"><?= htmlspecialchars($l['username'] ?? 'System') ?></span>
                                                 </div>
                                             </td>

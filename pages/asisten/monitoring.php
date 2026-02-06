@@ -75,8 +75,10 @@ if ($jadwal_aktif) {
         $presensi_list = mysqli_stmt_get_result($stmt_presensi_inhall);
     } else {
         // Untuk MATERI dan UJIKOM: semua mahasiswa di kelas
-        $stmt_total_mhs = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = ?");
-        mysqli_stmt_bind_param($stmt_total_mhs, "s", $kelas);
+        $sesi_jadwal = $jadwal_aktif['sesi'];
+        
+        $stmt_total_mhs = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = ? AND (sesi = ? OR ? = 0)");
+        mysqli_stmt_bind_param($stmt_total_mhs, "sii", $kelas, $sesi_jadwal, $sesi_jadwal);
         mysqli_stmt_execute($stmt_total_mhs);
         $total_mhs = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_total_mhs))['total'];
         
@@ -85,8 +87,9 @@ if ($jadwal_aktif) {
                                                FROM mahasiswa m 
                                                LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = ?
                                                WHERE m.kode_kelas = ?
+                                               AND (m.sesi = ? OR ? = 0)
                                                ORDER BY p.waktu_presensi DESC, m.nama");
-        mysqli_stmt_bind_param($stmt_presensi_list, "is", $jadwal_id, $kelas);
+        mysqli_stmt_bind_param($stmt_presensi_list, "isii", $jadwal_id, $kelas, $sesi_jadwal, $sesi_jadwal);
         mysqli_stmt_execute($stmt_presensi_list);
         $presensi_list = mysqli_stmt_get_result($stmt_presensi_list);
     }

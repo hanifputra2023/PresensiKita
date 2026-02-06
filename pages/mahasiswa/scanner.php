@@ -3,6 +3,7 @@ $page = 'mahasiswa_scanner';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 $kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'] ?? 1;
 
 // Cek apakah ada jadwal yang sedang berlangsung
 $today = date('Y-m-d');
@@ -18,6 +19,7 @@ $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, 
                                                          LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = '$nim'
                                                          WHERE j.tanggal = '$today' 
                                                          AND j.kode_kelas = '$kelas'
+                                                         AND (j.sesi = 0 OR j.sesi = '$sesi')
                                                          AND SUBTIME(j.jam_mulai, SEC_TO_TIME($toleransi_sebelum * 60)) <= '$now_time'
                                                          AND ADDTIME(j.jam_selesai, SEC_TO_TIME($toleransi_sesudah * 60)) >= '$now_time'
                                                          AND (
@@ -42,6 +44,7 @@ if (!$jadwal_aktif) {
                                                                   LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                                                   WHERE j.tanggal = '$today' 
                                                                   AND j.kode_kelas = '$kelas'
+                                                                  AND (j.sesi = 0 OR j.sesi = '$sesi')
                                                                   AND j.jam_mulai > '$now_time'
                                                                   AND (
                                                                       j.jenis != 'inhall'
@@ -295,7 +298,24 @@ function submitPresensi(qrCode) {
     }
 }
 
+// [FITUR BARU] Generate/Get Unique Device ID
+function getDeviceId() {
+    let deviceId = localStorage.getItem('device_fingerprint');
+    if (!deviceId) {
+        // Generate UUID sederhana
+        deviceId = 'dev_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+        localStorage.setItem('device_fingerprint', deviceId);
+    }
+    return deviceId;
+}
+
 function sendPresensiData(qrCode, lat, long) {
+    // [OFFLINE SUPPORT] Cek koneksi internet
+    if (!navigator.onLine) {
+        saveOfflinePresensi(qrCode, lat, long);
+        return;
+    }
+
     fetch('api/scan_qr.php', {
             method: 'POST',
             headers: {
@@ -305,7 +325,8 @@ function sendPresensiData(qrCode, lat, long) {
                 qr_code: qrCode,
                 nim: '<?= $mahasiswa['nim'] ?>',
                 latitude: lat,
-                longitude: long
+                longitude: long,
+                device_fingerprint: getDeviceId() // Kirim ID unik perangkat
             })
             })
         .then(response => response.json())
@@ -325,6 +346,65 @@ function sendPresensiData(qrCode, lat, long) {
             document.getElementById('result-message').innerHTML = '<span class="text-warning">Terjadi Kesalahan!</span>';
             document.getElementById('result-detail').innerHTML = 'Tidak dapat terhubung ke server.';
         });
+}
+
+// [OFFLINE SUPPORT] Fungsi simpan ke localStorage saat offline
+function saveOfflinePresensi(qrCode, lat, long) {
+    const data = {
+        qr_code: qrCode,
+        nim: '<?= $mahasiswa['nim'] ?>',
+        latitude: lat,
+        longitude: long,
+        device_fingerprint: getDeviceId()
+    };
+    
+    // Ambil antrian lama, tambah yang baru
+    let pending = JSON.parse(localStorage.getItem('pending_presensi') || '[]');
+    pending.push(data);
+    localStorage.setItem('pending_presensi', JSON.stringify(pending));
+    
+    // Tampilkan pesan offline
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result-icon').innerHTML = '<i class="fas fa-wifi fa-5x text-warning"></i>';
+    document.getElementById('result-message').innerHTML = '<span class="text-warning">Mode Offline</span>';
+    document.getElementById('result-detail').innerHTML = 'Data disimpan di HP Anda.<br>Akan dikirim otomatis saat sinyal kembali.';
+}
+
+// [OFFLINE SUPPORT] Fungsi sinkronisasi saat online kembali
+function syncOfflineData() {
+    if (!navigator.onLine) return;
+    
+    let pending = JSON.parse(localStorage.getItem('pending_presensi') || '[]');
+    if (pending.length === 0) return;
+    
+    // Ambil item pertama dari antrian
+    const item = pending[0];
+    
+    fetch('api/scan_qr.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(item)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Jika berhasil atau error validasi (bukan error jaringan), hapus dari antrian
+        if (data.success || data.message) {
+            pending.shift(); // Hapus item pertama
+            localStorage.setItem('pending_presensi', JSON.stringify(pending));
+            
+            // Notifikasi kecil
+            const toast = document.createElement('div');
+            toast.className = 'alert alert-success position-fixed top-0 end-0 m-3 shadow';
+            toast.style.zIndex = '9999';
+            toast.innerHTML = '<i class="fas fa-check me-2"></i>Data offline terkirim!';
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+            
+            // Lanjut sync item berikutnya jika masih ada
+            if (pending.length > 0) syncOfflineData();
+        }
+    })
+    .catch(err => console.log('Sync pending... menunggu koneksi stabil'));
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -440,6 +520,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         requestAnimationFrame(scanQRCode);
     }
+    
+    // [OFFLINE SUPPORT] Listener otomatis saat sinyal nyala
+    window.addEventListener('online', syncOfflineData);
+    // Cek antrian saat halaman dibuka
+    if (navigator.onLine) syncOfflineData();
 });
 </script>
 <?php endif; ?>

@@ -103,6 +103,7 @@ while ($row = mysqli_fetch_assoc($jadwal_pengganti)) {
 
 $jadwal_aktif = null;
 $mahasiswa_list = null;
+$search = '';
 if ($jadwal_id) {
     $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, k.nama_kelas FROM jadwal j 
                                                              LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
@@ -122,6 +123,10 @@ if ($jadwal_id) {
         $kelas = $jadwal_aktif['kode_kelas'];
         $jenis_jadwal = $jadwal_aktif['jenis'];
         $kode_mk = $jadwal_aktif['kode_mk'];
+        $sesi_jadwal = $jadwal_aktif['sesi'];
+        
+        $search = isset($_GET['search']) ? escape($_GET['search']) : '';
+        $search_sql = $search ? "AND (m.nama LIKE '%$search%' OR m.nim LIKE '%$search%')" : "";
         
         // Untuk INHALL: hanya tampilkan mahasiswa yang terdaftar di penggantian_inhall
         if ($jenis_jadwal == 'inhall') {
@@ -132,11 +137,94 @@ if ($jadwal_id) {
                                                     LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
                                                     WHERE jx.kode_mk = '$kode_mk' AND m.kode_kelas = '$kelas'
                                                     AND pi.status IN ('terdaftar', 'hadir')
+                                                    $search_sql
                                                     ORDER BY m.nama");
         } else {
             $mahasiswa_list = mysqli_query($conn, "SELECT m.*, p.status FROM mahasiswa m 
                                                     LEFT JOIN presensi_mahasiswa p ON p.nim = m.nim AND p.jadwal_id = '$jadwal_id'
-                                                    WHERE m.kode_kelas = '$kelas' ORDER BY m.nama");
+                                                    WHERE m.kode_kelas = '$kelas' 
+                                                    AND (m.sesi = '$sesi_jadwal' OR '$sesi_jadwal' = 0)
+                                                    $search_sql
+                                                    ORDER BY m.nama");
+        }
+
+        // Handle AJAX Search
+        if (isset($_GET['ajax_search'])) {
+            // Desktop Table
+            echo '<div class="table-responsive d-none d-lg-block sticky-header">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>NIM</th>
+                            <th>Nama</th>
+                            <th>Status</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+            
+            if ($mahasiswa_list && mysqli_num_rows($mahasiswa_list) > 0) {
+                $no = 1;
+                while ($m = mysqli_fetch_assoc($mahasiswa_list)) {
+                    $status_badge = '';
+                    if ($m['status'] && $m['status'] != 'belum') {
+                        $bg = $m['status'] == 'hadir' ? 'success' : ($m['status'] == 'izin' ? 'warning' : ($m['status'] == 'sakit' ? 'info' : 'danger'));
+                        $status_badge = '<span class="badge bg-'.$bg.'">'.ucfirst($m['status']).'</span>';
+                    } else {
+                        $status_badge = '<span class="badge bg-secondary">Belum</span>';
+                    }
+
+                    echo '<tr>
+                        <td>'.($no++).'</td>
+                        <td>'.$m['nim'].'</td>
+                        <td>'.$m['nama'].'</td>
+                        <td>'.$status_badge.'</td>
+                        <td>
+                            <form method="POST" class="d-inline">
+                                <input type="hidden" name="jadwal_id" value="'.$jadwal_id.'">
+                                <input type="hidden" name="nim" value="'.$m['nim'].'">
+                                <div class="btn-group btn-group-sm">
+                                    <button type="submit" name="status" value="hadir" class="btn btn-success" title="Hadir"><i class="fas fa-check"></i></button>
+                                    <button type="submit" name="status" value="izin" class="btn btn-warning" title="Izin"><i class="fas fa-envelope"></i></button>
+                                    <button type="submit" name="status" value="sakit" class="btn btn-info" title="Sakit"><i class="fas fa-hospital"></i></button>
+                                    <button type="submit" name="status" value="alpha" class="btn btn-danger" title="Alpha"><i class="fas fa-times"></i></button>
+                                </div>
+                            </form>
+                        </td>
+                    </tr>';
+                }
+            } else {
+                echo '<tr><td colspan="5" class="text-center text-muted">Tidak ada data mahasiswa</td></tr>';
+            }
+            echo '</tbody></table></div>';
+
+            // Mobile Cards
+            echo '<div class="d-lg-none">';
+            if ($mahasiswa_list && mysqli_num_rows($mahasiswa_list) > 0) {
+                mysqli_data_seek($mahasiswa_list, 0);
+                while ($m = mysqli_fetch_assoc($mahasiswa_list)) {
+                    $border_class = $m['status'] == 'hadir' ? 'border-success' : '';
+                    $status_badge = ($m['status'] && $m['status'] != 'belum') 
+                        ? '<span class="badge bg-'.($m['status'] == 'hadir' ? 'success' : ($m['status'] == 'izin' ? 'warning' : ($m['status'] == 'sakit' ? 'info' : 'danger'))).'">'.ucfirst($m['status']).'</span>'
+                        : '<span class="badge bg-secondary">Belum</span>';
+
+                    echo '<div class="card mb-2 border '.$border_class.'">
+                        <div class="card-body p-2">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div><strong class="small">'.$m['nama'].'</strong><br><small class="text-muted">'.$m['nim'].'</small></div>
+                                '.$status_badge.'
+                            </div>
+                            <form method="POST"><input type="hidden" name="jadwal_id" value="'.$jadwal_id.'"><input type="hidden" name="nim" value="'.$m['nim'].'">
+                            <div class="btn-group w-100"><button type="submit" name="status" value="hadir" class="btn btn-sm btn-success"><i class="fas fa-check"></i></button><button type="submit" name="status" value="izin" class="btn btn-sm btn-warning"><i class="fas fa-envelope"></i></button><button type="submit" name="status" value="sakit" class="btn btn-sm btn-info"><i class="fas fa-hospital"></i></button><button type="submit" name="status" value="alpha" class="btn btn-sm btn-danger"><i class="fas fa-times"></i></button></div></form>
+                        </div>
+                    </div>';
+                }
+            } else {
+                echo '<div class="text-center p-3 text-muted">Tidak ada data mahasiswa</div>';
+            }
+            echo '</div>';
+            exit;
         }
     }
 }
@@ -227,10 +315,13 @@ if ($jadwal_id) {
                     <div class="col-12 col-md-9">
                         <?php if ($jadwal_aktif && $mahasiswa_list): ?>
                             <div class="card">
-                                <div class="card-header">
-                                    Presensi <?= $jadwal_aktif['nama_kelas'] ?> - <?= format_tanggal($jadwal_aktif['tanggal']) ?>
+                                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <span>Presensi <?= $jadwal_aktif['nama_kelas'] ?> - <?= format_tanggal($jadwal_aktif['tanggal']) ?></span>
+                                    <div class="d-flex" style="max-width: 300px;">
+                                        <input type="text" id="searchInput" class="form-control form-control-sm" placeholder="Cari Nama/NIM..." value="<?= htmlspecialchars($search) ?>">
+                                    </div>
                                 </div>
-                                <div class="card-body p-2 p-md-3">
+                                <div class="card-body p-2 p-md-3" id="mahasiswaListContainer">
                                     <!-- Desktop Table -->
                                     <div class="table-responsive d-none d-lg-block sticky-header">
                                         <table class="table table-hover">
@@ -346,4 +437,21 @@ if ($jadwal_id) {
     </div>
 </div>
 
+<script>
+let searchTimeout = null;
+const searchInput = document.getElementById('searchInput');
+const container = document.getElementById('mahasiswaListContainer');
+
+if (searchInput) {
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const val = this.value;
+        searchTimeout = setTimeout(() => {
+            fetch(`index.php?page=asisten_presensi_manual&jadwal=<?= $jadwal_id ?>&ajax_search=1&search=${encodeURIComponent(val)}`)
+                .then(response => response.text())
+                .then(html => { container.innerHTML = html; });
+        }, 300);
+    });
+}
+</script>
 <?php include 'includes/footer.php'; ?>

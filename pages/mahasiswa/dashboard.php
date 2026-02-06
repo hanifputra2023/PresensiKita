@@ -3,6 +3,7 @@ $page = 'mahasiswa_dashboard';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 $kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'] ?? 1;
 
 // Jadwal hari ini yang SEDANG AKTIF (dalam rentang waktu)
 $today = date('Y-m-d');
@@ -27,6 +28,7 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                         WHERE j.tanggal = '$today' AND j.kode_kelas = '$kelas'
                                         AND j.jam_mulai <= '$waktu_batas_masuk'
+                                        AND (j.sesi = 0 OR j.sesi = '$sesi')
                                         AND j.jam_selesai > '$now_time'
                                         AND (
                                             j.jenis != 'inhall'
@@ -58,6 +60,7 @@ $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
     JOIN mahasiswa m ON m.nim = '$nim'
     WHERE j.kode_kelas = '$kelas'
+    AND (j.sesi = 0 OR j.sesi = '$sesi')
     AND j.jenis != 'inhall'
     AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
     AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW())
@@ -76,6 +79,7 @@ $jadwal_terdekat = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                          LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
                                          LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                          WHERE j.kode_kelas = '$kelas'
+                                         AND (j.sesi = 0 OR j.sesi = '$sesi')
                                          AND (
                                              j.tanggal > '$today'
                                              OR (
@@ -141,10 +145,24 @@ $daily_quote = $quotes[array_rand($quotes)];
 $total = $stat['total'] ?: 1;
 $persen = round((($stat['hadir'] ?: 0) / $total) * 100);
 // Fetch Pengumuman Terbaru (3 Teratas)
-$pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
+$pengumuman_query = mysqli_query($conn, "SELECT * FROM pengumuman
                                         WHERE target_role IN ('semua', 'mahasiswa')
                                         AND status = 'active'
                                         ORDER BY created_at DESC LIMIT 3");
+// Simpan ke array agar bisa dipakai di dua tempat (desktop alerts & mobile modal)
+$pengumuman_list = [];
+while ($p = mysqli_fetch_assoc($pengumuman_query)) {
+    $pengumuman_list[] = $p;
+}
+$jumlah_pengumuman = count($pengumuman_list);
+
+// Get Badges
+$badges = get_mahasiswa_badges($nim);
+
+// Get Points & Level (Fitur Baru)
+$my_points = get_mahasiswa_points($nim);
+$my_level = get_mahasiswa_level($my_points);
+$next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my_level['min']) * 100;
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -272,8 +290,6 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     margin-bottom: 24px;
     position: relative;
     overflow: hidden;
-    display: grid;
-    grid-template-columns: 1fr auto;
     min-height: 160px;
 }
 /* OPTIMISASI: Matikan animasi berat di mobile */
@@ -355,9 +371,15 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .welcome-stats {
     padding: 28px 32px;
     display: flex;
-    align-items: center;
-    position: relative;
+    align-items: flex-start;
+    justify-content: flex-end;
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 100%;
     z-index: 2;
+    pointer-events: none;
 }
 .stats-glass {
     background: rgba(255,255,255,0.15);
@@ -367,6 +389,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     gap: 28px;
     border: 1px solid rgba(255,255,255,0.2);
+    pointer-events: auto;
 }
 .stats-glass .stat-item {
     text-align: center;
@@ -542,19 +565,19 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--bg-body);
+    background: var(--banner-gradient);
 }
 .card-box .card-header-custom h3 {
     font-size: 1rem;
     font-weight: 600;
     margin: 0;
-    color: var(--text-main);
+    color: var(--putih);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .card-box .card-header-custom h3 i {
-    color: #0066cc;
+    color: var(--putih);
 }
 .card-box .card-body-custom {
     padding: 20px 24px;
@@ -640,6 +663,8 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .quick-btn.riwayat::before { background: linear-gradient(135deg, #0066cc, #0099ff); }
 .quick-btn.jadwal::before { background: linear-gradient(135deg, #00ccff, #258391); }
 .quick-btn.izin::before { background: linear-gradient(135deg, #ffaa00, #dda20a); }
+.quick-btn.jurnal::before { background: linear-gradient(135deg, #6f42c1, #8540f5); }
+.quick-btn.ulasan::before { background: linear-gradient(135deg, #e83e8c, #f66d9b); }
 .quick-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 18px rgba(0,0,0,0.12);
@@ -661,6 +686,8 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .quick-btn.riwayat i { color: #0066cc; }
 .quick-btn.jadwal i { color: #00ccff; }
 .quick-btn.izin i { color: #ffaa00; }
+.quick-btn.jurnal i { color: #6f42c1; }
+.quick-btn.ulasan i { color: #e83e8c; }
 .quick-btn:hover i {
     color: white;
 }
@@ -842,6 +869,23 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
         grid-template-columns: 1fr;
     }
 }
+@media (max-width: 1110px) {
+    .welcome-banner {
+        min-height: auto;
+    }
+    .welcome-stats {
+        position: relative;
+        padding: 0 32px 28px;
+        width: 100%;
+        height: auto;
+        justify-content: flex-start;
+        pointer-events: auto;
+    }
+    .stats-glass {
+        width: 100%;
+        justify-content: space-around;
+    }
+}
 @media (max-width: 992px) {
     .stat-cards-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -863,6 +907,12 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     }
     .welcome-stats {
         padding: 0 24px 20px;
+        position: relative;
+        width: auto;
+        height: auto;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
     }
     .stats-glass {
         width: 100%;
@@ -1004,6 +1054,185 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     }
 }
 
+/* Mobile Announcement Popup */
+.mobile-announcement-fab {
+    display: none;
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0066cc 0%, #00ccff 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: fabPulse 2s infinite;
+}
+.mobile-announcement-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(0, 102, 204, 0.5);
+}
+.mobile-announcement-fab i {
+    font-size: 1.3rem;
+}
+.mobile-announcement-fab .fab-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+@keyframes fabPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4); }
+    50% { box-shadow: 0 4px 30px rgba(0, 102, 204, 0.6); }
+}
+
+/* Modal Announcement Mobile - Centered & Modern */
+.announcement-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.announcement-modal-overlay.show {
+    opacity: 1;
+}
+.announcement-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: calc(100% - 32px);
+    max-width: 400px;
+    max-height: 80vh;
+    background: var(--bg-card);
+    border-radius: 20px;
+    z-index: 1051;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.announcement-modal.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+.announcement-modal-header {
+    padding: 20px 20px 16px;
+    background: var(--primary-color);
+    color: var(--putih);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.announcement-modal-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--putih);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.announcement-modal-header h5 i {
+    color: var(--putih);
+}
+.announcement-modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--putih);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+.announcement-modal-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+.announcement-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+.announcement-modal-item {
+    background: var(--bg-sidebar);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0066cc;
+    transition: all 0.2s ease;
+}
+.announcement-modal-item:last-child {
+    margin-bottom: 0;
+}
+.announcement-modal-item .ann-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+.announcement-modal-item .ann-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.announcement-modal-item .ann-body {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Responsive: Hide desktop announcements on mobile, show FAB */
+@media (max-width: 768px) {
+    .announcement-wrapper {
+        display: none !important;
+    }
+    .mobile-announcement-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Dark mode untuk modal */
+[data-theme="dark"] .announcement-modal-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: #38bdf8;
+}
+[data-theme="dark"] .mobile-announcement-fab {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+}
+
 /* Responsive Jadwal Item */
 @media (max-width: 768px) {
     .jadwal-item {
@@ -1111,6 +1340,8 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 [data-theme="dark"] .quick-btn.riwayat i { color: #66b0ff; }
 [data-theme="dark"] .quick-btn.jadwal i { color: #33d6ff; }
 [data-theme="dark"] .quick-btn.izin i { color: #ffc107; }
+[data-theme="dark"] .quick-btn.jurnal i { color: #a57ccf; }
+[data-theme="dark"] .quick-btn.ulasan i { color: #f08eb3; }
 [data-theme="dark"] .quick-btn:hover {
     box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     border-color: transparent;
@@ -1181,10 +1412,10 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
             <div class="dashboard-content">
                 <?= show_alert() ?>
                 
-                <!-- Pengumuman Section -->
-                <?php if (mysqli_num_rows($pengumuman_list) > 0): ?>
+                <!-- Pengumuman Section (Desktop Only) -->
+                <?php if ($jumlah_pengumuman > 0): ?>
                     <div class="announcement-wrapper">
-                        <?php while($p = mysqli_fetch_assoc($pengumuman_list)): ?>
+                        <?php foreach($pengumuman_list as $p): ?>
                         <div class="announcement-item alert fade show" role="alert">
                             <div class="announcement-icon-box">
                                 <i class="fas fa-bullhorn"></i>
@@ -1204,7 +1435,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
                 
@@ -1217,6 +1448,22 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <span class="info-badge"><i class="fas fa-id-card me-1"></i><?= $mahasiswa['nim'] ?></span>
                             <span class="info-badge"><i class="fas fa-users me-1"></i>Kelas <?= $mahasiswa['nama_kelas'] ?></span>
                             <span class="info-badge"><i class="fas fa-calendar-alt me-1"></i><?= format_tanggal($today) ?></span>
+                        </div>
+                        
+                        <!-- Level Progress -->
+                        <div class="mt-3 p-2 rounded" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(5px);">
+                            <div class="d-flex justify-content-between align-items-center mb-1 text-white">
+                                <small class="fw-bold"><i class="fas fa-<?= $my_level['icon'] ?> me-1"></i><?= $my_level['name'] ?></small>
+                                <small><?= $my_points ?> / <?= $my_level['max'] ?> XP</small>
+                            </div>
+                            <div class="progress" style="height: 6px; background: rgba(0,0,0,0.2);">
+                                <div class="progress-bar bg-warning" role="progressbar" 
+                                     style="width: <?= $next_level_progress ?>%" 
+                                     aria-valuenow="<?= $next_level_progress ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="text-end mt-1">
+                                <small style="font-size: 0.65rem; opacity: 0.8;">Kumpulkan poin dengan hadir tepat waktu!</small>
+                            </div>
                         </div>
                     </div>
                     <div class="welcome-stats">
@@ -1237,6 +1484,30 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                     </div>
                 </div>
                 
+                <!-- Gamification Badges -->
+                <?php if (!empty($badges)): ?>
+                <div class="mb-4">
+                    <h5 class="mb-3 d-flex align-items-center"><i class="fas fa-trophy text-warning me-2 flex-shrink-0"></i>Pencapaian Kamu</h5>
+                    <div class="row g-3">
+                        <?php foreach($badges as $badge): ?>
+                        <div class="col-12">
+                        <div class="card border-<?= $badge['color'] ?> shadow-sm h-100">
+                            <div class="card-body d-flex align-items-center p-3">
+                                <div class="rounded-circle bg-<?= $badge['color'] ?> text-white d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-<?= $badge['icon'] ?> fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold"><?= $badge['title'] ?></h6>
+                                    <small class="text-muted"><?= $badge['desc'] ?></small>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
                 <!-- Jadwal Aktif Alert - Tampilkan SEMUA jadwal aktif hari ini -->
                 <?php if (mysqli_num_rows($jadwal_hari_ini) > 0): ?>
                     <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): ?>
@@ -1250,6 +1521,9 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <div class="meta">
                                 <span><i class="fas fa-clock me-1"></i><?= format_waktu($jhi['jam_mulai']) ?> - <?= format_waktu($jhi['jam_selesai']) ?></span>
                                 <span><i class="fas fa-map-marker-alt me-1"></i><?= $jhi['nama_lab'] ?></span>
+                                <?php if ($jhi['sesi'] != 0): ?>
+                                    <span><i class="fas fa-users me-1"></i>Sesi <?= $jhi['sesi'] ?></span>
+                                <?php endif; ?>
                                 <span><i class="fas fa-user-tie me-1"></i><?= $jhi['asisten1_nama'] ?: '-' ?><?php if ($jhi['asisten2_nama']): ?>, <?= $jhi['asisten2_nama'] ?><?php endif; ?></span>
                             </div>
                         </div>
@@ -1370,6 +1644,14 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                         <i class="fas fa-history"></i>
                                         <span>Riwayat</span>
                                     </a>
+                                    <a href="index.php?page=mahasiswa_jurnal" class="quick-btn jurnal">
+                                        <i class="fas fa-book-open"></i>
+                                        <span>Jurnal</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_riwayat" class="quick-btn ulasan">
+                                        <i class="fas fa-star"></i>
+                                        <span>Ulasan</span>
+                                    </a>
                                     <a href="index.php?page=mahasiswa_jadwal" class="quick-btn jadwal">
                                         <i class="fas fa-calendar-alt"></i>
                                         <span>Jadwal</span>
@@ -1411,8 +1693,11 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                             <div class="jadwal-info-item">
                                                 <h4><?= $j['nama_mk'] ?></h4>
                                                 <div class="meta">
-                                                    <span><i class="fas fa-clock me-1"></i><?= format_waktu($j['jam_mulai']) ?></span>
+                                                    <span><i class="fas fa-clock me-1"></i><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></span>
                                                     <span><i class="fas fa-map-marker-alt me-1"></i><?= $j['nama_lab'] ?></span>
+                                                    <?php if ($j['sesi'] != 0): ?>
+                                                        <span><i class="fas fa-users me-1"></i>Sesi <?= $j['sesi'] ?></span>
+                                                    <?php endif; ?>
                                                 </div>
                                                 <div class="asisten">
                                                     <i class="fas fa-user-tie me-1"></i><?= $j['asisten1_nama'] ?: '-' ?>
@@ -1452,5 +1737,69 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
         </div>
     </div>
 </div>
+
+<!-- Mobile Announcement Floating Button & Modal -->
+<?php if ($jumlah_pengumuman > 0): ?>
+<!-- Floating Action Button -->
+<button type="button" class="mobile-announcement-fab" id="mobileAnnouncementFab" onclick="openAnnouncementModal()">
+    <i class="fas fa-bullhorn"></i>
+    <span class="fab-badge"><?= $jumlah_pengumuman ?></span>
+</button>
+
+<!-- Overlay -->
+<div class="announcement-modal-overlay" id="announcementModalOverlay" onclick="closeAnnouncementModal()"></div>
+
+<!-- Centered Modal -->
+<div class="announcement-modal" id="announcementModal">
+    <div class="announcement-modal-header">
+        <h5><i class="fas fa-bullhorn"></i> Pengumuman</h5>
+        <button type="button" class="announcement-modal-close" onclick="closeAnnouncementModal()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="announcement-modal-body">
+        <?php foreach($pengumuman_list as $p): ?>
+        <div class="announcement-modal-item">
+            <div class="ann-title"><?= htmlspecialchars($p['judul']) ?></div>
+            <div class="ann-time">
+                <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+            </div>
+            <div class="ann-body"><?= nl2br(htmlspecialchars($p['isi'])) ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<script>
+// Mobile Announcement Modal Functions
+function openAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').style.display = 'block';
+    document.getElementById('announcementModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Trigger animation
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').classList.add('show');
+        document.getElementById('announcementModal').classList.add('show');
+    }, 10);
+}
+
+function closeAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').classList.remove('show');
+    document.getElementById('announcementModal').classList.remove('show');
+    
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').style.display = 'none';
+        document.getElementById('announcementModal').style.display = 'none';
+        document.body.style.overflow = '';
+    }, 300);
+}
+
+// Close on ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAnnouncementModal();
+});
+</script>
+<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

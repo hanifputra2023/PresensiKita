@@ -112,8 +112,19 @@ $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
     JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim
     WHERE $jadwal_asisten_clause
+    AND (j.sesi = 0 OR j.sesi = m.sesi)
     AND j.tanggal BETWEEN '$start_month' AND '$end_month'
 "));
+
+// [BARU] Hitung Rating Rata-rata Asisten
+$rating_query = mysqli_query($conn, "SELECT AVG(fp.rating) as avg_rating, COUNT(fp.id) as total_ulasan
+                                     FROM feedback_praktikum fp
+                                     JOIN jadwal j ON fp.jadwal_id = j.id
+                                     WHERE (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')");
+$rating_data = mysqli_fetch_assoc($rating_query);
+$avg_rating = $rating_data['avg_rating'] ? number_format($rating_data['avg_rating'], 1) : '0.0';
+$total_ulasan = $rating_data['total_ulasan'];
+
 
 // Total presensi mahasiswa bulan ini (di jadwal asisten)
 $total_jadwal_bulan = mysqli_fetch_assoc(mysqli_query($conn, "
@@ -158,10 +169,16 @@ $total_kehadiran = ($stat_hadir['hadir'] ?? 0) + ($stat_hadir['izin'] ?? 0) + ($
 $persen_hadir = $total_kehadiran > 0 ? round((($stat_hadir['hadir'] ?? 0) / $total_kehadiran) * 100) : 0;
 
 // Fetch Pengumuman Terbaru (3 Teratas)
-$pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman 
+$pengumuman_query = mysqli_query($conn, "SELECT * FROM pengumuman 
                                         WHERE target_role IN ('semua', 'asisten')
                                         AND status = 'active' 
                                         ORDER BY created_at DESC LIMIT 3");
+// Simpan ke array agar bisa dipakai di dua tempat (desktop alerts & mobile modal)
+$pengumuman_list = [];
+while ($p = mysqli_fetch_assoc($pengumuman_query)) {
+    $pengumuman_list[] = $p;
+}
+$jumlah_pengumuman = count($pengumuman_list);
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -426,7 +443,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 /* Stat Cards */
 .stat-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr); /* Ubah jadi 5 kolom */
     gap: 20px;
     margin-bottom: 28px;
 }
@@ -458,6 +475,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 .stat-icon.green { background: linear-gradient(135deg, #d4edda, #c3e6cb); color: #66cc00; }
 .stat-icon.yellow { background: linear-gradient(135deg, #fff3cd, #ffeeba); color: #ffaa00; }
 .stat-icon.cyan { background: linear-gradient(135deg, #d1ecf1, #b8e5eb); color: #00ccff; }
+.stat-icon.orange { background: linear-gradient(135deg, #ffe5d0, #ffccb0); color: #fd7e14; }
 
 .stat-info h3 {
     font-size: 1.6rem;
@@ -494,19 +512,23 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: var(--header-bg);
+    background: var(--banner-gradient);
 }
 .card-box .card-header-custom h3 {
     font-size: 1rem;
     font-weight: 600;
     margin: 0;
-    color: var(--text-main);
+    color: var(--putih);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .card-box .card-header-custom h3 i {
-    color: #0066cc;
+    color: var(--putih);
+}
+.card-box .card-header-custom a.btn-outline {
+    color: var(--putih);
+    border-color: var(--putih);
 }
 .card-box .card-body-custom {
     padding: 20px 24px;
@@ -980,6 +1002,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 [data-theme="dark"] .stat-icon.green { background: rgba(102, 204, 0, 0.2); color: #85e085; }
 [data-theme="dark"] .stat-icon.yellow { background: rgba(255, 170, 0, 0.2); color: #ffcc00; }
 [data-theme="dark"] .stat-icon.cyan { background: rgba(0, 204, 255, 0.2); color: #33d6ff; }
+[data-theme="dark"] .stat-icon.orange { background: rgba(253, 126, 20, 0.2); color: #fd7e14; }
 
 [data-theme="dark"] .jadwal-info .materi {
     background: rgba(255,255,255,0.05);
@@ -1568,6 +1591,185 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
         font-size: 0.7rem;
     }
 }
+
+/* Mobile Announcement Popup */
+.mobile-announcement-fab {
+    display: none;
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0066cc 0%, #00ccff 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: fabPulse 2s infinite;
+}
+.mobile-announcement-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(0, 102, 204, 0.5);
+}
+.mobile-announcement-fab i {
+    font-size: 1.3rem;
+}
+.mobile-announcement-fab .fab-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+@keyframes fabPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4); }
+    50% { box-shadow: 0 4px 30px rgba(0, 102, 204, 0.6); }
+}
+
+/* Modal Announcement Mobile - Centered & Modern */
+.announcement-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.announcement-modal-overlay.show {
+    opacity: 1;
+}
+.announcement-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: calc(100% - 32px);
+    max-width: 400px;
+    max-height: 80vh;
+    background: var(--bg-card);
+    border-radius: 20px;
+    z-index: 1051;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.announcement-modal.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+.announcement-modal-header {
+    padding: 20px 20px 16px;
+    background: var(--primary-color);
+    color: var(--putih);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.announcement-modal-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--putih);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.announcement-modal-header h5 i {
+    color: var(--putih);
+}
+.announcement-modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--putih);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+.announcement-modal-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+.announcement-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+.announcement-modal-item {
+    background: var(--bg-sidebar);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0066cc;
+    transition: all 0.2s ease;
+}
+.announcement-modal-item:last-child {
+    margin-bottom: 0;
+}
+.announcement-modal-item .ann-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+.announcement-modal-item .ann-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.announcement-modal-item .ann-body {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Responsive: Hide desktop announcements on mobile, show FAB */
+@media (max-width: 768px) {
+    .announcement-wrapper {
+        display: none !important;
+    }
+    .mobile-announcement-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Dark mode untuk modal */
+[data-theme="dark"] .announcement-modal-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: #38bdf8;
+}
+[data-theme="dark"] .mobile-announcement-fab {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+}
 </style>
 
 <div class="container-fluid">
@@ -1580,10 +1782,10 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
             <div class="dashboard-content">
                 <?= show_alert() ?>
                 
-                             <!-- Pengumuman Section -->
-                <?php if (mysqli_num_rows($pengumuman_list) > 0): ?>
+                             <!-- Pengumuman Section (Desktop) -->
+                <?php if ($jumlah_pengumuman > 0): ?>
                     <div class="announcement-wrapper">
-                        <?php while($p = mysqli_fetch_assoc($pengumuman_list)): ?>
+                        <?php foreach($pengumuman_list as $p): ?>
                         <div class="announcement-item alert fade show" role="alert">
                             <div class="announcement-icon-box">
                                 <i class="fas fa-bullhorn"></i>
@@ -1603,7 +1805,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
 
@@ -1704,6 +1906,16 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                             <p>Jadwal Bulan Ini</p>
                         </div>
                     </div>
+                    <!-- [BARU] Card Rating -->
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $avg_rating ?></h3>
+                            <p><?= $total_ulasan ?> Ulasan</p>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Main Grid -->
@@ -1712,7 +1924,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                     <div class="card-box">
                         <div class="card-header-custom">
                             <h3><i class="fas fa-calendar-day"></i> Jadwal Mengajar Hari Ini</h3>
-                            <a href="index.php?page=asisten_jadwal" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                            <a href="index.php?page=asisten_jadwal" class="btn btn-sm btn-outline">Lihat Semua</a>
                         </div>
                         <div class="card-body-custom">
                             <?php if (count($all_jadwal) > 0): ?>
@@ -1847,7 +2059,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                     <div class="card-box">
                         <div class="card-header-custom">
                             <h3><i class="fas fa-history"></i> Riwayat Mengajar Terakhir</h3>
-                            <a href="index.php?page=asisten_rekap" class="btn btn-sm btn-outline-primary">Lihat Rekap</a>
+                            <a href="index.php?page=asisten_rekap" class="btn btn-sm btn-outline">Lihat Rekap</a>
                         </div>
                         <div class="card-body-custom">
                             <?php if (mysqli_num_rows($riwayat) > 0): ?>
@@ -2068,5 +2280,69 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     }
 })();
 </script>
+
+<!-- Mobile Announcement Floating Button & Modal -->
+<?php if ($jumlah_pengumuman > 0): ?>
+<!-- Floating Action Button -->
+<button type="button" class="mobile-announcement-fab" id="mobileAnnouncementFab" onclick="openAnnouncementModal()">
+    <i class="fas fa-bullhorn"></i>
+    <span class="fab-badge"><?= $jumlah_pengumuman ?></span>
+</button>
+
+<!-- Overlay -->
+<div class="announcement-modal-overlay" id="announcementModalOverlay" onclick="closeAnnouncementModal()"></div>
+
+<!-- Centered Modal -->
+<div class="announcement-modal" id="announcementModal">
+    <div class="announcement-modal-header">
+        <h5><i class="fas fa-bullhorn"></i> Pengumuman</h5>
+        <button type="button" class="announcement-modal-close" onclick="closeAnnouncementModal()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="announcement-modal-body">
+        <?php foreach($pengumuman_list as $p): ?>
+        <div class="announcement-modal-item">
+            <div class="ann-title"><?= htmlspecialchars($p['judul']) ?></div>
+            <div class="ann-time">
+                <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+            </div>
+            <div class="ann-body"><?= nl2br(htmlspecialchars($p['isi'])) ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<script>
+// Mobile Announcement Modal Functions
+function openAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').style.display = 'block';
+    document.getElementById('announcementModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Trigger animation
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').classList.add('show');
+        document.getElementById('announcementModal').classList.add('show');
+    }, 10);
+}
+
+function closeAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').classList.remove('show');
+    document.getElementById('announcementModal').classList.remove('show');
+    
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').style.display = 'none';
+        document.getElementById('announcementModal').style.display = 'none';
+        document.body.style.overflow = '';
+    }, 300);
+}
+
+// Close on ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAnnouncementModal();
+});
+</script>
+<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

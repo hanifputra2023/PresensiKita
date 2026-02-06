@@ -34,7 +34,7 @@ function get_user_login() {
 function get_mahasiswa_login() {
     global $conn;
     $user_id = $_SESSION['user_id'];
-    $stmt = mysqli_prepare($conn, "SELECT m.*, k.nama_kelas 
+    $stmt = mysqli_prepare($conn, "SELECT m.*, k.nama_kelas
                                    FROM mahasiswa m 
                                    JOIN kelas k ON m.kode_kelas = k.kode_kelas 
                                    WHERE m.user_id = ?");
@@ -272,13 +272,14 @@ function init_presensi_jadwal($jadwal_id) {
     global $conn;
     
     // Ambil info jadwal - prepared statement
-    $stmt_jadwal = mysqli_prepare($conn, "SELECT kode_kelas, kode_mk, tanggal, jam_mulai, jenis FROM jadwal WHERE id = ?");
+    $stmt_jadwal = mysqli_prepare($conn, "SELECT kode_kelas, kode_mk, tanggal, jam_mulai, jenis, sesi FROM jadwal WHERE id = ?");
     mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
     mysqli_stmt_execute($stmt_jadwal);
     $jadwal = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
     if (!$jadwal) return 0;
     
     $kode_kelas = $jadwal['kode_kelas'];
+    $sesi_jadwal = $jadwal['sesi']; // 0 = semua, >0 = sesi tertentu
     $kode_mk = $jadwal['kode_mk'];
     $tanggal_jadwal = $jadwal['tanggal'];
     $jam_mulai = $jadwal['jam_mulai'];
@@ -311,13 +312,15 @@ function init_presensi_jadwal($jadwal_id) {
         // Untuk jadwal MATERI dan UJIKOM, init untuk semua mahasiswa sekelas
         // SEMUA mahasiswa di kelas bisa ikut jadwal yang SEDANG AKTIF (belum selesai)
         // Tidak ada filter tanggal_daftar karena ini dipanggil saat QR di-generate (jadwal aktif)
+        // UPDATE: Filter berdasarkan sesi jika jadwal memiliki sesi khusus
         $stmt_mhs_belum = mysqli_prepare($conn, "SELECT m.nim 
                                            FROM mahasiswa m 
                                            WHERE m.kode_kelas = ? 
+                                           AND (m.sesi = ? OR ? = 0)
                                            AND m.nim NOT IN (
                                                SELECT nim FROM presensi_mahasiswa WHERE jadwal_id = ?
                                            )");
-        mysqli_stmt_bind_param($stmt_mhs_belum, "si", $kode_kelas, $jadwal_id);
+        mysqli_stmt_bind_param($stmt_mhs_belum, "siii", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $jadwal_id);
         mysqli_stmt_execute($stmt_mhs_belum);
         $mhs_belum = mysqli_stmt_get_result($stmt_mhs_belum);
         
@@ -364,7 +367,7 @@ function auto_set_alpha_jadwal_lewat() {
     // Juga handle jadwal yang belum ada record sama sekali (fallback)
     // Untuk jadwal yang tidak pernah di-init (misal jadwal lama)
     // TIDAK termasuk inhall
-    $jadwal_lewat = mysqli_query($conn, "SELECT j.id, j.kode_kelas, j.tanggal, j.jam_selesai
+    $jadwal_lewat = mysqli_query($conn, "SELECT j.id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi
                                           FROM jadwal j 
                                           WHERE j.jenis != 'inhall'
                                           AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
@@ -374,6 +377,7 @@ function auto_set_alpha_jadwal_lewat() {
     while ($jadwal = mysqli_fetch_assoc($jadwal_lewat)) {
         $jadwal_id = $jadwal['id'];
         $kode_kelas = $jadwal['kode_kelas'];
+        $sesi_jadwal = $jadwal['sesi'];
         $tanggal_jadwal = $jadwal['tanggal'];
         $jam_selesai = $jadwal['jam_selesai'];
         $tanggal_jam_selesai = $tanggal_jadwal . ' ' . $jam_selesai;
@@ -384,11 +388,12 @@ function auto_set_alpha_jadwal_lewat() {
         $stmt_mhs_belum = mysqli_prepare($conn, "SELECT m.nim 
                                            FROM mahasiswa m 
                                            WHERE m.kode_kelas = ? 
+                                           AND (m.sesi = ? OR ? = 0)
                                            AND m.tanggal_daftar < ?
                                            AND m.nim NOT IN (
                                                SELECT nim FROM presensi_mahasiswa WHERE jadwal_id = ?
                                            )");
-        mysqli_stmt_bind_param($stmt_mhs_belum, "ssi", $kode_kelas, $tanggal_jam_selesai, $jadwal_id);
+        mysqli_stmt_bind_param($stmt_mhs_belum, "siisi", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $jadwal_id);
         mysqli_stmt_execute($stmt_mhs_belum);
         $mhs_belum = mysqli_stmt_get_result($stmt_mhs_belum);
         
@@ -413,7 +418,7 @@ function set_alpha_jadwal($jadwal_id) {
     global $conn;
     
     // Ambil info jadwal - prepared statement
-    $stmt_jadwal = mysqli_prepare($conn, "SELECT kode_kelas, tanggal, jam_mulai, jam_selesai, jenis FROM jadwal WHERE id = ?");
+    $stmt_jadwal = mysqli_prepare($conn, "SELECT kode_kelas, tanggal, jam_mulai, jam_selesai, jenis, sesi FROM jadwal WHERE id = ?");
     mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
     mysqli_stmt_execute($stmt_jadwal);
     $jadwal = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
@@ -423,6 +428,7 @@ function set_alpha_jadwal($jadwal_id) {
     if ($jadwal['jenis'] == 'inhall') return 0;
     
     $kode_kelas = $jadwal['kode_kelas'];
+    $sesi_jadwal = $jadwal['sesi'];
     $tanggal_jadwal = $jadwal['tanggal'];
     $jam_mulai = $jadwal['jam_mulai'];
     $total = 0;
@@ -434,11 +440,12 @@ function set_alpha_jadwal($jadwal_id) {
     $stmt_mhs_belum = mysqli_prepare($conn, "SELECT m.nim 
                                        FROM mahasiswa m 
                                        WHERE m.kode_kelas = ? 
+                                       AND (m.sesi = ? OR ? = 0)
                                        AND m.tanggal_daftar < ?
                                        AND m.nim NOT IN (
                                            SELECT nim FROM presensi_mahasiswa WHERE jadwal_id = ?
                                        )");
-    mysqli_stmt_bind_param($stmt_mhs_belum, "ssi", $kode_kelas, $tanggal_jam_selesai, $jadwal_id);
+    mysqli_stmt_bind_param($stmt_mhs_belum, "siisi", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $jadwal_id);
     mysqli_stmt_execute($stmt_mhs_belum);
     $mhs_belum = mysqli_stmt_get_result($stmt_mhs_belum);
     
@@ -600,7 +607,7 @@ function auto_set_alpha() {
     
     // Fallback: Insert alpha untuk mahasiswa yang tidak punya record sama sekali
     // Hanya untuk jadwal MATERI dan UJIKOM, BUKAN INHALL
-    $query_jadwal = "SELECT j.id as jadwal_id, j.kode_kelas, j.tanggal, j.jam_selesai
+    $query_jadwal = "SELECT j.id as jadwal_id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi
                      FROM jadwal j
                      WHERE j.jenis != 'inhall'
                      AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
@@ -612,6 +619,7 @@ function auto_set_alpha() {
     while ($jadwal = mysqli_fetch_assoc($jadwal_selesai)) {
         $jadwal_id = $jadwal['jadwal_id'];
         $kode_kelas = $jadwal['kode_kelas'];
+        $sesi_jadwal = $jadwal['sesi'];
         $tanggal_jadwal = $jadwal['tanggal'];
         $jam_selesai = $jadwal['jam_selesai'];
         $tanggal_jam_selesai = $tanggal_jadwal . ' ' . $jam_selesai;
@@ -621,11 +629,12 @@ function auto_set_alpha() {
         $stmt_mhs = mysqli_prepare($conn, "SELECT m.nim 
                       FROM mahasiswa m 
                       WHERE m.kode_kelas = ?
+                      AND (m.sesi = ? OR ? = 0)
                       AND m.tanggal_daftar < ?
                       AND m.nim NOT IN (
                           SELECT p.nim FROM presensi_mahasiswa p WHERE p.jadwal_id = ?
                       )");
-        mysqli_stmt_bind_param($stmt_mhs, "ssi", $kode_kelas, $tanggal_jam_selesai, $jadwal_id);
+        mysqli_stmt_bind_param($stmt_mhs, "siisi", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $jadwal_id);
         mysqli_stmt_execute($stmt_mhs);
         $mhs_belum = mysqli_stmt_get_result($stmt_mhs);
         
@@ -720,4 +729,112 @@ function optimize_and_save_image($source_path, $destination_path, $max_width, $m
     return $result;
 }
 
+// ============ FITUR TAMBAHAN (GAMIFIKASI & NOTIFIKASI) ============
+
+/**
+ * Hitung Badges untuk Mahasiswa
+ */
+function get_mahasiswa_badges($nim) {
+    global $conn;
+    $badges = [];
+    
+    // 1. Badge "Rajin Presensi" (Kehadiran > 90%)
+    $q_stat = mysqli_query($conn, "SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'hadir' THEN 1 ELSE 0 END) as hadir
+        FROM presensi_mahasiswa WHERE nim = '$nim'");
+    $stat = mysqli_fetch_assoc($q_stat);
+    
+    if ($stat['total'] > 0 && ($stat['hadir'] / $stat['total']) >= 0.9) {
+        $badges[] = ['icon' => 'medal', 'color' => 'warning', 'title' => 'Sobat Rajin', 'desc' => 'Kehadiran di atas 90%'];
+    }
+
+    // 2. Badge "Early Bird" (Selalu datang sebelum jam mulai)
+    // Cek 5 presensi terakhir, apakah waktu_presensi <= jam_mulai jadwal
+    $q_early = mysqli_query($conn, "SELECT p.waktu_presensi, j.jam_mulai 
+                                    FROM presensi_mahasiswa p
+                                    JOIN jadwal j ON p.jadwal_id = j.id
+                                    WHERE p.nim = '$nim' AND p.status = 'hadir'
+                                    ORDER BY p.waktu_presensi DESC LIMIT 5");
+    
+    $is_early = true;
+    $count = 0;
+    while($row = mysqli_fetch_assoc($q_early)) {
+        $count++;
+        // Bandingkan waktu (H:i:s)
+        if (date('H:i:s', strtotime($row['waktu_presensi'])) > $row['jam_mulai']) {
+            $is_early = false;
+            break;
+        }
+    }
+    
+    if ($count >= 3 && $is_early) {
+        $badges[] = ['icon' => 'bolt', 'color' => 'info', 'title' => 'Early Bird', 'desc' => 'Selalu datang tepat waktu'];
+    }
+    
+    return $badges;
+}
+
+/**
+ * Kirim Notifikasi (Stub/Placeholder)
+ * Di sistem real, ini bisa dihubungkan ke API WhatsApp (Fonnte/Twilio) atau PHPMailer
+ */
+function kirim_notifikasi($target, $pesan, $tipe = 'wa') {
+    // Konfigurasi API WhatsApp (Contoh menggunakan Fonnte)
+    // Silakan daftar di https://fonnte.com untuk dapat token gratis
+    $token = "r3xT7ppTj28hxKamgjJE"; 
+
+    if ($tipe == 'wa') {
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+          CURLOPT_URL => 'https://api.fonnte.com/send',
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_ENCODING => '',
+          CURLOPT_MAXREDIRS => 10,
+          CURLOPT_TIMEOUT => 0,
+          CURLOPT_FOLLOWLOCATION => true,
+          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+          CURLOPT_CUSTOMREQUEST => 'POST',
+          CURLOPT_POSTFIELDS => array(
+            'target' => $target,
+            'message' => $pesan,
+          ),
+          CURLOPT_HTTPHEADER => array(
+            "Authorization: $token"
+          ),
+        ));
+
+        $response = curl_exec($curl);
+        curl_close($curl);
+        return $response;
+    }
+    
+    return false;
+}
+
+// ============ GAMIFIKASI MAHASISWA ============
+
+function get_mahasiswa_points($nim) {
+    global $conn;
+    // Hadir = 10 poin, Izin/Sakit = 5 poin
+    $q = mysqli_query($conn, "SELECT 
+        SUM(CASE 
+            WHEN status = 'hadir' THEN 10 
+            WHEN status = 'izin' THEN 5 
+            WHEN status = 'sakit' THEN 5 
+            ELSE 0 
+        END) as points 
+        FROM presensi_mahasiswa WHERE nim = '$nim'");
+    $r = mysqli_fetch_assoc($q);
+    return (int)($r['points'] ?? 0);
+}
+
+function get_mahasiswa_level($points) {
+    if ($points < 50) return ['name' => 'Novice', 'icon' => 'seedling', 'color' => 'secondary', 'min' => 0, 'max' => 50];
+    if ($points < 150) return ['name' => 'Apprentice', 'icon' => 'book-reader', 'color' => 'info', 'min' => 50, 'max' => 150];
+    if ($points < 300) return ['name' => 'Practitioner', 'icon' => 'user-graduate', 'color' => 'primary', 'min' => 150, 'max' => 300];
+    if ($points < 500) return ['name' => 'Expert', 'icon' => 'star', 'color' => 'warning', 'min' => 300, 'max' => 500];
+    return ['name' => 'Master', 'icon' => 'crown', 'color' => 'danger', 'min' => 500, 'max' => 1000];
+}
 ?>

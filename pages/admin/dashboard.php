@@ -99,10 +99,16 @@ $lab_usage = mysqli_query($conn, "
 $greeting = sapaan_waktu();
 
 // Fetch Pengumuman Terbaru (3 Teratas) untuk Admin
-$pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
+$pengumuman_query = mysqli_query($conn, "SELECT * FROM pengumuman
                                         WHERE target_role IN ('semua', 'admin')
                                         AND status = 'active'
                                         ORDER BY created_at DESC LIMIT 3");
+// Simpan ke array agar bisa dipakai di dua tempat (desktop alerts & mobile modal)
+$pengumuman_list = [];
+while ($p = mysqli_fetch_assoc($pengumuman_query)) {
+    $pengumuman_list[] = $p;
+}
+$jumlah_pengumuman = count($pengumuman_list);
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -520,23 +526,23 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: var(--bg-body);
+    background: var(--banner-gradient);
 }
 .card-box .card-header h2 {
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--putih);
     margin: 0;
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .card-box .card-header h2 i {
-    color: #0066cc;
+    color: var(--putih);
     font-size: 1rem;
 }
 .card-box .card-header .btn-link {
-    color: #0066cc;
+    color: var(--putih);
     text-decoration: none;
     font-size: 0.8rem;
     font-weight: 500;
@@ -1109,6 +1115,185 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
 [data-theme="dark"] .top-rank.normal {
     background-color: rgba(255,255,255,0.1);
 }
+
+/* Mobile Announcement Popup */
+.mobile-announcement-fab {
+    display: none;
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0066cc 0%, #00ccff 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: fabPulse 2s infinite;
+}
+.mobile-announcement-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(0, 102, 204, 0.5);
+}
+.mobile-announcement-fab i {
+    font-size: 1.3rem;
+}
+.mobile-announcement-fab .fab-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+@keyframes fabPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4); }
+    50% { box-shadow: 0 4px 30px rgba(0, 102, 204, 0.6); }
+}
+
+/* Modal Announcement Mobile - Centered & Modern */
+.announcement-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.announcement-modal-overlay.show {
+    opacity: 1;
+}
+.announcement-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: calc(100% - 32px);
+    max-width: 400px;
+    max-height: 80vh;
+    background: var(--bg-card);
+    border-radius: 20px;
+    z-index: 1051;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.announcement-modal.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+.announcement-modal-header {
+    padding: 20px 20px 16px;
+    background: var(--primary-color);
+    color: var(--putih);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.announcement-modal-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--putih);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.announcement-modal-header h5 i {
+    color: var(--putih);
+}
+.announcement-modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--putih);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+.announcement-modal-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+.announcement-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+.announcement-modal-item {
+    background: var(--bg-sidebar);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0066cc;
+    transition: all 0.2s ease;
+}
+.announcement-modal-item:last-child {
+    margin-bottom: 0;
+}
+.announcement-modal-item .ann-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+.announcement-modal-item .ann-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.announcement-modal-item .ann-body {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Responsive: Hide desktop announcements on mobile, show FAB */
+@media (max-width: 768px) {
+    .announcement-wrapper {
+        display: none !important;
+    }
+    .mobile-announcement-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Dark mode untuk modal */
+[data-theme="dark"] .announcement-modal-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: #38bdf8;
+}
+[data-theme="dark"] .mobile-announcement-fab {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+}
 </style>
 
 <div class="container-fluid">
@@ -1122,10 +1307,10 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                 
                 <?= show_alert() ?>
                 
-                <!-- Pengumuman Section -->
-                <?php if (mysqli_num_rows($pengumuman_list) > 0): ?>
+                <!-- Pengumuman Section (Desktop) -->
+                <?php if ($jumlah_pengumuman > 0): ?>
                     <div class="announcement-wrapper">
-                        <?php while($p = mysqli_fetch_assoc($pengumuman_list)): ?>
+                        <?php foreach($pengumuman_list as $p): ?>
                         <div class="announcement-item alert fade show" role="alert">
                             <div class="announcement-icon-box">
                                 <i class="fas fa-bullhorn"></i>
@@ -1145,7 +1330,7 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
                                 <i class="fas fa-times"></i>
                             </button>
                         </div>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     </div>
                 <?php endif; ?>
                 
@@ -1487,5 +1672,69 @@ $pengumuman_list = mysqli_query($conn, "SELECT * FROM pengumuman
         </div>
     </div>
 </div>
+
+<!-- Mobile Announcement Floating Button & Modal -->
+<?php if ($jumlah_pengumuman > 0): ?>
+<!-- Floating Action Button -->
+<button type="button" class="mobile-announcement-fab" id="mobileAnnouncementFab" onclick="openAnnouncementModal()">
+    <i class="fas fa-bullhorn"></i>
+    <span class="fab-badge"><?= $jumlah_pengumuman ?></span>
+</button>
+
+<!-- Overlay -->
+<div class="announcement-modal-overlay" id="announcementModalOverlay" onclick="closeAnnouncementModal()"></div>
+
+<!-- Centered Modal -->
+<div class="announcement-modal" id="announcementModal">
+    <div class="announcement-modal-header">
+        <h5><i class="fas fa-bullhorn"></i> Pengumuman</h5>
+        <button type="button" class="announcement-modal-close" onclick="closeAnnouncementModal()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="announcement-modal-body">
+        <?php foreach($pengumuman_list as $p): ?>
+        <div class="announcement-modal-item">
+            <div class="ann-title"><?= htmlspecialchars($p['judul']) ?></div>
+            <div class="ann-time">
+                <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+            </div>
+            <div class="ann-body"><?= nl2br(htmlspecialchars($p['isi'])) ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<script>
+// Mobile Announcement Modal Functions
+function openAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').style.display = 'block';
+    document.getElementById('announcementModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Trigger animation
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').classList.add('show');
+        document.getElementById('announcementModal').classList.add('show');
+    }, 10);
+}
+
+function closeAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').classList.remove('show');
+    document.getElementById('announcementModal').classList.remove('show');
+    
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').style.display = 'none';
+        document.getElementById('announcementModal').style.display = 'none';
+        document.body.style.overflow = '';
+    }, 300);
+}
+
+// Close on ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAnnouncementModal();
+});
+</script>
+<?php endif; ?>
 
 <?php include 'includes/footer.php'; ?>

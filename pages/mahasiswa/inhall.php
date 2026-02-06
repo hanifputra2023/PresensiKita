@@ -45,6 +45,23 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+    /* Dark Mode Fixes for Warning Badge */
+    [data-theme="dark"] .text-warning {
+        color: #ffda6a !important; /* Kuning lebih terang agar terbaca di dark mode */
+    }
+    /* Fix badge text color being black in dark mode due to global override */
+    [data-theme="dark"] .badge.bg-warning.bg-opacity-10 {
+        color: #ffda6a !important;
+        background-color: rgba(255, 218, 106, 0.1) !important;
+        border-color: rgba(255, 218, 106, 0.3) !important;
+    }
+    
+    .text-warning {
+        color: var(--putih);
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -53,39 +70,59 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-redo me-2"></i>Inhall (Penggantian)</h4>
+                <div class="d-flex align-items-center justify-content-between mb-4">
+                    <div>
+                        <h4 class="mb-1 fw-bold text-primary"><i class="fas fa-redo me-2"></i>Inhall (Penggantian)</h4>
+                        <p class="text-muted mb-0">Kelola jadwal penggantian praktikum Anda di sini.</p>
+                    </div>
+                </div>
                 
-                <div class="row">
+                <div class="row g-4">
                     <!-- Perlu Diinhall -->
-                    <div class="col-md-6 mb-4">
-                        <div class="card border-0 shadow-sm">
-                            <div class="card-header bg-warning text-dark">
-                                <i class="fas fa-exclamation-triangle me-2"></i>Pertemuan yang Perlu Diganti
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0 fw-bold status-warning">
+    <i class="fas fa-exclamation-circle me-2"></i>Perlu Diganti
+</h6>
+
                             </div>
-                            <div class="card-body">
+                            <div class="card-body p-0">
                                 <?php if (count($perlu_inhall_data) > 0): ?>
-                                    <ul class="list-group list-group-flush">
                                         <?php foreach ($perlu_inhall_data as $p): ?>
-                                            <li class="list-group-item px-0">
-                                                <div class="d-flex justify-content-between align-items-start">
-                                                    <div>
-                                                        <strong class="text-primary"><?= $p['nama_mk'] ?></strong>
-                                                        <br><span class="badge bg-secondary">Pertemuan <?= $p['pertemuan_ke'] ?></span>
-                                                        <br><small><?= $p['materi'] ?></small>
-                                                        <br><small class="text-muted"><i class="fas fa-calendar me-1"></i><?= format_tanggal($p['tanggal']) ?></small>
-                                                        <?php if ($p['alasan_izin']): ?>
-                                                            <br><small class="text-muted"><i class="fas fa-comment me-1"></i><?= $p['alasan_izin'] ?></small>
-                                                        <?php endif; ?>
+                                            <div class="p-3 hover-bg-light transition-all">
+                                                <div class="d-flex flex-wrap flex-md-nowrap gap-3 align-items-center">
+                                                    <div class="d-flex gap-3 flex-grow-1 w-100 w-md-auto align-items-start">
+                                                        <!-- Date Box (Disamakan dengan Jadwal Tersedia) -->
+                                                        <div class="flex-shrink-0 text-center rounded p-1 bg-light border d-flex flex-column justify-content-center" style="width: 50px; height: 50px;">
+                                                            <div class="fw-bold text-warning" style="font-size: 1.2rem; line-height: 1;"><?= date('d', strtotime($p['tanggal'])) ?></div>
+                                                            <div class="small text-muted text-uppercase" style="font-size: 0.65rem;"><?= date('M', strtotime($p['tanggal'])) ?></div>
+                                                        </div>
+                                                        
+                                                        <div class="flex-grow-1" style="min-width: 0;">
+                                                            <h6 class="mb-1 fw-bold text-dark text-truncate" title="<?= $p['nama_mk'] ?>"><?= $p['nama_mk'] ?></h6>
+                                                            <div class="small text-muted">
+                                                                <div class="mb-1 text-truncate" title="<?= $p['materi'] ?>"><span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 me-1">P<?= $p['pertemuan_ke'] ?></span> <?= $p['materi'] ?></div>
+                                                                <?php if ($p['alasan_izin']): ?>
+                                                                    <div class="d-flex align-items-center text-truncate" title="<?= $p['alasan_izin'] ?>"><i class="far fa-comment-dots me-2 text-center" style="width:16px"></i> <?= $p['alasan_izin'] ?></div>
+                                                                <?php endif; ?>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <span class="badge bg-warning text-dark">Belum Diganti</span>
+                                                    
+                                                    <div class="w-100 w-md-auto flex-shrink-0">
+                                                        <span class="badge bg-light text-warning border border-warning border-opacity-25 rounded-pill px-3 py-2 w-100 d-block text-center">Belum Diganti</span>
+                                                    </div>
                                                 </div>
-                                            </li>
+                                            </div>
                                         <?php endforeach; ?>
-                                    </ul>
                                 <?php else: ?>
-                                    <div class="text-center py-4">
-                                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                                        <p class="text-muted mb-0">Tidak ada pertemuan yang perlu diganti</p>
+                                    <div class="text-center py-5">
+                                        <div class="mb-3">
+                                            <i class="fas fa-check-circle fa-3x text-success opacity-50"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-dark">Semua Aman!</h6>
+                                        <p class="text-muted small mb-0">Tidak ada pertemuan yang perlu diganti saat ini.</p>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -93,47 +130,61 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                     </div>
                     
                     <!-- Jadwal Inhall Tersedia -->
-                    <div class="col-md-6 mb-4">
-                        <div class="card border-0 shadow-sm">
-                            <div class="card-header bg-info text-white">
-                                <i class="fas fa-calendar-alt me-2"></i>Jadwal Inhall Tersedia
+                    <div class="col-lg-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-header">
+                                <h6 class="mb-0 fw-bold status-warning"><i class="fas fa-calendar-check me-2"></i>Jadwal Tersedia</h6>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body p-0">
                                 <?php if (mysqli_num_rows($jadwal_inhall) > 0): ?>
-                                    <ul class="list-group list-group-flush">
                                         <?php while ($j = mysqli_fetch_assoc($jadwal_inhall)): ?>
-                                            <li class="list-group-item px-0">
-                                                <div class="d-flex justify-content-between align-items-center">
-                                                    <div>
-                                                        <strong class="text-primary"><?= $j['nama_mk'] ?></strong>
-                                                        <br><small><i class="fas fa-calendar me-1"></i><?= format_tanggal($j['tanggal']) ?></small>
-                                                        <br><small class="text-muted">
-                                                            <i class="fas fa-clock me-1"></i><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?>
-                                                        </small>
-                                                        <br><small class="text-muted">
-                                                            <i class="fas fa-map-marker-alt me-1"></i><?= $j['nama_lab'] ?>
-                                                        </small>
+                                            <div class="p-3 hover-bg-light transition-all">
+                                                <div class="d-flex flex-wrap flex-md-nowrap gap-3 align-items-center">
+                                                    <div class="d-flex gap-3 flex-grow-1 w-100 w-md-auto align-items-start">
+                                                        <!-- Date Box -->
+                                                        <div class="flex-shrink-0 text-center rounded p-1 bg-light border d-flex flex-column justify-content-center" style="width: 50px; height: 50px;">
+                                                            <div class="fw-bold text-primary" style="font-size: 1.2rem; line-height: 1;"><?= date('d', strtotime($j['tanggal'])) ?></div>
+                                                            <div class="small text-muted text-uppercase" style="font-size: 0.65rem;"><?= date('M', strtotime($j['tanggal'])) ?></div>
+                                                        </div>
+                                                        
+                                                        <!-- Info -->
+                                                        <div class="flex-grow-1" style="min-width: 0;">
+                                                            <h6 class="mb-1 fw-bold text-dark text-truncate" title="<?= $j['nama_mk'] ?>"><?= $j['nama_mk'] ?></h6>
+                                                            <div class="small text-muted">
+                                                                <div class="mb-1 d-flex align-items-center"><i class="far fa-clock me-2 text-center" style="width:16px"></i> <?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></div>
+                                                                <div class="d-flex align-items-center"><i class="fas fa-map-marker-alt me-2 text-center" style="width:16px"></i> <?= $j['nama_lab'] ?></div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <?php if ($j['tanggal'] == date('Y-m-d')): ?>
-                                                        <a href="index.php?page=mahasiswa_scanner" class="btn btn-sm btn-success">
-                                                            <i class="fas fa-qrcode me-1"></i>Scan
-                                                        </a>
-                                                    <?php else: ?>
-                                                        <span class="badge bg-secondary">Mendatang</span>
-                                                    <?php endif; ?>
+                                                    
+                                                    <!-- Action -->
+                                                    <div class="w-100 w-md-auto flex-shrink-0">
+                                                        <?php if ($j['tanggal'] == date('Y-m-d')): ?>
+                                                            <a href="index.php?page=mahasiswa_scanner" class="btn btn-success btn-sm w-100 rounded-pill px-3 shadow-sm">
+                                                                <i class="fas fa-qrcode me-1"></i> Scan
+                                                            </a>
+                                                        <?php else: ?>
+                                                            <span class="badge bg-light text-secondary rounded-pill px-3 py-2 w-100 d-block text-center">Mendatang</span>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </div>
-                                            </li>
+                                            </div>
                                         <?php endwhile; ?>
-                                    </ul>
                                 <?php elseif (count($perlu_inhall_data) > 0): ?>
-                                    <div class="text-center py-4">
-                                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                                        <p class="text-muted mb-0">Belum ada jadwal inhall untuk mata kuliah yang perlu diganti</p>
+                                    <div class="text-center py-5">
+                                        <div class="mb-3">
+                                            <i class="fas fa-calendar-times fa-3x text-muted opacity-25"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-dark">Belum Ada Jadwal</h6>
+                                        <p class="text-muted small mb-0">Jadwal inhall untuk mata kuliah Anda belum tersedia.</p>
                                     </div>
                                 <?php else: ?>
-                                    <div class="text-center py-4">
-                                        <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
-                                        <p class="text-muted mb-0">Anda tidak memiliki pertemuan yang perlu diganti</p>
+                                    <div class="text-center py-5">
+                                        <div class="mb-3">
+                                            <i class="fas fa-mug-hot fa-3x text-info opacity-25"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-dark">Tidak Ada Tanggungan</h6>
+                                        <p class="text-muted small mb-0">Anda tidak perlu mengikuti inhall saat ini.</p>
                                     </div>
                                 <?php endif; ?>
                             </div>
@@ -142,15 +193,15 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                 </div>
                 
                 <!-- Riwayat Inhall -->
-                <?php if (mysqli_num_rows($riwayat_inhall) > 0): ?>
-                <div class="card border-0 shadow-sm mb-4">
-                    <div class="card-header bg-success text-white">
-                        <i class="fas fa-history me-2"></i>Riwayat Inhall yang Sudah Dilakukan
+                <div class="card border-0 shadow-sm mt-4">
+                    <div class="card-header">
+                        <h6 class="mb-0 fw-bold status-warning"><i class="fas fa-history me-2"></i>Riwayat Inhall</h6>
                     </div>
                     <div class="card-body">
+                        <?php if (mysqli_num_rows($riwayat_inhall) > 0): ?>
                         <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
                                     <tr>
                                         <th>Mata Kuliah</th>
                                         <th>Pertemuan Asli</th>
@@ -161,33 +212,35 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                                 <tbody>
                                     <?php while ($r = mysqli_fetch_assoc($riwayat_inhall)): ?>
                                     <tr>
-                                        <td><?= $r['nama_mk'] ?></td>
+                                        <td class="fw-bold"><?= $r['nama_mk'] ?></td>
                                         <td>
-                                            Pertemuan <?= $r['pertemuan_ke'] ?>
-                                            <br><small class="text-muted"><?= format_tanggal($r['tanggal_asli']) ?></small>
+                                            <span class="badge bg-light text-dark border">P<?= $r['pertemuan_ke'] ?></span>
+                                            <span class="small text-muted ms-1"><?= format_tanggal($r['tanggal_asli']) ?></span>
                                         </td>
                                         <td>
                                             <?php if ($r['tanggal_inhall']): ?>
-                                                Inhall <?= format_tanggal($r['tanggal_inhall']) ?>
+                                                <i class="fas fa-check-circle text-success me-1"></i> <?= format_tanggal($r['tanggal_inhall']) ?>
                                             <?php else: ?>
                                                 -
                                             <?php endif; ?>
                                         </td>
-                                        <td><span class="badge bg-success">Sudah Diganti</span></td>
+                                        <td><span class="badge bg-success rounded-pill">Selesai</span></td>
                                     </tr>
                                     <?php endwhile; ?>
                                 </tbody>
                             </table>
                         </div>
+                        <?php else: ?>
+                            <p class="text-muted text-center mb-0 py-3 small">Belum ada riwayat inhall.</p>
+                        <?php endif; ?>
                     </div>
                 </div>
-                <?php endif; ?>
                 
                 <!-- Info -->
-                <div class="card border-0 shadow-sm">
+                <div class="card border-0 shadow-sm mt-4 bg-light">
                     <div class="card-body">
-                        <h6><i class="fas fa-info-circle text-info me-2"></i>Informasi Inhall:</h6>
-                        <ul class="mb-0">
+                        <h6 class="fw-bold text-dark mb-3"><i class="fas fa-info-circle text-primary me-2"></i>Informasi Inhall</h6>
+                        <ul class="mb-0 small text-muted ps-3">
                             <li>Inhall adalah sesi penggantian untuk mahasiswa yang <strong>izin/sakit</strong> pada pertemuan materi</li>
                             <li>Anda hanya bisa mengikuti inhall untuk <strong>mata kuliah yang sama</strong> dengan yang Anda izin</li>
                             <li>Datang ke jadwal inhall sesuai yang tersedia (boleh beda kelas) dan lakukan <strong>scan presensi seperti biasa</strong></li>

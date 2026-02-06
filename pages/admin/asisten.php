@@ -135,9 +135,15 @@ if (isset($_GET['ajax_search'])) {
                         </div>
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-start mb-3">
-                                <div>
-                                    <h5 class="card-title mb-1"><?= htmlspecialchars($a['nama']) ?></h5>
-                                    <span class="badge bg-info mb-2"><?= htmlspecialchars($a['kode_asisten']) ?></span>
+                                <div class="d-flex align-items-center gap-3">
+                                    <?php 
+                                    $foto_profil = (!empty($a['foto']) && file_exists($a['foto'])) ? $a['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($a['nama']) . '&background=random&color=fff&rounded=true';
+                                    ?>
+                                    <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($a['nama']) ?>" class="rounded-circle border" style="width: 50px; height: 50px; object-fit: cover;" loading="lazy">
+                                    <div>
+                                        <h5 class="card-title mb-1"><?= htmlspecialchars($a['nama']) ?></h5>
+                                        <span class="badge bg-info"><?= htmlspecialchars($a['kode_asisten']) ?></span>
+                                    </div>
                                 </div>
                                 <span class="badge <?= $a['status'] == 'aktif' ? 'bg-success' : 'bg-secondary' ?> text-capitalize">
                                     <?= htmlspecialchars($a['status']) ?>
@@ -302,9 +308,15 @@ if (isset($_GET['ajax_search'])) {
                                     </div>
                                     <div class="card-body d-flex flex-column">
                                         <div class="d-flex justify-content-between align-items-start mb-3">
-                                            <div>
-                                                <h5 class="card-title mb-1"><?= htmlspecialchars($a['nama']) ?></h5>
-                                                <span class="badge bg-info mb-2"><?= htmlspecialchars($a['kode_asisten']) ?></span>
+                                            <div class="d-flex align-items-center gap-3">
+                                                <?php 
+                                                $foto_profil = (!empty($a['foto']) && file_exists($a['foto'])) ? $a['foto'] : 'https://ui-avatars.com/api/?name=' . urlencode($a['nama']) . '&background=random&color=fff&rounded=true';
+                                                ?>
+                                                <img src="<?= $foto_profil ?>" alt="<?= htmlspecialchars($a['nama']) ?>" class="rounded-circle border" style="width: 50px; height: 50px; object-fit: cover;" loading="lazy">
+                                                <div>
+                                                    <h5 class="card-title mb-1"><?= htmlspecialchars($a['nama']) ?></h5>
+                                                    <span class="badge bg-info"><?= htmlspecialchars($a['kode_asisten']) ?></span>
+                                                </div>
                                             </div>
                                             <span class="badge <?= $a['status'] == 'aktif' ? 'bg-success' : 'bg-secondary' ?> text-capitalize">
                                                 <?= htmlspecialchars($a['status']) ?>

@@ -3,6 +3,7 @@ $page = 'mahasiswa_izin';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 $kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'];
 
 // Proses hapus pengajuan (hanya yang masih pending)
 if (isset($_GET['hapus'])) {
@@ -25,9 +26,9 @@ if (isset($_GET['hapus'])) {
             }
         }
         
-        // Hapus record presensi yang terkait (jika statusnya masih 'belum') - prepared statement
+        // Hapus record presensi yang terkait (kembalikan ke status belum/kosong)
         $stmt_del_presensi = mysqli_prepare($conn, "DELETE FROM presensi_mahasiswa 
-                             WHERE jadwal_id = ? AND nim = ? AND status = 'belum'");
+                             WHERE jadwal_id = ? AND nim = ? AND status IN ('izin', 'sakit')");
         mysqli_stmt_bind_param($stmt_del_presensi, "is", $cek_pengajuan['jadwal_asli_id'], $nim);
         mysqli_stmt_execute($stmt_del_presensi);
         
@@ -110,7 +111,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $last_id = mysqli_insert_id($conn);
         
         log_aktivitas($_SESSION['user_id'], 'PENGAJUAN_IZIN', 'penggantian_inhall', $last_id, "Mahasiswa $nim mengajukan $status (pending approval): $alasan");
-        set_alert('success', 'Pengajuan ' . $status . ' berhasil dikirim! Menunggu persetujuan dari asisten.');
+        
+        // [FITUR BARU] Kirim Notifikasi ke Asisten (Real)
+        // Ambil nomor HP asisten 1 dari jadwal tersebut DAN detail jadwal
+        $q_info = mysqli_query($conn, "SELECT a.no_hp, a.nama as nama_asisten, mk.nama_mk, j.tanggal, j.jam_mulai 
+                                          FROM jadwal j 
+                                          LEFT JOIN asisten a ON j.kode_asisten_1 = a.kode_asisten 
+                                          LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                          WHERE j.id = '$jadwal_id'");
+        $d_info = mysqli_fetch_assoc($q_info);
+        
+        // Validasi nomor HP: harus ada, tidak kosong, dan bukan '-'
+        $no_hp_asisten = ($d_info && isset($d_info['no_hp'])) ? trim($d_info['no_hp']) : '';
+        $is_valid_hp = !empty($no_hp_asisten) && $no_hp_asisten !== '-' && strlen($no_hp_asisten) > 5;
+        
+        // Gunakan nomor asisten jika valid, jika tidak gunakan nomor default/admin
+        $target_wa = $is_valid_hp ? $no_hp_asisten : '6283841426400';
+        $nama_sapaan = ($d_info && !empty($d_info['nama_asisten'])) ? "Asisten " . $d_info['nama_asisten'] : "Admin";
+        
+        // Format Pesan Lengkap
+        $pesan_wa = "Halo $nama_sapaan,\n\n";
+        $pesan_wa .= "Ada pengajuan *" . strtoupper($status) . "* baru:\n";
+        $pesan_wa .= "👤 Nama: " . $mahasiswa['nama'] . "\n";
+        $pesan_wa .= "🆔 NIM: " . $nim . "\n";
+        $pesan_wa .= "🎓 Kelas: " . $mahasiswa['nama_kelas'] . "\n\n";
+        $pesan_wa .= "📚 Matkul: " . ($d_info['nama_mk'] ?? '-') . "\n";
+        $pesan_wa .= "📅 Jadwal: " . format_tanggal($d_info['tanggal']) . " (" . format_waktu($d_info['jam_mulai']) . ")\n";
+        $pesan_wa .= "📝 Alasan: " . $alasan . "\n\n";
+        $pesan_wa .= "Mohon cek dashboard untuk validasi.";
+        
+        kirim_notifikasi($target_wa, $pesan_wa);
+        
+        // Tampilkan info nomor tujuan di alert agar mudah dicek saat testing
+        set_alert('success', 'Pengajuan ' . $status . ' berhasil! Notifikasi WA dikirim ke: ' . $target_wa);
     }
     
     header("Location: index.php?page=mahasiswa_izin");
@@ -126,9 +159,10 @@ $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, mk.nama_mk FROM jadwal j
                                           LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = ?
                                           WHERE j.kode_kelas = ? 
                                           AND j.tanggal BETWEEN ? AND ?
+                                          AND (j.sesi = 0 OR j.sesi = ?)
                                           AND (p.status IS NULL OR p.status = 'belum')
                                           ORDER BY j.tanggal, j.jam_mulai");
-mysqli_stmt_bind_param($stmt_jadwal, "ssss", $nim, $kelas, $today, $tomorrow);
+mysqli_stmt_bind_param($stmt_jadwal, "ssssi", $nim, $kelas, $today, $tomorrow, $sesi);
 mysqli_stmt_execute($stmt_jadwal);
 $jadwal_available = mysqli_stmt_get_result($stmt_jadwal);
 

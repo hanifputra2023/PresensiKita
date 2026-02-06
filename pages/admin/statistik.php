@@ -33,7 +33,7 @@ if ($view == 'kelas') {
         SUM(CASE WHEN m.nim IS NOT NULL AND j.id IS NOT NULL AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
         FROM kelas k
         LEFT JOIN jadwal j ON j.kode_kelas = k.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date' AND j.jenis != 'inhall' $where_mk $where_lab
-        LEFT JOIN mahasiswa m ON m.kode_kelas = k.kode_kelas AND (j.id IS NULL OR m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+        LEFT JOIN mahasiswa m ON m.kode_kelas = k.kode_kelas AND (j.id IS NULL OR ((m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) AND (j.sesi = 0 OR j.sesi = m.sesi)))
         LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
         WHERE 1=1 $where_kelas_fixed
         GROUP BY k.kode_kelas, k.nama_kelas
@@ -49,7 +49,7 @@ if ($view == 'kelas') {
         SUM(CASE WHEN m.nim IS NOT NULL AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
         FROM jadwal j
         JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
-        LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+        LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND ((m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) AND (j.sesi = 0 OR j.sesi = m.sesi))
         LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
         WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
         AND j.jenis != 'inhall'
@@ -67,7 +67,7 @@ if ($view == 'kelas') {
         SUM(CASE WHEN m.nim IS NOT NULL AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
         FROM jadwal j
         JOIN lab l ON j.kode_lab = l.kode_lab
-        LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+        LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND ((m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) AND (j.sesi = 0 OR j.sesi = m.sesi))
         LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
         WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
         AND j.jenis != 'inhall'
@@ -110,7 +110,7 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
     SUM(CASE WHEN m.nim IS NOT NULL AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
 FROM jadwal j
-LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
+LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND ((m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) AND (j.sesi = 0 OR j.sesi = m.sesi))
 LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
 WHERE j.tanggal BETWEEN '$start_date' AND '$end_date'
   AND j.jenis != 'inhall'
@@ -333,7 +333,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 }
 .data-card-header {
     padding: 18px 24px;
-    background: var(--bg-body);
+    background: var(--banner-gradient);
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -344,13 +344,13 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .data-card-header h5 {
     margin: 0;
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--putih);
     display: flex;
     align-items: center;
     gap: 10px;
 }
 .data-card-header h5 i {
-    color: #0066cc;
+    color: var(--putih);
 }
 .data-card-header .period-badge {
     background: linear-gradient(135deg, #0066cc 0%, #0099ff 100%);
@@ -380,6 +380,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 .stat-table tbody td {
     padding: 14px 16px;
     vertical-align: middle;
+    color: var(--text-main);
     border-bottom: 1px solid var(--border-color);
 }
 .stat-table tbody tr:hover {

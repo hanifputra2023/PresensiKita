@@ -1,3 +1,23 @@
+<?php
+// Fetch foto profil untuk digunakan di Header (Mobile) dan Sidebar (Desktop)
+$header_foto = '';
+if (isset($_SESSION['user_id'])) {
+    $uid_head = $_SESSION['user_id'];
+    $role_head = $_SESSION['role'];
+    
+    if ($role_head == 'mahasiswa') {
+        $q_head = mysqli_query($conn, "SELECT foto FROM mahasiswa WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+    } elseif ($role_head == 'asisten') {
+        $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+    }
+}
+// Fallback jika foto kosong atau file tidak ada
+if (empty($header_foto) || !file_exists($header_foto)) {
+    $header_foto = 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['username'] ?? 'User') . '&background=random&color=fff&rounded=true&size=128';
+}
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -37,7 +57,7 @@
             --danger-color: #ff3333;
 
             /* Theme Variables (Light Default) */
-            --bg-body: #f8f9fc;
+            --bg-body: #b8caff;
             --bg-card: #ffffff;
             --bg-input: #ffffff;
             --text-main: #333333;
@@ -45,6 +65,7 @@
             --border-color: #e3e6f0;
             --topbar-bg: #ffffff;
             --header-bg: #f8f9fc;
+            --putih: #ffffff;
             
             /* Component Variables (Light) */
             --banner-gradient: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
@@ -62,6 +83,8 @@
             --border-color: #334155;
             --topbar-bg: #1e293b;
             --header-bg: #1e293b;
+            --putih: #ffffff;
+            --primary-color: #3a8fd9;
             
             /* Component Variables (Dark) */
             --banner-gradient: linear-gradient(90deg, #0f2027, #203a43, #2c5364);
@@ -85,6 +108,10 @@
             color: var(--text-main);
             overflow-x: hidden;
             transition: background-color 0.3s, color 0.3s;
+        }
+        .modal-header{
+            background-color: var(--primary-color);
+            color: var(--putih);
         }
         
         .sidebar {
@@ -175,9 +202,9 @@
         }
         
         .card-header {
-            background-color: var(--header-bg);
+            background-color: var(--primary-color);
             border-bottom: 1px solid var(--border-color);
-            color: var(--text-main);
+            color: var(--putih);
             font-weight: bold;
         }
         
@@ -519,6 +546,21 @@
             border-left-color: #0dcaf0 !important;
             color: #6edff6 !important;
         }
+        [data-theme="dark"] .alert-success {
+            background-color: rgba(25, 135, 84, 0.15) !important;
+            border-left-color: #198754 !important;
+            color: #75b798 !important;
+        }
+        [data-theme="dark"] .alert-warning {
+            background-color: rgba(255, 193, 7, 0.15) !important;
+            border-left-color: #ffc107 !important;
+            color: #ffda6a !important;
+        }
+        [data-theme="dark"] .alert-danger {
+            background-color: rgba(220, 53, 69, 0.15) !important;
+            border-left-color: #dc3545 !important;
+            color: #ea868f !important;
+        }
         [data-theme="dark"] .alert-info .text-muted {
             color: rgba(255,255,255,0.6) !important;
         }
@@ -777,6 +819,10 @@
                 font-size: 0.9rem;
             }
             
+            .mobile-header {
+                padding: 0.5rem 0.75rem !important;
+            }
+            
             .stat-card .h3 {
                 font-size: 1.25rem;
             }
@@ -818,18 +864,19 @@
             .row > .col-md-3.col-lg-2 {
                 position: fixed;
                 top: 0;
-                left: -280px;
+                left: 0;
+                transform: translateX(-100%);
                 width: 280px !important;
-                max-width: 280px !important;
+                max-width: 80vw !important;
                 height: 100vh;
                 z-index: 1050;
-                transition: left 0.3s ease;
+                transition: transform 0.3s ease;
                 padding: 0 !important;
                 overflow-y: auto;
             }
             
             .row > .col-md-3.col-lg-2.show {
-                left: 0;
+                transform: translateX(0);
             }
             
             /* Sidebar mobile - reset padding untuk brand full width */
@@ -994,8 +1041,18 @@
         <i class="fas fa-bars"></i>
     </button>
     <span class="brand"><?= APP_NAME ?></span>
-    <div class="d-flex align-items-center">
-        <button class="btn-toggle me-3 theme-toggle" title="Ganti Tema">
+    <div class="d-flex align-items-center gap-2">
+        <!-- Foto Profil Mobile (Clickable ke Profil/Dashboard) -->
+        <?php 
+        if ($_SESSION['role'] == 'mahasiswa') $profil_link = 'index.php?page=mahasiswa_profil';
+        elseif ($_SESSION['role'] == 'asisten') $profil_link = 'index.php?page=asisten_profil';
+        else $profil_link = 'index.php?page=admin_dashboard';
+        ?>
+        <a href="<?= $profil_link ?>" title="<?= $_SESSION['role'] == 'admin' ? 'Dashboard' : 'Profil Saya' ?>">
+            <img src="<?= $header_foto ?>" alt="User" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
+        </a>
+        
+        <button class="btn-toggle theme-toggle" title="Ganti Tema">
             <i class="fas fa-moon"></i>
         </button>
         <a href="index.php?page=logout" class="btn-toggle" title="Logout">
