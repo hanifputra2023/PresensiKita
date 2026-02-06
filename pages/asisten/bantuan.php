@@ -14,34 +14,53 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } else {
         // Handle File Upload
         $lampiran = null;
+        $upload_ok = true;
+        
         if (isset($_FILES['lampiran']) && $_FILES['lampiran']['error'] == 0) {
-            $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
-            $filename = $_FILES['lampiran']['name'];
-            $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+            $allowed_types = ['image/jpeg', 'image/png', 'image/webp'];
+            $max_size = 500 * 1024; // 500KB
             
-            if (in_array($ext, $allowed) && $_FILES['lampiran']['size'] <= 5 * 1024 * 1024) { // Max 5MB
+            $file_tmp = $_FILES['lampiran']['tmp_name'];
+            $file_size = $_FILES['lampiran']['size'];
+            
+            // Validasi MIME
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = finfo_file($finfo, $file_tmp);
+            finfo_close($finfo);
+            
+            if (!in_array($mime, $allowed_types)) {
+                set_alert('danger', 'Format file tidak didukung! Gunakan JPG, PNG, atau WebP.');
+                $upload_ok = false;
+            } elseif ($file_size > $max_size) {
+                set_alert('danger', 'Ukuran file terlalu besar! Maksimal 500KB.');
+                $upload_ok = false;
+            } else {
+                $ext = pathinfo($_FILES['lampiran']['name'], PATHINFO_EXTENSION);
                 $new_name = 'ticket_ast_' . time() . '_' . uniqid() . '.' . $ext;
                 $dest = 'uploads/bantuan/' . $new_name;
                 if (!is_dir('uploads/bantuan')) mkdir('uploads/bantuan', 0777, true);
                 
-                if (move_uploaded_file($_FILES['lampiran']['tmp_name'], $dest)) {
+                if (optimize_and_save_image($file_tmp, $dest, 1280, 1280, 80)) {
                     $lampiran = $dest;
+                } else {
+                    set_alert('danger', 'Gagal mengupload lampiran.');
+                    $upload_ok = false;
                 }
-            } else {
-                set_alert('warning', 'Format file tidak didukung atau terlalu besar. Tiket dikirim tanpa lampiran.');
             }
         }
 
         // Simpan ke database (menggunakan kode_asisten di kolom nim)
-        $stmt = mysqli_prepare($conn, "INSERT INTO tiket_bantuan (nim, kategori, subjek, pesan, status, lampiran) VALUES (?, ?, ?, ?, 'pending', ?)");
-        mysqli_stmt_bind_param($stmt, "sssss", $kode_asisten, $kategori, $subjek, $pesan, $lampiran);
-        
-        if (mysqli_stmt_execute($stmt)) {
-            $id = mysqli_insert_id($conn);
-            log_aktivitas($_SESSION['user_id'], 'KIRIM_BANTUAN', 'tiket_bantuan', $id, "Asisten mengirim tiket: $subjek");
-            set_alert('success', 'Laporan/Saran berhasil dikirim! Menunggu tanggapan admin.');
-        } else {
-            set_alert('danger', 'Gagal mengirim: ' . mysqli_error($conn));
+        if ($upload_ok) {
+            $stmt = mysqli_prepare($conn, "INSERT INTO tiket_bantuan (nim, kategori, subjek, pesan, status, lampiran) VALUES (?, ?, ?, ?, 'pending', ?)");
+            mysqli_stmt_bind_param($stmt, "sssss", $kode_asisten, $kategori, $subjek, $pesan, $lampiran);
+            
+            if (mysqli_stmt_execute($stmt)) {
+                $id = mysqli_insert_id($conn);
+                log_aktivitas($_SESSION['user_id'], 'KIRIM_BANTUAN', 'tiket_bantuan', $id, "Asisten mengirim tiket: $subjek");
+                set_alert('success', 'Laporan/Saran berhasil dikirim! Menunggu tanggapan admin.');
+            } else {
+                set_alert('danger', 'Gagal mengirim: ' . mysqli_error($conn));
+            }
         }
     }
     header("Location: index.php?page=asisten_bantuan");
@@ -100,8 +119,11 @@ while ($row = mysqli_fetch_assoc($result)) {
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Lampiran (Opsional)</label>
-                                        <input type="file" name="lampiran" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
-                                        <div class="form-text small">Maks. 5MB (JPG, PNG, PDF)</div>
+                                        <input type="file" name="lampiran" id="inputLampiran" class="form-control" accept="image/jpeg,image/png,image/webp">
+                                        <div class="form-text small">
+                                            Maks. 500KB (JPG, PNG, WebP).
+                                            <span id="compressStatus" class="fw-bold text-primary"></span>
+                                        </div>
                                     </div>
                                     <button type="submit" class="btn btn-primary w-100">
                                         <i class="fas fa-paper-plane me-2"></i>Kirim
@@ -325,6 +347,85 @@ function viewLampiran() {
     }
     container.style.display = 'block';
     btn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Tutup Lampiran';
+}
+</script>
+
+<script>
+// Client-side Image Compression
+document.getElementById('inputLampiran')?.addEventListener('change', async function(e) {
+    const input = e.target;
+    const file = input.files[0];
+    const status = document.getElementById('compressStatus');
+    
+    if (!file) return;
+
+    if (!file.type.match(/image.*/)) {
+        alert('File harus berupa gambar (JPG, PNG, WebP)!');
+        input.value = '';
+        return;
+    }
+
+    status.innerText = 'Mengompres...';
+    input.disabled = true;
+
+    try {
+        const compressedFile = await compressImage(file, 1280, 0.8, 500 * 1024);
+        
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(compressedFile);
+        input.files = dataTransfer.files;
+        
+        status.innerHTML = '<i class="fas fa-check"></i> Siap (' + (compressedFile.size/1024).toFixed(0) + 'KB)';
+    } catch (error) {
+        console.error(error);
+        alert("Gagal memproses gambar.");
+        input.value = '';
+        status.innerText = '';
+    } finally {
+        input.disabled = false;
+    }
+});
+
+function compressImage(file, maxWidth, quality, maxBytes) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = event => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                let currentQuality = quality;
+                const tryCompress = (q) => {
+                    canvas.toBlob(blob => {
+                        if (!blob) return reject(new Error('Canvas error'));
+                        if (blob.size > maxBytes && q > 0.1) {
+                            tryCompress(q - 0.1);
+                        } else {
+                            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        }
+                    }, 'image/jpeg', q);
+                };
+                tryCompress(currentQuality);
+            };
+            img.onerror = error => reject(error);
+        };
+        reader.onerror = error => reject(error);
+    });
 }
 </script>
 

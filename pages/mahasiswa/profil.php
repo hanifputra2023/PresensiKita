@@ -71,16 +71,20 @@ $foto_profil = $data['foto'] ?? null;
 if (isset($_POST['upload_foto'])) {
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
         $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $max_size = 2 * 1024 * 1024;
+        $max_size = 500 * 1024; // Maksimal 500KB
         
-        $file_type = $_FILES['foto']['type'];
-        $file_size = $_FILES['foto']['size'];
         $file_tmp = $_FILES['foto']['tmp_name'];
+        $file_size = $_FILES['foto']['size'];
         
-        if (!in_array($file_type, $allowed_types)) {
+        // Validasi Server-side yang lebih aman (Cek MIME Type asli)
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file_tmp);
+        finfo_close($finfo);
+        
+        if (!in_array($mime, $allowed_types)) {
             set_alert('danger', 'Format file tidak didukung! Gunakan JPG, PNG, GIF, atau WEBP.');
         } elseif ($file_size > $max_size) {
-            set_alert('danger', 'Ukuran file terlalu besar! Maksimal 2MB.');
+            set_alert('danger', 'Ukuran file terlalu besar! Maksimal 500KB.');
         } else {
             $ext = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION);
             $new_filename = 'mhs_' . $nim . '_' . time() . '.' . $ext;
@@ -1379,8 +1383,14 @@ $log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$u
                                                     <div class="col-md-6">
                                                         <label class="form-label fw-semibold"><i class="fas fa-lock me-2 text-primary"></i>Password Lama <span class="text-danger">*</span></label>
                                                         <div class="input-group">
-                                                            <input type="password" name="password_lama" class="form-control form-control-custom password-input" placeholder="Masukkan password saat ini" required>
+                                                            <input type="password" name="password_lama" id="password_lama" class="form-control form-control-custom password-input" placeholder="Masukkan password saat ini" required>
                                                             <button class="btn btn-outline-primary toggle-password" type="button"><i class="fas fa-eye"></i></button>
+                                                            <button class="btn btn-outline-secondary" type="button" id="btn_cek_password" title="Cek Password">
+                                                                <i class="fas fa-check-circle"></i> Cek
+                                                            </button>
+                                                        </div>
+                                                        <div id="password_lama_feedback" class="mt-2" style="display: none;">
+                                                            <small class="feedback-text"></small>
                                                         </div>
                                                     </div>
                                                     
@@ -1393,7 +1403,7 @@ $log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$u
                                                         <div class="password-strength mt-3">
                                                             <div class="d-flex justify-content-between mb-1">
                                                                 <small class="text-muted">Kekuatan password</small>
-                                                                <small class="strength-text fw-semibold text-danger">Lemah</small>
+                                                                <small class="strength-text fw-semibold text-danger"></small>
                                                             </div>
                                                             <div class="progress progress-custom">
                                                                 <div class="progress-bar progress-bar-custom bg-danger" role="progressbar" style="width: 0%"></div>
@@ -1571,6 +1581,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         passwordInput.addEventListener('input', function() {
             const password = this.value;
+            
+            // Reset jika password kosong
+            if (password.length === 0) {
+                progressBar.style.width = '0%';
+                progressBar.style.backgroundColor = '#dc3545';
+                strengthText.textContent = '';
+                strengthText.style.color = '';
+                return;
+            }
+            
             let strength = 0;
             if (password.length >= 8) strength++;
             if (password.length >= 12) strength++;
@@ -1596,22 +1616,185 @@ document.addEventListener('DOMContentLoaded', function() {
             strengthText.style.color = color;
         });
     }
+    
+    // Validasi password lama dengan button
+    const passwordLamaInput = document.getElementById('password_lama');
+    const passwordLamaFeedback = document.getElementById('password_lama_feedback');
+    const btnCekPassword = document.getElementById('btn_cek_password');
+    
+    if (btnCekPassword && passwordLamaInput && passwordLamaFeedback) {
+        const feedbackText = passwordLamaFeedback.querySelector('.feedback-text');
+        
+        btnCekPassword.addEventListener('click', function() {
+            const password = passwordLamaInput.value;
+            
+            // Validasi input kosong
+            if (password.length === 0) {
+                passwordLamaFeedback.style.display = 'block';
+                feedbackText.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i> Masukkan password terlebih dahulu';
+                feedbackText.className = 'feedback-text text-warning';
+                passwordLamaInput.focus();
+                return;
+            }
+            
+            // Tampilkan loading
+            btnCekPassword.disabled = true;
+            btnCekPassword.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            passwordLamaFeedback.style.display = 'block';
+            feedbackText.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Memeriksa...';
+            feedbackText.className = 'feedback-text text-muted';
+            
+            // Kirim request AJAX ke API terpisah
+            const formData = new FormData();
+            formData.append('password_lama', password);
+            
+            fetch('api/check_password.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    feedbackText.innerHTML = '<i class="fas fa-check-circle me-1"></i> ' + data.message;
+                    feedbackText.className = 'feedback-text text-success';
+                    passwordLamaInput.classList.remove('is-invalid');
+                    passwordLamaInput.classList.add('is-valid');
+                } else {
+                    feedbackText.innerHTML = '<i class="fas fa-times-circle me-1"></i> ' + data.message;
+                    feedbackText.className = 'feedback-text text-danger';
+                    passwordLamaInput.classList.remove('is-valid');
+                    passwordLamaInput.classList.add('is-invalid');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                feedbackText.innerHTML = '<i class="fas fa-exclamation-triangle me-1"></i> Gagal memeriksa, coba lagi';
+                feedbackText.className = 'feedback-text text-danger';
+            })
+            .finally(() => {
+                btnCekPassword.disabled = false;
+                btnCekPassword.innerHTML = '<i class="fas fa-check-circle"></i> Cek';
+            });
+        });
+        
+        // Reset feedback saat input berubah
+        passwordLamaInput.addEventListener('input', function() {
+            passwordLamaFeedback.style.display = 'none';
+            this.classList.remove('is-valid', 'is-invalid');
+        });
+    }
 });
 
-document.getElementById('inputFoto')?.addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (file) {
+// Client-side Image Compression
+document.getElementById('inputFoto')?.addEventListener('change', async function(e) {
+    const input = e.target;
+    const file = input.files[0];
+    
+    if (!file) return;
+
+    // Validasi tipe file di client
+    if (!file.type.match(/image.*/)) {
+        alert('File harus berupa gambar!');
+        input.value = '';
+        return;
+    }
+
+    const label = input.nextElementSibling.querySelector('span');
+    const originalText = label.innerText;
+    label.innerText = 'Mengompres...';
+    input.disabled = true;
+
+    try {
+        // Compress: Max 1280px, Quality 0.8, Max 500KB
+        const compressedFile = await compressImage(file, 1280, 0.8, 500 * 1024);
+        
+        // Replace file input dengan file yang sudah dikompres
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(compressedFile);
+        input.files = dataTransfer.files;
+
+        // Update Preview
         const reader = new FileReader();
         reader.onload = function(ev) {
             const previewImg = document.getElementById('previewImg');
             const placeholder = document.getElementById('previewPlaceholder');
-            previewImg.src = ev.target.result;
-            previewImg.style.display = 'block';
-            if (placeholder) placeholder.style.display = 'none';
+            if (previewImg) {
+                previewImg.src = ev.target.result;
+                previewImg.style.display = 'block';
+            }
+            if (placeholder) {
+                placeholder.style.display = 'none';
+            }
         }
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(compressedFile);
+        
+        label.innerHTML = '<i class="fas fa-check text-success"></i> Siap (' + (compressedFile.size/1024).toFixed(0) + 'KB)';
+        
+    } catch (error) {
+        console.error("Compression error:", error);
+        alert("Gagal memproses gambar. Silakan coba gambar lain.");
+        input.value = '';
+        label.innerText = originalText;
+    } finally {
+        input.disabled = false;
     }
 });
+
+function compressImage(file, maxWidth, quality, maxBytes) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = event => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                // Resize logic
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Iterative compression
+                let currentQuality = quality;
+                const minQuality = 0.5;
+                
+                const tryCompress = (q) => {
+                    canvas.toBlob(blob => {
+                        if (!blob) {
+                            reject(new Error('Canvas conversion failed'));
+                            return;
+                        }
+                        
+                        if (blob.size > maxBytes && q > minQuality) {
+                            tryCompress(q - 0.1);
+                        } else {
+                            // Force JPEG for better compression consistency
+                            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(newFile);
+                        }
+                    }, 'image/jpeg', q);
+                };
+                
+                tryCompress(currentQuality);
+            };
+            img.onerror = error => reject(error);
+        };
+        reader.onerror = error => reject(error);
+    });
+}
 </script>
 
 <?php include 'includes/footer.php'; ?>

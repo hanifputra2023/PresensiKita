@@ -1042,8 +1042,15 @@ if (empty($header_foto) || !file_exists($header_foto)) {
     </button>
     <span class="brand"><?= APP_NAME ?></span>
     <div class="d-flex align-items-center gap-2">
-        <!-- Foto Profil Mobile -->
-        <img src="<?= $header_foto ?>" alt="User" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
+        <!-- Foto Profil Mobile (Clickable ke Profil/Dashboard) -->
+        <?php 
+        if ($_SESSION['role'] == 'mahasiswa') $profil_link = 'index.php?page=mahasiswa_profil';
+        elseif ($_SESSION['role'] == 'asisten') $profil_link = 'index.php?page=asisten_profil';
+        else $profil_link = 'index.php?page=admin_dashboard';
+        ?>
+        <a href="<?= $profil_link ?>" title="<?= $_SESSION['role'] == 'admin' ? 'Dashboard' : 'Profil Saya' ?>">
+            <img src="<?= $header_foto ?>" alt="User" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
+        </a>
         
         <button class="btn-toggle theme-toggle" title="Ganti Tema">
             <i class="fas fa-moon"></i>

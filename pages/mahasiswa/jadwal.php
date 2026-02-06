@@ -511,7 +511,7 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                                 <?php endif; ?>
                                             </div>
                                             <div class="col-6 text-end">
-                                                <i class="fas fa-clock me-1 text-muted"></i><?= format_waktu($j['jam_mulai']) ?>
+                                                <i class="fas fa-clock me-1 text-muted"></i><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?>
                                             </div>
                                         </div>
                                         <div class="row small mb-2">

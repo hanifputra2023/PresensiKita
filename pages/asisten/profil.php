@@ -12,17 +12,21 @@ $foto_profil = $asisten['foto'] ?? null;
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['upload_foto'])) {
     if (isset($_FILES['foto']) && $_FILES['foto']['error'] == 0) {
         $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $max_size = 2 * 1024 * 1024; // 2MB
+        $max_size = 500 * 1024; // 500KB
         
-        $file_type = $_FILES['foto']['type'];
-        $file_size = $_FILES['foto']['size'];
         $file_tmp = $_FILES['foto']['tmp_name'];
+        $file_size = $_FILES['foto']['size'];
         $kode_asisten = $asisten['kode_asisten'];
         
-        if (!in_array($file_type, $allowed_types)) {
+        // Validasi Server-side (MIME Type)
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime = finfo_file($finfo, $file_tmp);
+        finfo_close($finfo);
+        
+        if (!in_array($mime, $allowed_types)) {
             set_alert('danger', 'Format file tidak didukung! Gunakan JPG, PNG, GIF, atau WEBP.');
         } elseif ($file_size > $max_size) {
-            set_alert('danger', 'Ukuran file terlalu besar! Maksimal 2MB.');
+            set_alert('danger', 'Ukuran file terlalu besar! Maksimal 500KB.');
         } else {
             // Generate nama file unik
             $ext = pathinfo($_FILES['foto']['name'], PATHINFO_EXTENSION);
@@ -1548,7 +1552,7 @@ $tanggal_daftar = $user['created_at'] ?? date('Y-m-d H:i:s');
                                                         <div class="password-strength mt-3">
                                                             <div class="d-flex justify-content-between mb-1">
                                                                 <small class="text-muted">Kekuatan password</small>
-                                                                <small class="strength-text fw-semibold text-danger">Lemah</small>
+                                                                <small class="strength-text fw-semibold text-danger"></small>
                                                             </div>
                                                             <div class="progress progress-custom">
                                                                 <div class="progress-bar progress-bar-custom bg-danger" 
@@ -1729,6 +1733,13 @@ document.addEventListener('DOMContentLoaded', function() {
         
         passwordInput.addEventListener('input', function() {
             const password = this.value;
+            
+            if (password === '') {
+                progressBar.style.width = '0%';
+                strengthText.textContent = '';
+                return;
+            }
+            
             let strength = 0;
             
             if (password.length >= 8) strength++;
@@ -1761,43 +1772,58 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Preview gambar sebelum upload
-    const inputFoto = document.getElementById('inputFoto');
-    if (inputFoto) {
-        inputFoto.addEventListener('change', function(e) {
-            const file = e.target.files[0];
-            if (file) {
-                // Validasi ukuran file
-                if (file.size > 2 * 1024 * 1024) {
-                    alert('Ukuran file terlalu besar! Maksimal 2MB.');
-                    this.value = '';
-                    return;
-                }
+    // Client-side Image Compression & Preview
+    document.getElementById('inputFoto')?.addEventListener('change', async function(e) {
+        const input = e.target;
+        const file = input.files[0];
+        
+        if (!file) return;
+
+        if (!file.type.match(/image.*/)) {
+            alert('File harus berupa gambar!');
+            input.value = '';
+            return;
+        }
+
+        const label = input.nextElementSibling.querySelector('span');
+        const originalText = label.innerText;
+        label.innerText = 'Mengompres...';
+        input.disabled = true;
+
+        try {
+            const compressedFile = await compressImage(file, 1280, 0.8, 500 * 1024);
+            
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(compressedFile);
+            input.files = dataTransfer.files;
+
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                const previewImg = document.getElementById('previewImg');
+                const placeholder = document.getElementById('previewPlaceholder');
                 
-                // Validasi tipe file
-                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-                if (!allowedTypes.includes(file.type)) {
-                    alert('Format file tidak didukung! Gunakan JPG, PNG, GIF, atau WEBP.');
-                    this.value = '';
-                    return;
-                }
-                
-                const reader = new FileReader();
-                reader.onload = function(ev) {
-                    const previewImg = document.getElementById('previewImg');
-                    const placeholder = document.getElementById('previewPlaceholder');
-                    
+                if (previewImg) {
                     previewImg.src = ev.target.result;
                     previewImg.style.display = 'block';
-                    
-                    if (placeholder) {
-                        placeholder.style.display = 'none';
-                    }
                 }
-                reader.readAsDataURL(file);
+                
+                if (placeholder) {
+                    placeholder.style.display = 'none';
+                }
             }
-        });
-    }
+            reader.readAsDataURL(compressedFile);
+            
+            label.innerHTML = '<i class="fas fa-check text-success"></i> Siap (' + (compressedFile.size/1024).toFixed(0) + 'KB)';
+            
+        } catch (error) {
+            console.error(error);
+            alert("Gagal memproses gambar.");
+            input.value = '';
+            label.innerText = originalText;
+        } finally {
+            input.disabled = false;
+        }
+    });
     
     // Tambahkan efek hover untuk button upload foto di card
     const uploadFotoBtn = document.querySelector('.btn-upload-foto');
@@ -1811,6 +1837,58 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+function compressImage(file, maxWidth, quality, maxBytes) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = event => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                let currentQuality = quality;
+                const minQuality = 0.5;
+                
+                const tryCompress = (q) => {
+                    canvas.toBlob(blob => {
+                        if (!blob) {
+                            reject(new Error('Canvas error'));
+                            return;
+                        }
+                        
+                        if (blob.size > maxBytes && q > minQuality) {
+                            tryCompress(q - 0.1);
+                        } else {
+                            const newFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(newFile);
+                        }
+                    }, 'image/jpeg', q);
+                };
+                
+                tryCompress(currentQuality);
+            };
+            img.onerror = error => reject(error);
+        };
+        reader.onerror = error => reject(error);
+    });
+}
 </script>
 
 <?php include 'includes/footer.php'; ?>

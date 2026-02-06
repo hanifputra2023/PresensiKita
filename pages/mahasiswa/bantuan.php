@@ -128,8 +128,11 @@ if (mysqli_num_rows($check) > 0) {
                                     </div>
                                     <div class="mb-3">
                                         <label class="form-label">Lampiran (Opsional)</label>
-                                        <input type="file" name="lampiran" class="form-control" accept=".jpg,.jpeg,.png,.pdf">
-                                        <div class="form-text small">Maks. 5MB (JPG, PNG, PDF)</div>
+                                        <input type="file" name="lampiran" id="inputLampiran" class="form-control" accept="image/jpeg,image/png,image/webp">
+                                        <div class="form-text small">
+                                            Maks. 500KB (JPG, PNG, WebP). 
+                                            <span id="compressStatus" class="fw-bold text-primary"></span>
+                                        </div>
                                     </div>
                                     <button type="submit" class="btn btn-primary w-100">
                                         <i class="fas fa-paper-plane me-2"></i>Kirim
@@ -394,6 +397,85 @@ function zoomImg(step) {
         img.style.maxWidth = 'none'; 
         img.style.width = newWidth + '%';
     }
+}
+</script>
+
+<script>
+// Client-side Image Compression
+document.getElementById('inputLampiran')?.addEventListener('change', async function(e) {
+    const input = e.target;
+    const file = input.files[0];
+    const status = document.getElementById('compressStatus');
+    
+    if (!file) return;
+
+    if (!file.type.match(/image.*/)) {
+        alert('File harus berupa gambar (JPG, PNG, WebP)!');
+        input.value = '';
+        return;
+    }
+
+    status.innerText = 'Mengompres...';
+    input.disabled = true;
+
+    try {
+        const compressedFile = await compressImage(file, 1280, 0.8, 500 * 1024);
+        
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(compressedFile);
+        input.files = dataTransfer.files;
+        
+        status.innerHTML = '<i class="fas fa-check"></i> Siap (' + (compressedFile.size/1024).toFixed(0) + 'KB)';
+    } catch (error) {
+        console.error(error);
+        alert("Gagal memproses gambar.");
+        input.value = '';
+        status.innerText = '';
+    } finally {
+        input.disabled = false;
+    }
+});
+
+function compressImage(file, maxWidth, quality, maxBytes) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = event => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+                if (width > maxWidth) {
+                    height = Math.round(height * (maxWidth / width));
+                    width = maxWidth;
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                let currentQuality = quality;
+                const tryCompress = (q) => {
+                    canvas.toBlob(blob => {
+                        if (!blob) return reject(new Error('Canvas error'));
+                        if (blob.size > maxBytes && q > 0.1) {
+                            tryCompress(q - 0.1);
+                        } else {
+                            resolve(new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            }));
+                        }
+                    }, 'image/jpeg', q);
+                };
+                tryCompress(currentQuality);
+            };
+            img.onerror = error => reject(error);
+        };
+        reader.onerror = error => reject(error);
+    });
 }
 </script>
 

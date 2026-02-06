@@ -195,7 +195,7 @@ $riwayat = mysqli_stmt_get_result($stmt_riwayat);
                                             </div>
                                             <div class="row small mt-1">
                                                 <div class="col-6">
-                                                    <i class="fas fa-clock me-1 text-muted"></i><?= format_waktu($r['jam_mulai']) ?>
+                                                    <i class="fas fa-clock me-1 text-muted"></i><?= format_waktu($r['jam_mulai']) ?> - <?= format_waktu($r['jam_selesai']) ?>
                                                 </div>
                                                 <div class="col-6 text-end">
                                                     <i class="fas fa-map-marker-alt me-1 text-muted"></i><?= $r['nama_lab'] ?>
