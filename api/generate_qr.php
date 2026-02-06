@@ -24,13 +24,27 @@ if (!$jadwal_id) {
 }
 
 // Ambil info jadwal untuk expired time
-$stmt_jadwal = mysqli_prepare($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id = ?");
+$stmt_jadwal = mysqli_prepare($conn, "SELECT tanggal, jam_mulai, jam_selesai FROM jadwal WHERE id = ?");
 mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
 mysqli_stmt_execute($stmt_jadwal);
 $jadwal_info = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
 
 if (!$jadwal_info) {
     echo json_encode(['success' => false, 'message' => 'Jadwal tidak ditemukan']);
+    exit;
+}
+
+// Validasi: Cek apakah tanggal jadwal adalah hari ini
+$today = date('Y-m-d');
+if ($jadwal_info['tanggal'] != $today) {
+    echo json_encode(['success' => false, 'message' => 'QR Code hanya bisa dibuat pada tanggal jadwal yang sesuai (' . date('d/m/Y', strtotime($jadwal_info['tanggal'])) . ')']);
+    exit;
+}
+
+// Validasi: Cek apakah jadwal sudah selesai
+$now_time = date('H:i:s');
+if ($now_time > $jadwal_info['jam_selesai']) {
+    echo json_encode(['success' => false, 'message' => 'Jadwal sudah selesai, tidak bisa generate QR Code']);
     exit;
 }
 

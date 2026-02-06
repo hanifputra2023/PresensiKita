@@ -20,7 +20,7 @@ if (!$hasil) {
 }
 
 // Ambil Detail Jawaban dan Soal
-$query_detail = "SELECT d.*, s.pertanyaan, s.opsi_a, s.opsi_b, s.opsi_c, s.opsi_d, s.kunci_jawaban 
+$query_detail = "SELECT d.*, s.pertanyaan, s.opsi_a, s.opsi_b, s.opsi_c, s.opsi_d, s.kunci_jawaban, s.gambar 
                  FROM detail_jawaban_kuis d 
                  JOIN soal_kuis s ON d.soal_id = s.id 
                  WHERE d.hasil_kuis_id = {$hasil['id']}
@@ -118,6 +118,12 @@ $jumlah_soal = mysqli_num_rows($details);
                             </div>
                             <div class="result-body">
                                 <p class="mb-3 fw-bold"><?= nl2br(htmlspecialchars($d['pertanyaan'])) ?></p>
+                                
+                                <?php if (!empty($d['gambar'])): ?>
+                                    <div class="mb-3 text-center">
+                                        <img src="<?= $d['gambar'] ?>" alt="Gambar Soal" class="img-fluid rounded" style="max-height: 200px; cursor: pointer;" onclick="window.open('<?= $d['gambar'] ?>', '_blank')">
+                                    </div>
+                                <?php endif; ?>
                                 
                                 <?php foreach (['A', 'B', 'C', 'D'] as $opt): 
                                     $class = '';
