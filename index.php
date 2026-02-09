@@ -1,7 +1,7 @@
 <?php
 require_once 'includes/fungsi.php';
 
-// Routing sistem dinamis
+
 $page = isset($_GET['page']) ? $_GET['page'] : 'login';
 
 // Daftar halaman yang diizinkan tanpa login
