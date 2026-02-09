@@ -1,4 +1,4 @@
-c<?php
+<?php
 // Halaman Login Terpadu (Admin, Asisten, Mahasiswa)
 if (isset($_SESSION['user_id'])) {
     // Sudah login, redirect ke dashboard sesuai role
@@ -581,7 +581,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transform: translateY(0) scale(1);
         }
 
-        /* Glowing Border Effect - STATIS DAN TEBAL - PUTIH UNTUK TEMA TERANG */
+        /* Glowing Border Effect - STATIS DAN TEBAL - BIRU MUDA UNTUK TEMA TERANG */
         .login-container::before {
             content: '';
             position: absolute;
@@ -590,13 +590,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             right: 0;
             bottom: 0;
             border-radius: 32px;
-            padding: 6px; /* DIKETEBAL - dari 2px menjadi 6px */
+            padding: 6px; /* Tetap tebal */
             background: linear-gradient(
                 135deg,
-                rgba(255, 255, 255, 0.9), /* PUTIH untuk tema terang */
-                rgba(255, 255, 255, 0.7),
-                rgba(255, 255, 255, 0.9),
-                rgba(255, 255, 255, 0.7)
+                rgba(0, 153, 255, 0.92) 0%,    /* biru muda cerah */
+                rgba(0, 122, 204, 0.85) 50%,   /* biru medium */
+                rgba(0, 82, 163, 0.9) 100%     /* biru gelap untuk kedalaman */
             );
             -webkit-mask: 
                 linear-gradient(#fff 0 0) content-box, 
@@ -604,10 +603,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             -webkit-mask-composite: xor;
             mask-composite: exclude;
             z-index: -1;
-            opacity: 0.9; /* Sedikit lebih terang */
+            opacity: 0.95; /* Sedikit lebih terang agar terlihat */
+            filter: blur(0.6px); /* Ringan agar tidak terlalu keras seperti putih sebelumnya */
         }
 
-        /* Untuk tema gelap, border tetap biru */
+        /* Untuk tema gelap, border tetap biru seperti sebelumnya */
         [data-theme="dark"] .login-container::before {
             background: linear-gradient(
                 135deg,
@@ -892,8 +892,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             color: #ffffff !important;
         }
 
-        [data-theme="dark"] .form-control:focus {
-            background: rgba(255, 255, 255, 0.1);
+        /* ======================== */
+        /* Autofill / browser fill fixes
+           - Pastikan input tetap menggunakan --input-bg
+           - Pastikan teks tetap putih (termasuk caret)
+           - Override background putih browser dengan inset box-shadow hack
+        */
+        /* Chrome, Edge, Safari (WebKit) */
+        input.form-control:-webkit-autofill,
+        textarea.form-control:-webkit-autofill,
+        select.form-control:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            -webkit-text-fill-color: var(--text-main) !important;
+            caret-color: var(--text-main) !important;
+            transition: background-color 5000s ease-in-out 0s, color 0.01s ease-in-out !important;
+        }
+
+        /* WebKit when autofilled and focused/hovered */
+        input.form-control:-webkit-autofill:focus,
+        textarea.form-control:-webkit-autofill:focus,
+        select.form-control:-webkit-autofill:focus,
+        input.form-control:-webkit-autofill:hover,
+        textarea.form-control:-webkit-autofill:hover,
+        select.form-control:-webkit-autofill:hover {
+            -webkit-box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            -webkit-text-fill-color: var(--text-main) !important;
+            caret-color: var(--text-main) !important;
+        }
+
+        /* Firefox */
+        input.form-control:-moz-autofill,
+        textarea.form-control:-moz-autofill,
+        select.form-control:-moz-autofill {
+            box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            -moz-text-fill-color: var(--text-main) !important;
+            caret-color: var(--text-main) !important;
+        }
+
+        /* Small safeguard: jika browser secara agresif berubah warna saat fokus, tetap pakai var(--input-bg) */
+        .form-control:focus {
+            background: var(--input-bg) !important;
         }
 
         /* ======================== */
