@@ -47,13 +47,37 @@ if ($jadwal_id) {
 // Generate QR baru
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
     $jadwal_id = (int)$_POST['jadwal_id'];
-    $qr_code = generate_qr_code();
     
     // Ambil jam selesai jadwal untuk expired time - prepared statement
-    $stmt_jadwal_info = mysqli_prepare($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id = ?");
+    $stmt_jadwal_info = mysqli_prepare($conn, "SELECT tanggal, jam_mulai, jam_selesai FROM jadwal WHERE id = ?");
     mysqli_stmt_bind_param($stmt_jadwal_info, "i", $jadwal_id);
     mysqli_stmt_execute($stmt_jadwal_info);
     $jadwal_info = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal_info));
+    
+    // Validasi: Cek apakah jadwal ada
+    if (!$jadwal_info) {
+        $_SESSION['alert'] = ['type' => 'danger', 'message' => 'Jadwal tidak ditemukan.'];
+        header("Location: index.php?page=asisten_qrcode");
+        exit;
+    }
+    
+    // Validasi: Cek apakah tanggal jadwal adalah hari ini
+    $today = date('Y-m-d');
+    if ($jadwal_info['tanggal'] != $today) {
+        $_SESSION['alert'] = ['type' => 'danger', 'message' => 'QR Code hanya bisa dibuat pada tanggal jadwal yang sesuai (' . date('d/m/Y', strtotime($jadwal_info['tanggal'])) . ').'];
+        header("Location: index.php?page=asisten_qrcode");
+        exit;
+    }
+    
+    // Validasi: Cek apakah jadwal sudah selesai
+    $now_time = date('H:i:s');
+    if ($now_time > $jadwal_info['jam_selesai']) {
+        $_SESSION['alert'] = ['type' => 'danger', 'message' => 'Jadwal sudah selesai, tidak bisa generate QR Code.'];
+        header("Location: index.php?page=asisten_qrcode");
+        exit;
+    }
+    
+    $qr_code = generate_qr_code();
     $expired = $jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_selesai']; // Expired saat jadwal selesai
     
     // Cek apakah ini jadwal sebagai pengganti - prepared statement

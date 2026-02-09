@@ -46,22 +46,41 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['import_soal'])) {
         if ($ext !== 'csv') {
             set_alert('danger', 'Format file harus CSV.');
         } else {
+            // Baca seluruh file dan deteksi delimiter
+            $content = file_get_contents($file);
+            // Hapus BOM jika ada
+            $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
+            
+            // Deteksi delimiter: hitung mana yang lebih banyak di baris pertama
+            $first_line = strtok($content, "\n");
+            $semicolon_count = substr_count($first_line, ';');
+            $comma_count = substr_count($first_line, ',');
+            $delimiter = ($semicolon_count > $comma_count) ? ';' : ',';
+            
             $handle = fopen($file, "r");
             $success = 0;
+            $skipped = 0;
             $row_count = 0;
             
             // Prepared statement untuk import soal
             $stmt_import = mysqli_prepare($conn, "INSERT INTO soal_kuis (kuis_id, pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d, kunci_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)");
             
-            while (($data = fgetcsv($handle, 1000, ",")) !== FALSE) {
-                // Cek delimiter titik koma (Excel format Indonesia) jika koma gagal
-                if (count($data) == 1 && strpos($data[0], ';') !== false) {
-                    $data = explode(';', $data[0]);
+            // Gunakan limit besar (0 = unlimited) untuk soal panjang
+            while (($data = fgetcsv($handle, 0, $delimiter)) !== FALSE) {
+                $row_count++;
+                
+                // Skip baris kosong
+                if (empty($data) || (count($data) == 1 && empty(trim($data[0])))) {
+                    continue;
                 }
                 
-                $row_count++;
-                // Skip header
-                if ($row_count === 1 && (stripos($data[0], 'Pertanyaan') !== FALSE || stripos($data[0], 'Question') !== FALSE)) continue;
+                // Skip header (baris pertama yang mengandung kata kunci)
+                if ($row_count === 1) {
+                    $first_col = strtolower(trim($data[0]));
+                    if (strpos($first_col, 'pertanyaan') !== false || strpos($first_col, 'question') !== false || strpos($first_col, 'soal') !== false) {
+                        continue;
+                    }
+                }
                 
                 if (count($data) >= 6) {
                     $kunci = strtoupper(trim($data[5]));
@@ -72,14 +91,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['import_soal'])) {
                     $opsi_c = trim($data[3]);
                     $opsi_d = trim($data[4]);
                     
+                    // Validasi kunci jawaban dan pertanyaan tidak kosong
                     if (in_array($kunci, ['A', 'B', 'C', 'D']) && !empty($pertanyaan)) {
                         mysqli_stmt_bind_param($stmt_import, "issssss", $kuis_id, $pertanyaan, $opsi_a, $opsi_b, $opsi_c, $opsi_d, $kunci);
-                        if (mysqli_stmt_execute($stmt_import)) $success++;
+                        if (mysqli_stmt_execute($stmt_import)) {
+                            $success++;
+                        } else {
+                            $skipped++;
+                        }
+                    } else {
+                        $skipped++;
                     }
+                } else {
+                    $skipped++;
                 }
             }
             fclose($handle);
-            set_alert('success', "Berhasil mengimport $success soal.");
+            
+            $msg = "Berhasil mengimport $success soal.";
+            if ($skipped > 0) {
+                $msg .= " ($skipped baris dilewati karena format tidak valid)";
+            }
+            set_alert($success > 0 ? 'success' : 'warning', $msg);
         }
     }
     header("Location: index.php?page=asisten_kuis_detail&id=$kuis_id");
@@ -94,9 +127,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah_soal'])) {
     $opsi_c = escape($_POST['opsi_c']);
     $opsi_d = escape($_POST['opsi_d']);
     $kunci = escape($_POST['kunci']);
+    $gambar = null;
     
-    $stmt_soal = mysqli_prepare($conn, "INSERT INTO soal_kuis (kuis_id, pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d, kunci_jawaban) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    mysqli_stmt_bind_param($stmt_soal, "issssss", $kuis_id, $pertanyaan, $opsi_a, $opsi_b, $opsi_c, $opsi_d, $kunci);
+    // Handle upload gambar soal
+    if (isset($_FILES['gambar_soal']) && $_FILES['gambar_soal']['error'] == 0) {
+        $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        $ext = strtolower(pathinfo($_FILES['gambar_soal']['name'], PATHINFO_EXTENSION));
+        if (in_array($ext, $allowed) && $_FILES['gambar_soal']['size'] <= 2 * 1024 * 1024) {
+            $filename = 'soal_' . $kuis_id . '_' . time() . '.' . $ext;
+            $target = 'uploads/soal_kuis/' . $filename;
+            if (move_uploaded_file($_FILES['gambar_soal']['tmp_name'], $target)) {
+                $gambar = $target;
+            }
+        }
+    }
+    
+    $stmt_soal = mysqli_prepare($conn, "INSERT INTO soal_kuis (kuis_id, pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d, kunci_jawaban, gambar) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    mysqli_stmt_bind_param($stmt_soal, "isssssss", $kuis_id, $pertanyaan, $opsi_a, $opsi_b, $opsi_c, $opsi_d, $kunci, $gambar);
     
     if (mysqli_stmt_execute($stmt_soal)) {
         set_alert('success', 'Soal berhasil ditambahkan.');
@@ -110,6 +157,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['tambah_soal'])) {
 // Proses Hapus Soal
 if (isset($_GET['hapus_soal'])) {
     $soal_id = (int)$_GET['hapus_soal'];
+    // Hapus gambar jika ada
+    $get_gambar = mysqli_query($conn, "SELECT gambar FROM soal_kuis WHERE id = $soal_id AND kuis_id = $kuis_id");
+    if ($row_gambar = mysqli_fetch_assoc($get_gambar)) {
+        if (!empty($row_gambar['gambar']) && file_exists($row_gambar['gambar'])) {
+            unlink($row_gambar['gambar']);
+        }
+    }
     mysqli_query($conn, "DELETE FROM soal_kuis WHERE id = $soal_id AND kuis_id = $kuis_id");
     set_alert('success', 'Soal dihapus.');
     header("Location: index.php?page=asisten_kuis_detail&id=$kuis_id");
@@ -186,6 +240,11 @@ $hasil_list = mysqli_query($conn, "SELECT hk.*, m.nama
                                                     <a href="index.php?page=asisten_kuis_detail&id=<?= $kuis_id ?>&hapus_soal=<?= $s['id'] ?>" class="text-danger" onclick="return confirm('Hapus soal ini?')"><i class="fas fa-trash"></i></a>
                                                 <?php endif; ?>
                                             </div>
+                                            <?php if (!empty($s['gambar'])): ?>
+                                                <div class="mb-2">
+                                                    <img src="<?= $s['gambar'] ?>" alt="Gambar Soal" class="img-fluid rounded" style="max-height: 200px; cursor: pointer;" onclick="window.open('<?= $s['gambar'] ?>', '_blank')">
+                                                </div>
+                                            <?php endif; ?>
                                             <div class="row g-2 small">
                                                 <div class="col-md-6 <?= $s['kunci_jawaban'] == 'A' ? 'text-success fw-bold' : '' ?>">A. <?= htmlspecialchars($s['opsi_a']) ?></div>
                                                 <div class="col-md-6 <?= $s['kunci_jawaban'] == 'B' ? 'text-success fw-bold' : '' ?>">B. <?= htmlspecialchars($s['opsi_b']) ?></div>
@@ -251,7 +310,7 @@ $hasil_list = mysqli_query($conn, "SELECT hk.*, m.nama
 <div class="modal fade" id="modalSoal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form method="POST">
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="tambah_soal" value="1">
                 <div class="modal-header">
                     <h5 class="modal-title">Tambah Soal Pilihan Ganda</h5>
@@ -261,6 +320,11 @@ $hasil_list = mysqli_query($conn, "SELECT hk.*, m.nama
                     <div class="mb-3">
                         <label class="form-label">Pertanyaan</label>
                         <textarea name="pertanyaan" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Gambar Soal <small class="text-muted">(Opsional, max 2MB)</small></label>
+                        <input type="file" name="gambar_soal" class="form-control" accept="image/*">
+                        <div class="form-text">Format: JPG, PNG, GIF, WEBP</div>
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">

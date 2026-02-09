@@ -35,7 +35,7 @@ if (mysqli_num_rows($cek_hasil) > 0) {
 // [UPDATE] Logika Session untuk Soal & Timer (Anti-Refresh)
 if (!isset($_SESSION['kuis_' . $kuis_id . '_soal'])) {
     // Jika belum ada di sesi, ambil dari DB dan acak
-    $soal_query = mysqli_query($conn, "SELECT id, pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d FROM soal_kuis WHERE kuis_id = $kuis_id ORDER BY RAND()");
+    $soal_query = mysqli_query($conn, "SELECT id, pertanyaan, opsi_a, opsi_b, opsi_c, opsi_d, gambar FROM soal_kuis WHERE kuis_id = $kuis_id ORDER BY RAND()");
     $soal_list = [];
     while ($row = mysqli_fetch_assoc($soal_query)) {
         $soal_list[] = $row;
@@ -284,6 +284,12 @@ $waktu_mulai_formatted = date('Y-m-d H:i:s', $start_time);
                                                 <span class="badge bg-primary me-2"><?= ($index + 1) ?></span>
                                                 <?= nl2br(htmlspecialchars($s['pertanyaan'])) ?>
                                             </div>
+                                            
+                                            <?php if (!empty($s['gambar'])): ?>
+                                                <div class="mb-3 text-center">
+                                                    <img src="<?= $s['gambar'] ?>" alt="Gambar Soal" class="img-fluid rounded" style="max-height: 250px; cursor: pointer;" onclick="window.open('<?= $s['gambar'] ?>', '_blank')">
+                                                </div>
+                                            <?php endif; ?>
                                             
                                             <div class="d-flex flex-column gap-2">
                                                 <?php 
