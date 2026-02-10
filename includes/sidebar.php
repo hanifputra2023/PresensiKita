@@ -94,3 +94,19 @@
         </div>
     </div>
 </div>
+<script>
+// Anti-FOUC + Scroll Restoration: Segera setelah sidebar dirender
+(function() {
+    var sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.classList.add('fouc-ready');
+    }
+    
+    // Restore scroll position untuk container sidebar
+    var sidebarContainer = document.querySelector('.col-md-3.col-lg-2');
+    if (sidebarContainer) {
+        var savedPos = sessionStorage.getItem('sidebarScrollPos');
+        if (savedPos) sidebarContainer.scrollTop = parseInt(savedPos);
+    }
+})();
+</script>

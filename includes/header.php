@@ -22,6 +22,18 @@ if (empty($header_foto) || !file_exists($header_foto)) {
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <!-- Anti-FOUC: Immediately apply theme before any render -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+        })();
+    </script>
+    <style>
+        /* Anti-FOUC: Hide sidebar until ready */
+        .sidebar { opacity: 0; transition: opacity 0.15s ease-in; }
+        .sidebar.fouc-ready { opacity: 1; }
+    </style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= APP_NAME ?></title>
     

@@ -51,15 +51,16 @@
             });
         });
  
-        // Script untuk mempertahankan posisi scroll sidebar saat navigasi
-        // Dijalankan langsung tanpa DOMContentLoaded untuk mengurangi flicker/glitch
+        // Anti-FOUC: Fallback untuk halaman tanpa sidebar.php yang baru
+        document.querySelectorAll('.sidebar').forEach(function(el) {
+            el.classList.add('fouc-ready');
+        });
+
+        // Script untuk menyimpan posisi scroll sidebar saat navigasi
+        // (Restore sudah dilakukan di sidebar.php untuk menghindari delay)
         const sidebar = document.querySelector('.col-md-3.col-lg-2'); 
         if (sidebar) {
-            // 1. Kembalikan posisi scroll jika ada di storage
-            const savedPos = sessionStorage.getItem('sidebarScrollPos');
-            if (savedPos) sidebar.scrollTop = savedPos;
- 
-            // 2. Simpan posisi scroll saat user klik link atau refresh
+            // Simpan posisi scroll saat user klik link atau refresh
             window.addEventListener('beforeunload', function() {
                 sessionStorage.setItem('sidebarScrollPos', sidebar.scrollTop);
             });

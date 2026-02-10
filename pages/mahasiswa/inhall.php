@@ -3,6 +3,7 @@ $page = 'mahasiswa_inhall';
 $mahasiswa = get_mahasiswa_login();
 $nim = $mahasiswa['nim'];
 $kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'];
 
 // Daftar pertemuan yang perlu diinhall (izin/sakit, belum diganti)
 $perlu_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal, j.materi, j.kode_mk, mk.nama_mk
@@ -22,7 +23,7 @@ while ($p = mysqli_fetch_assoc($perlu_inhall)) {
 }
 $mk_list = !empty($mk_perlu_inhall) ? implode(',', array_unique($mk_perlu_inhall)) : "'NONE'";
 
-// Jadwal inhall yang tersedia (berdasarkan MK yang perlu diinhall DAN kelas yang sama)
+// Jadwal inhall yang tersedia (berdasarkan MK yang perlu diinhall DAN kelas yang sama DAN sesi yang sesuai)
 $jadwal_inhall = mysqli_query($conn, "SELECT j.*, mk.nama_mk, l.nama_lab FROM jadwal j 
                                        LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
@@ -30,6 +31,7 @@ $jadwal_inhall = mysqli_query($conn, "SELECT j.*, mk.nama_mk, l.nama_lab FROM ja
                                        AND j.kode_kelas = '$kelas'
                                        AND j.kode_mk IN ($mk_list)
                                        AND j.tanggal >= CURDATE()
+                                       AND (j.sesi = 0 OR j.sesi = '$sesi')
                                        ORDER BY j.tanggal");
 
 // Riwayat inhall yang sudah dilakukan

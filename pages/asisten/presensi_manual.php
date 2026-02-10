@@ -16,6 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $nim = escape($_POST['nim']);
     $status = escape($_POST['status']);
     
+    // Validasi status yang diizinkan
+    $allowed_status = ['hadir', 'izin', 'sakit', 'alpha'];
+    if (!in_array($status, $allowed_status)) {
+        set_alert('danger', 'Status presensi tidak valid!');
+        header("Location: index.php?page=asisten_presensi_manual&jadwal=$jadwal_id");
+        exit;
+    }
+    
     // Cek apakah ini jadwal sebagai pengganti untuk catat hadir asisten - prepared statement
     $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
                                                                WHERE jadwal_id = ? 
@@ -44,6 +52,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt_ins = mysqli_prepare($conn, "INSERT INTO presensi_mahasiswa (jadwal_id, nim, status, metode, validated_by) VALUES (?, ?, ?, 'manual', ?)");
         mysqli_stmt_bind_param($stmt_ins, "isss", $jadwal_id, $nim, $status, $kode_asisten);
         mysqli_stmt_execute($stmt_ins);
+    }
+    
+    // [FITUR VALIDASI] Untuk status izin/sakit, kelola record di penggantian_inhall
+    if ($status == 'izin' || $status == 'sakit') {
+        // Cek apakah sudah ada record penggantian_inhall untuk jadwal dan nim ini
+        $stmt_cek_inhall = mysqli_prepare($conn, "SELECT id, status_approval FROM penggantian_inhall WHERE jadwal_asli_id = ? AND nim = ?");
+        mysqli_stmt_bind_param($stmt_cek_inhall, "is", $jadwal_id, $nim);
+        mysqli_stmt_execute($stmt_cek_inhall);
+        $cek_inhall = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_inhall));
+        
+        if ($cek_inhall) {
+            // Update record yang sudah ada - set approved karena asisten yang set langsung
+            $stmt_upd_inhall = mysqli_prepare($conn, "UPDATE penggantian_inhall 
+                                                       SET materi_diulang = ?, 
+                                                           status_approval = 'approved', 
+                                                           approved_by = ?, 
+                                                           approved_at = NOW(),
+                                                           alasan_reject = NULL
+                                                       WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_upd_inhall, "ssi", $status, $kode_asisten, $cek_inhall['id']);
+            mysqli_stmt_execute($stmt_upd_inhall);
+        } else {
+            // Insert record baru - langsung approved karena diset oleh asisten
+            $alasan_default = "Diset oleh asisten via presensi manual";
+            $stmt_ins_inhall = mysqli_prepare($conn, "INSERT INTO penggantian_inhall 
+                                                       (nim, jadwal_asli_id, alasan_izin, status_approval, approved_by, approved_at, materi_diulang) 
+                                                       VALUES (?, ?, ?, 'approved', ?, NOW(), ?)");
+            mysqli_stmt_bind_param($stmt_ins_inhall, "sisss", $nim, $jadwal_id, $alasan_default, $kode_asisten, $status);
+            mysqli_stmt_execute($stmt_ins_inhall);
+        }
+    } else {
+        // Jika status berubah ke hadir/alpha, hapus record penggantian_inhall yang pending (jika ada)
+        $stmt_del_inhall = mysqli_prepare($conn, "DELETE FROM penggantian_inhall 
+                                                   WHERE jadwal_asli_id = ? AND nim = ? AND status_approval = 'pending'");
+        mysqli_stmt_bind_param($stmt_del_inhall, "is", $jadwal_id, $nim);
+        mysqli_stmt_execute($stmt_del_inhall);
     }
     
     log_aktivitas($_SESSION['user_id'], 'PRESENSI_MANUAL', 'presensi_mahasiswa', $jadwal_id, "Presensi manual: $nim - $status");
