@@ -407,7 +407,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             --primary-blue-light: #0099ff;
             --bg-gradient: linear-gradient(135deg, #0052a3 0%, #0066cc 50%, #0099ff 100%);
             
-            /* Glassmorphism Variables */
+            /* Glassmorphism Variables - TEMA TERANG */
             --container-bg: rgba(255, 255, 255, 0.1);
             --text-main: #ffffff;
             --text-secondary: #f8fafc;
@@ -549,7 +549,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         
+        /* ======================== */
+        /* BACKLIGHT STATIS - TEBAL SEDANG */
+        /* HANYA PINGGIRAN FORM YANG BERUBAH WARNA */
+        /* ======================== */
+
         .login-container {
+            position: relative;
             width: 100%;
             max-width: 460px;
             background: var(--container-bg);
@@ -557,19 +563,150 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             -webkit-backdrop-filter: blur(20px);
             border-radius: 32px;
             padding: 48px 44px 52px;
-            box-shadow: var(--card-shadow);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border: 1px solid rgba(0, 102, 204, 0.4);
+            box-shadow: 
+                0 0 0 1px rgba(0, 102, 204, 0.3),
+                var(--card-shadow),
+                0 0 60px rgba(0, 102, 204, 0.4); /* Efek glow biru untuk semua tema */
+            border: 1px solid rgba(255, 255, 255, 0.1);
             position: relative;
             z-index: 1;
             opacity: 0;
             transform: translateY(30px) scale(0.98);
             transition: all 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
+            overflow: hidden;
         }
 
         .login-container.visible {
             opacity: 1;
             transform: translateY(0) scale(1);
+        }
+
+        /* Glowing Border Effect - STATIS DAN TEBAL - BIRU MUDA UNTUK TEMA TERANG */
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 32px;
+            padding: 6px; /* Tetap tebal */
+            background: linear-gradient(
+                135deg,
+                rgba(0, 153, 255, 0.92) 0%,    /* biru muda cerah */
+                rgba(0, 122, 204, 0.85) 50%,   /* biru medium */
+                rgba(0, 82, 163, 0.9) 100%     /* biru gelap untuk kedalaman */
+            );
+            -webkit-mask: 
+                linear-gradient(#fff 0 0) content-box, 
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            z-index: -1;
+            opacity: 0.95; /* Sedikit lebih terang agar terlihat */
+            filter: blur(0.6px); /* Ringan agar tidak terlalu keras seperti putih sebelumnya */
+        }
+
+        /* Untuk tema gelap, border tetap biru seperti sebelumnya */
+        [data-theme="dark"] .login-container::before {
+            background: linear-gradient(
+                135deg,
+                rgba(0, 153, 255, 0.9),
+                rgba(0, 82, 163, 0.9),
+                rgba(0, 102, 204, 0.9),
+                rgba(0, 153, 255, 0.9)
+            );
+        }
+
+        /* Outer Glow - Efek cahaya di luar border - BIRU untuk semua tema */
+        .login-container::after {
+            content: '';
+            position: absolute;
+            top: -15px;
+            left: -15px;
+            right: -15px;
+            bottom: -15px;
+            background: 
+                radial-gradient(
+                    circle at 20% 30%,
+                    rgba(0, 153, 255, 0.15) 0%,
+                    transparent 60%
+                ),
+                radial-gradient(
+                    circle at 80% 70%,
+                    rgba(0, 102, 204, 0.1) 0%,
+                    transparent 60%
+                ),
+                radial-gradient(
+                    circle at 40% 80%,
+                    rgba(0, 82, 163, 0.08) 0%,
+                    transparent 60%
+                );
+            border-radius: 45px;
+            z-index: -2;
+            filter: blur(25px);
+        }
+
+        [data-theme="dark"] .login-container::after {
+            background: 
+                radial-gradient(
+                    circle at 20% 30%,
+                    rgba(59, 130, 246, 0.1) 0%,
+                    transparent 60%
+                ),
+                radial-gradient(
+                    circle at 80% 70%,
+                    rgba(96, 165, 250, 0.08) 0%,
+                    transparent 60%
+                ),
+                radial-gradient(
+                    circle at 40% 80%,
+                    rgba(37, 99, 235, 0.06) 0%,
+                    transparent 60%
+                );
+        }
+
+        /* Corner Glow Effects - STATIS - BIRU untuk semua tema */
+        .corner-glow {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(
+                circle,
+                rgba(0, 153, 255, 0.35) 0%,
+                transparent 70%
+            );
+            filter: blur(20px);
+            z-index: -1;
+            opacity: 0.8; /* Lebih terang */
+        }
+
+        .corner-glow.top-left {
+            top: -40px;
+            left: -40px;
+        }
+
+        .corner-glow.top-right {
+            top: -40px;
+            right: -40px;
+        }
+
+        .corner-glow.bottom-left {
+            bottom: -40px;
+            left: -40px;
+        }
+
+        .corner-glow.bottom-right {
+            bottom: -40px;
+            right: -40px;
+        }
+
+        [data-theme="dark"] .corner-glow {
+            background: radial-gradient(
+                circle,
+                rgba(59, 130, 246, 0.25) 0%,
+                transparent 70%
+            );
         }
         
         /* Theme Switch */
@@ -694,10 +831,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .system-title {
             font-size: 25px;
             font-weight: 600;
-            color: var(--text-secondary);
+            color: #ffffff !important; /* Tetap putih untuk semua tema */
             letter-spacing: 0.5px;
             text-transform: uppercase;
             margin-top: 8px;
+            text-shadow: 
+                0 0 20px rgba(255, 255, 255, 0.3),
+                0 0 40px rgba(0, 153, 255, 0.2);
         }
 
         /* Login Section */
@@ -712,11 +852,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .form-label {
             display: block;
             margin-bottom: 10px;
-            color: var(--text-secondary);
+            color: #ffffff !important; /* Tetap putih untuk semua tema */
             font-weight: 600;
             font-size: 13px;
             letter-spacing: 0.3px;
             text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
         }
         
         .input-group {
@@ -726,51 +867,101 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .form-control {
             width: 100%;
             padding: 16px 18px 16px 52px;
-            border: 2px solid var(--input-border);
+            border: 2px solid rgba(255, 255, 255, 0.3);
             border-radius: 14px;
             background: var(--input-bg);
-            color: #ffffff;
+            color: #ffffff !important; /* Tetap putih untuk semua tema */
             font-size: 15px;
             font-weight: 500;
             transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.6) !important; /* Tetap putih untuk semua tema */
             opacity: 1;
         }
 
         .form-control:focus {
             outline: none;
-            border-color: var(--primary-blue-light);
-            background: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 0 0 4px rgba(0, 153, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 
+                0 0 0 4px rgba(255, 255, 255, 0.1),
+                0 0 30px rgba(0, 153, 255, 0.2);
             transform: translateY(-2px);
-            color: #ffffff;
+            color: #ffffff !important;
         }
 
-        [data-theme="dark"] .form-control:focus {
-            background: rgba(0, 0, 0, 0.4);
+        /* ======================== */
+        /* Autofill / browser fill fixes
+           - Pastikan input tetap menggunakan --input-bg
+           - Pastikan teks tetap putih (termasuk caret)
+           - Override background putih browser dengan inset box-shadow hack
+        */
+        /* Chrome, Edge, Safari (WebKit) */
+        input.form-control:-webkit-autofill,
+        textarea.form-control:-webkit-autofill,
+        select.form-control:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            -webkit-text-fill-color: var(--text-main) !important;
+            caret-color: var(--text-main) !important;
+            transition: background-color 5000s ease-in-out 0s, color 0.01s ease-in-out !important;
         }
+
+        /* WebKit when autofilled and focused/hovered */
+        input.form-control:-webkit-autofill:focus,
+        textarea.form-control:-webkit-autofill:focus,
+        select.form-control:-webkit-autofill:focus,
+        input.form-control:-webkit-autofill:hover,
+        textarea.form-control:-webkit-autofill:hover,
+        select.form-control:-webkit-autofill:hover {
+            -webkit-box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            -webkit-text-fill-color: var(--text-main) !important;
+            caret-color: var(--text-main) !important;
+        }
+
+        /* Firefox */
+        input.form-control:-moz-autofill,
+        textarea.form-control:-moz-autofill,
+        select.form-control:-moz-autofill {
+            box-shadow: 0 0 0px 1000px var(--input-bg) inset !important;
+            -moz-text-fill-color: var(--text-main) !important;
+            caret-color: var(--text-main) !important;
+        }
+
+        /* Small safeguard: jika browser secara agresif berubah warna saat fokus, tetap pakai var(--input-bg) */
+        .form-control:focus {
+            background: var(--input-bg) !important;
+        }
+
+        /* ======================== */
+        /* WHITE ICONS - untuk semua tema */
+        /* ======================== */
 
         .input-icon {
             position: absolute;
             left: 18px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--primary-blue);
+            color: #ffffff !important; /* Tetap putih untuk semua tema */
             font-size: 18px;
-            opacity: 1.8;
+            opacity: 0.9;
             transition: all 0.35s ease;
             pointer-events: none;
-            
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
         }
 
         .form-control:focus ~ .input-icon {
             opacity: 1;
             transform: translateY(-50%) scale(1.1);
+            text-shadow: 
+                0 0 15px rgba(255, 255, 255, 0.6),
+                0 0 30px rgba(0, 153, 255, 0.4);
         }
 
+        /* Toggle Password Icon */
         .toggle-password {
             position: absolute;
             right: 18px;
@@ -778,19 +969,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transform: translateY(-50%);
             background: none;
             border: none;
-            color: var(--primary-blue);
+            color: #ffffff !important; /* Tetap putih untuk semua tema */
             cursor: pointer;
             font-size: 18px;
             padding: 8px;
             border-radius: 8px;
             opacity: 0.8;
             transition: all 0.3s ease;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
         }
 
         .toggle-password:hover {
             opacity: 1;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.15);
             transform: translateY(-50%) scale(1.1);
+            text-shadow: 
+                0 0 15px rgba(255, 255, 255, 0.8),
+                0 0 25px rgba(0, 153, 255, 0.5);
         }
 
         .form-control[type="password"] {
@@ -850,10 +1045,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
 
         .form-check-label {
-            color: var(--text-secondary);
+            color: rgba(255, 255, 255, 0.9) !important; /* Tetap putih untuk semua tema */
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.2);
         }
 
         /* Button */
@@ -863,7 +1059,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             border: none;
             border-radius: 14px;
             background: #0066cc;
-            color: white;
+            color: white !important;
             font-size: 15px;
             font-weight: 700;
             letter-spacing: 0.5px;
@@ -873,6 +1069,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
             position: relative;
             overflow: hidden;
+        }
+
+        .btn-submit i {
+            color: #ffffff !important;
+            margin-right: 10px;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
         }
 
         [data-theme="dark"] .btn-submit {
@@ -905,14 +1107,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         .login-footer-text {
             font-size: 12px;
-            color: var(--text-muted);
+            color: rgba(255, 255, 255, 0.7);
             margin-bottom: 8px;
             font-weight: 500;
         }
 
         .login-footer-version {
             font-size: 11px;
-            color: var(--text-muted);
+            color: rgba(255, 255, 255, 0.5);
             opacity: 0.7;
             display: flex;
             align-items: center;
@@ -952,31 +1154,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             font-size: 13px;
         }
 
-        /* Stats Badge */
-        .stats-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            margin-top: 16px;
-            font-size: 11px;
-            color: var(--primary-blue-light);
-            font-weight: 600;
-        }
-
-        .stats-badge i {
-            font-size: 12px;
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* Responsive */
+        /* Responsive Adjustments */
         @media (max-width: 600px) {
             body {
                 padding: 30px 16px;
@@ -986,6 +1164,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 padding: 40px 36px 44px;
                 border-radius: 28px;
                 max-width: 95%;
+            }
+            
+            .login-container::before {
+                border-radius: 30px;
+                padding: 5px; /* Tetap tebal di mobile */
+            }
+            
+            .login-container::after {
+                top: -12px;
+                left: -12px;
+                right: -12px;
+                bottom: -12px;
+                border-radius: 38px;
+            }
+            
+            .corner-glow {
+                width: 90px;
+                height: 90px;
+            }
+            
+            .corner-glow.top-left,
+            .corner-glow.top-right,
+            .corner-glow.bottom-left,
+            .corner-glow.bottom-right {
+                top: -30px;
+                left: -30px;
+                right: -30px;
+                bottom: -30px;
             }
 
             .logo-section {
@@ -1003,10 +1209,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             .system-title {
                 font-size: 20px;
-            }
-
-            .login-title {
-                font-size: 23px;
             }
 
             .form-control {
@@ -1033,6 +1235,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             .login-container {
                 padding: 36px 32px 40px;
                 border-radius: 24px;
+            }
+            
+            .login-container::before {
+                border-radius: 26px;
+                padding: 4px;
+            }
+            
+            .login-container::after {
+                border-radius: 32px;
             }
 
             .logo-wrapper {
@@ -1072,6 +1283,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="particle"></div>
         <div class="particle"></div>
     </div>
+
+    <!-- Corner Glow Effects - STATIS -->
+    <div class="corner-glow top-left"></div>
+    <div class="corner-glow top-right"></div>
+    <div class="corner-glow bottom-left"></div>
+    <div class="corner-glow bottom-right"></div>
 
     <!-- Loading Screen -->
     <div class="loading-screen" id="loadingScreen">
