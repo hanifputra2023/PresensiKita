@@ -140,9 +140,9 @@ $s = array_merge([
 <style>
 /* Modern Design Variables */
 :root {
-    --primary: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #8b5cf6;
+    --primary: #0066cc;
+    --primary-dark: #0052a3;
+    --primary-light: #00ccff;
     --secondary: #94a3b8;
     --success: #10b981;
     --warning: #f59e0b;
@@ -157,7 +157,7 @@ $s = array_merge([
     --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
     
     /* Light mode colors */
-    --bg-main: linear-gradient(135deg, #f0f4ff 0%, #f8fafc 50%, #f0f9ff 100%);
+    --bg-main: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 50%, #e0f2fe 100%);
     --bg-header: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     --text-primary: #1e293b;
     --text-secondary: #64748b;
@@ -170,9 +170,9 @@ $s = array_merge([
 
 /* Dark Mode Variables */
 [data-theme="dark"] {
-    --primary: #818cf8;
-    --primary-dark: #6366f1;
-    --primary-light: #a78bfa;
+    --primary: #38bdf8;
+    --primary-dark: #0284c7;
+    --primary-light: #7dd3fc;
     --secondary: #64748b;
     --success: #34d399;
     --warning: #fbbf24;
@@ -349,7 +349,7 @@ $s = array_merge([
     outline: none;
     border-color: var(--primary);
     background: var(--card-bg);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.15);
     transform: translateY(-1px);
 }
 
@@ -385,7 +385,7 @@ $s = array_merge([
     color: var(--text-primary);
     cursor: pointer;
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%236366f1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%230066cc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 16px center;
     transition: all 0.3s ease;
@@ -395,7 +395,7 @@ $s = array_merge([
     outline: none;
     border-color: var(--primary);
     background-color: var(--card-bg);
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+    box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.15);
 }
 
 /* Modern Toggle Switch */
@@ -861,18 +861,18 @@ $s = array_merge([
     background: var(--card-bg);
     border-color: var(--primary);
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2);
 }
 
 .btn-primary-modern {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
     color: white;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+    box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2);
 }
 
 .btn-primary-modern:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 25px rgba(0, 102, 204, 0.3);
     background: linear-gradient(135deg, var(--primary-dark), var(--primary));
 }
 
