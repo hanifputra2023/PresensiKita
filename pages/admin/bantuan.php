@@ -69,25 +69,34 @@ if ($active_tab == 'pending') {
     $where_clause = "WHERE t.status = 'ditolak'";
 }
 
-// Hitung badge notifikasi
-$count_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'pending'"))['total'];
-$count_proses = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'proses'"))['total'];
+// Hitung badge notifikasi dan ambil tiket, tetapi lindungi jika tabel tidak ada
+$tbl_exists = mysqli_query($conn, "SHOW TABLES LIKE 'tiket_bantuan'");
+if (!$tbl_exists || mysqli_num_rows($tbl_exists) == 0) {
+    // Tabel tidak ditemukan — hindari query fatal dan beri notifikasi ringan
+    set_alert('danger', 'Tabel <code>tiket_bantuan</code> tidak ditemukan. Modul bantuan dinonaktifkan sementara.');
+    $count_pending = 0;
+    $count_proses = 0;
+    $tickets = [];
+} else {
+    $count_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'pending'"))['total'];
+    $count_proses = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'proses'"))['total'];
 
-// Ambil Data Tiket (Join dengan tabel mahasiswa dan kelas untuk info lengkap)
-$query = "SELECT t.*, 
-          COALESCE(m.nama, a.nama) as nama_pengirim, 
-          COALESCE(k.nama_kelas, 'Asisten') as info_tambahan,
-          t.nim as id_pengirim
-          FROM tiket_bantuan t 
-          LEFT JOIN mahasiswa m ON t.nim = m.nim 
-          LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
-          LEFT JOIN asisten a ON t.nim = a.kode_asisten
-          $where_clause
-          ORDER BY t.created_at DESC";
-$result = mysqli_query($conn, $query);
-$tickets = [];
-while ($row = mysqli_fetch_assoc($result)) {
-    $tickets[] = $row;
+    // Ambil Data Tiket (Join dengan tabel mahasiswa dan kelas untuk info lengkap)
+    $query = "SELECT t.*, 
+              COALESCE(m.nama, a.nama) as nama_pengirim, 
+              COALESCE(k.nama_kelas, 'Asisten') as info_tambahan,
+              t.nim as id_pengirim
+              FROM tiket_bantuan t 
+              LEFT JOIN mahasiswa m ON t.nim = m.nim 
+              LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+              LEFT JOIN asisten a ON t.nim = a.kode_asisten
+              $where_clause
+              ORDER BY t.created_at DESC";
+    $result = mysqli_query($conn, $query);
+    $tickets = [];
+    while ($row = mysqli_fetch_assoc($result)) {
+        $tickets[] = $row;
+    }
 }
 ?>
 
