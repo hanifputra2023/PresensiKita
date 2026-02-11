@@ -193,7 +193,14 @@ $total_kelas = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total 
 $total_lab = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM lab"))['total'];
 $today = date('Y-m-d');
 $total_jadwal_today = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal WHERE tanggal = '$today'"))['total'];
-$total_tiket = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'pending'"))['total'];
+
+// Check if tiket_bantuan table exists before querying
+$check_tiket_table = mysqli_query($conn, "SHOW TABLES LIKE 'tiket_bantuan'");
+if (mysqli_num_rows($check_tiket_table) > 0) {
+    $total_tiket = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'pending'"))['total'];
+} else {
+    $total_tiket = 0;
+}
 
 // Fetch Login History
 $user_id = $user['id'];
