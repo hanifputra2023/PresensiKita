@@ -4,6 +4,17 @@ require_once 'includes/fungsi.php';
 
 $page = isset($_GET['page']) ? $_GET['page'] : 'login';
 
+// [BARU] Cek Maintenance Mode
+$maintenance_mode = function_exists('get_setting') ? get_setting('maintenance_mode', '0') : '0';
+$is_admin = isset($_SESSION['role']) && $_SESSION['role'] == 'admin';
+$is_login_page = in_array($page, ['login', 'logout']);
+
+// Jika mode maintenance aktif, bukan admin, dan bukan di halaman login/logout -> Tampilkan Maintenance
+if ($maintenance_mode == '1' && !$is_admin && !$is_login_page) {
+    include 'pages/maintenance.php';
+    exit;
+}
+
 // Daftar halaman yang diizinkan tanpa login
 $public_pages = ['login', 'logout'];
 
@@ -261,6 +272,14 @@ switch ($page) {
     case 'admin_bantuan':
         cek_role(['admin']);
         include 'pages/admin/bantuan.php';
+        break;
+    case 'admin_profil':
+        cek_role(['admin']);
+        include 'pages/admin/profil.php';
+        break;
+    case 'admin_setting':
+        cek_role(['admin']);
+        include 'pages/admin/setting.php';
         break;
     
     // Asisten pages

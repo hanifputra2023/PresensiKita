@@ -194,7 +194,7 @@ $offset = get_offset($current_page, $per_page);
 if ($search) {
     $stmt_users = mysqli_prepare($conn, "SELECT 
                                     u.*,
-                                    COALESCE(m.foto, a.foto) as foto,
+                                    COALESCE(m.foto, a.foto, u.foto) as foto,
                                     COALESCE(m.nama, a.nama, u.username) as nama_lengkap
                                   FROM 
                                     users u
@@ -212,7 +212,7 @@ if ($search) {
 } else {
     $stmt_users = mysqli_prepare($conn, "SELECT 
                                     u.*,
-                                    COALESCE(m.foto, a.foto) as foto,
+                                    COALESCE(m.foto, a.foto, u.foto) as foto,
                                     COALESCE(m.nama, a.nama, u.username) as nama_lengkap
                                   FROM 
                                     users u

@@ -106,17 +106,16 @@ if ($is_inhall) {
 $now = time();
 $jadwal_mulai = strtotime($qr_session['tanggal'] . ' ' . $qr_session['jam_mulai']);
 $jadwal_selesai = strtotime($qr_session['tanggal'] . ' ' . $qr_session['jam_selesai']);
-$toleransi_sebelum = $jadwal_mulai - (TOLERANSI_SEBELUM * 60); // TOLERANSI_SEBELUM = 0, jadi harus tepat waktu
-$toleransi_sesudah = $jadwal_selesai + (TOLERANSI_SESUDAH * 60);
 
-if ($now < $toleransi_sebelum) {
-    $menit_tersisa = ceil(($toleransi_sebelum - $now) / 60);
+// Tanpa toleransi
+if ($now < $jadwal_mulai) {
+    $menit_tersisa = ceil(($jadwal_mulai - $now) / 60);
     $jam_buka = date('H:i', $jadwal_mulai);
     echo json_encode(['success' => false, 'message' => "Presensi belum dibuka. Presensi akan dibuka tepat pukul $jam_buka (tersisa $menit_tersisa menit lagi)."]);
     exit;
 }
 
-if ($now > $toleransi_sesudah) {
+if ($now > $jadwal_selesai) {
     echo json_encode(['success' => false, 'message' => 'Waktu presensi sudah berakhir untuk sesi ini.']);
     exit;
 }

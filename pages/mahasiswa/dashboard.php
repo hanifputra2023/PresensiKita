@@ -8,12 +8,10 @@ $sesi = $mahasiswa['sesi'] ?? 1;
 // Jadwal hari ini yang SEDANG AKTIF (dalam rentang waktu)
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
-$toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
-$toleransi_sesudah = TOLERANSI_SESUDAH; // menit setelah jam_selesai
 
 // OPTIMISASI: Hitung batas waktu di PHP agar query SQL bisa menggunakan index (SARGable)
-// Jadwal aktif jika: Jam Mulai <= (Sekarang + Toleransi)
-$waktu_batas_masuk = date('H:i:s', strtotime("+$toleransi_sebelum minutes"));
+// Jadwal aktif jika: Jam Mulai <= Sekarang (Tanpa toleransi)
+$waktu_batas_masuk = $now_time;
 
 // Jadwal aktif = sudah masuk waktu mulai (dengan toleransi sebelum) DAN belum lewat jam_selesai (TANPA toleransi)
 // Langsung hilang begitu jam_selesai tercapai

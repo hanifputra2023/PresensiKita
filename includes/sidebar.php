@@ -39,6 +39,8 @@
             <li class="nav-item"><a href="index.php?page=admin_statistik" class="nav-link <?= is_active('admin_statistik') ?>"><i class="fas fa-chart-pie"></i> Statistik</a></li>
             <li class="nav-item"><a href="index.php?page=admin_log" class="nav-link <?= is_active('admin_log') ?>"><i class="fas fa-history"></i> Log Aktivitas</a></li>
             <li class="nav-item"><a href="index.php?page=admin_bantuan" class="nav-link <?= is_active('admin_bantuan') ?>"><i class="fas fa-headset"></i> Pesan Bantuan</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_profil" class="nav-link <?= is_active('admin_profil') ?>"><i class="fas fa-user-cog"></i> Profil</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_setting" class="nav-link <?= is_active('admin_setting') ?>"><i class="fas fa-cogs"></i> Pengaturan</a></li>
 
         <?php elseif ($_SESSION['role'] == 'mahasiswa') : ?>
             <!-- MENU MAHASISWA -->

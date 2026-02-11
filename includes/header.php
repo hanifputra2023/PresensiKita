@@ -4,13 +4,36 @@ $header_foto = '';
 if (isset($_SESSION['user_id'])) {
     $uid_head = $_SESSION['user_id'];
     $role_head = $_SESSION['role'];
-    
+
+    // Helper: check if a column exists, prefer project helper if available
+    if (!function_exists('column_exists')) {
+        function _local_column_exists($table, $column) {
+            global $conn;
+            $tbl = mysqli_real_escape_string($conn, $table);
+            $col = mysqli_real_escape_string($conn, $column);
+            $res = mysqli_query($conn, "SHOW COLUMNS FROM `" . $tbl . "` LIKE '" . $col . "'");
+            return ($res && mysqli_num_rows($res) > 0);
+        }
+        $check_column = '_local_column_exists';
+    } else {
+        $check_column = 'column_exists';
+    }
+
     if ($role_head == 'mahasiswa') {
-        $q_head = mysqli_query($conn, "SELECT foto FROM mahasiswa WHERE user_id = '$uid_head'");
-        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        if (call_user_func($check_column, 'mahasiswa', 'foto')) {
+            $q_head = mysqli_query($conn, "SELECT foto FROM mahasiswa WHERE user_id = '" . mysqli_real_escape_string($conn, $uid_head) . "'");
+            if ($q_head && $r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        }
     } elseif ($role_head == 'asisten') {
-        $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '$uid_head'");
-        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        if (call_user_func($check_column, 'asisten', 'foto')) {
+            $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '" . mysqli_real_escape_string($conn, $uid_head) . "'");
+            if ($q_head && $r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        }
+    } elseif ($role_head == 'admin') {
+        if (call_user_func($check_column, 'users', 'foto')) {
+            $q_head = mysqli_query($conn, "SELECT foto FROM users WHERE id = '" . mysqli_real_escape_string($conn, $uid_head) . "'");
+            if ($q_head && $r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        }
     }
 }
 // Fallback jika foto kosong atau file tidak ada
@@ -23,7 +46,7 @@ if (empty($header_foto) || !file_exists($header_foto)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= APP_NAME ?></title>
+    <title><?= function_exists('get_setting') ? get_setting('app_name', defined('APP_NAME') ? APP_NAME : 'PresensiKita') : 'PresensiKita' ?></title>
     
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.php">
