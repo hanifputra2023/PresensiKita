@@ -102,11 +102,33 @@ function generate_qr_code() {
     return bin2hex(random_bytes(16)) . '_' . time();
 }
 
+// Fungsi ambil setting dari DB (Cached)
+function get_setting($key, $default = '') {
+    global $conn;
+    static $settings_cache = null;
+    
+    if ($settings_cache === null) {
+        $settings_cache = [];
+        // Cek tabel exists dulu untuk menghindari error jika belum setup
+        $check = mysqli_query($conn, "SHOW TABLES LIKE 'app_settings'");
+        if (mysqli_num_rows($check) > 0) {
+            $q = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings");
+            while ($row = mysqli_fetch_assoc($q)) {
+                $settings_cache[$row['setting_key']] = $row['setting_value'];
+            }
+        }
+    }
+    
+    return isset($settings_cache[$key]) ? $settings_cache[$key] : $default;
+}
+
 // Fungsi untuk validasi waktu presensi
 function validasi_waktu($jam_mulai, $jam_selesai) {
     $sekarang = time();
-    $mulai = strtotime($jam_mulai) - (TOLERANSI_SEBELUM * 60);
-    $akhir = strtotime($jam_selesai) + (TOLERANSI_SESUDAH * 60);
+    
+    // Tanpa toleransi: Waktu presensi harus tepat antara jam mulai dan jam selesai
+    $mulai = strtotime($jam_mulai);
+    $akhir = strtotime($jam_selesai);
     
     return ($sekarang >= $mulai && $sekarang <= $akhir);
 }

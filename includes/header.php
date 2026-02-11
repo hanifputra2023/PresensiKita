@@ -11,6 +11,9 @@ if (isset($_SESSION['user_id'])) {
     } elseif ($role_head == 'asisten') {
         $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '$uid_head'");
         if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+    } elseif ($role_head == 'admin') {
+        $q_head = mysqli_query($conn, "SELECT foto FROM users WHERE id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
     }
 }
 // Fallback jika foto kosong atau file tidak ada
@@ -23,7 +26,7 @@ if (empty($header_foto) || !file_exists($header_foto)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= APP_NAME ?></title>
+    <title><?= function_exists('get_setting') ? get_setting('app_name', defined('APP_NAME') ? APP_NAME : 'PresensiKita') : 'PresensiKita' ?></title>
     
     <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.php">
