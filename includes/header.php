@@ -1,21 +1,38 @@
 <?php
-// Fetch foto profil untuk digunakan di Header (Mobile) dan Sidebar (Desktop)
+// Fetch foto profil dan nama untuk digunakan di Header (Mobile) dan Sidebar (Desktop)
 $header_foto = '';
+$header_nama = '';
 if (isset($_SESSION['user_id'])) {
     $uid_head = $_SESSION['user_id'];
     $role_head = $_SESSION['role'];
     
     if ($role_head == 'mahasiswa') {
-        $q_head = mysqli_query($conn, "SELECT foto FROM mahasiswa WHERE user_id = '$uid_head'");
-        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        $q_head = mysqli_query($conn, "SELECT foto, nama FROM mahasiswa WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) {
+            $header_foto = $r_head['foto'];
+            $header_nama = $r_head['nama'];
+        }
     } elseif ($role_head == 'asisten') {
-        $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '$uid_head'");
-        if ($r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        $q_head = mysqli_query($conn, "SELECT foto, nama FROM asisten WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) {
+            $header_foto = $r_head['foto'];
+            $header_nama = $r_head['nama'];
+        }
+    } elseif ($role_head == 'admin') {
+        $q_head = mysqli_query($conn, "SELECT foto, nama FROM admin WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) {
+            $header_foto = $r_head['foto'];
+            $header_nama = $r_head['nama'];
+        }
     }
+}
+// Fallback jika nama kosong
+if (empty($header_nama)) {
+    $header_nama = $_SESSION['username'] ?? 'User';
 }
 // Fallback jika foto kosong atau file tidak ada
 if (empty($header_foto) || !file_exists($header_foto)) {
-    $header_foto = 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['username'] ?? 'User') . '&background=random&color=fff&rounded=true&size=128';
+    $header_foto = 'https://ui-avatars.com/api/?name=' . urlencode($header_nama) . '&background=random&color=fff&rounded=true&size=128';
 }
 ?>
 <!DOCTYPE html>
@@ -1058,9 +1075,10 @@ if (empty($header_foto) || !file_exists($header_foto)) {
         <?php 
         if ($_SESSION['role'] == 'mahasiswa') $profil_link = 'index.php?page=mahasiswa_profil';
         elseif ($_SESSION['role'] == 'asisten') $profil_link = 'index.php?page=asisten_profil';
-        else $profil_link = 'index.php?page=admin_dashboard';
+        elseif ($_SESSION['role'] == 'admin') $profil_link = 'index.php?page=admin_profil';
+        else $profil_link = '#';
         ?>
-        <a href="<?= $profil_link ?>" title="<?= $_SESSION['role'] == 'admin' ? 'Dashboard' : 'Profil Saya' ?>">
+        <a href="<?= $profil_link ?>" title="Profil Saya">
             <img src="<?= $header_foto ?>" alt="User" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
         </a>
         

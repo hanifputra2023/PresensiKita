@@ -262,6 +262,10 @@ switch ($page) {
         cek_role(['admin']);
         include 'pages/admin/bantuan.php';
         break;
+    case 'admin_profil':
+        cek_role(['admin']);
+        include 'pages/admin/profil.php';
+        break;
     
     // Asisten pages
     case 'asisten_dashboard':

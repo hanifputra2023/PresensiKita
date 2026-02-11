@@ -8,7 +8,7 @@
     }
 </style>
 <div class="sidebar d-flex flex-column p-3">
-    <?php 
+    <?php
     // Tentukan link dashboard berdasarkan role
     $dashboard_page = isset($_SESSION['role']) ? $_SESSION['role'] . '_dashboard' : 'login';
     ?>
@@ -39,6 +39,7 @@
             <li class="nav-item"><a href="index.php?page=admin_statistik" class="nav-link <?= is_active('admin_statistik') ?>"><i class="fas fa-chart-pie"></i> Statistik</a></li>
             <li class="nav-item"><a href="index.php?page=admin_log" class="nav-link <?= is_active('admin_log') ?>"><i class="fas fa-history"></i> Log Aktivitas</a></li>
             <li class="nav-item"><a href="index.php?page=admin_bantuan" class="nav-link <?= is_active('admin_bantuan') ?>"><i class="fas fa-headset"></i> Pesan Bantuan</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_profil" class="nav-link <?= is_active('admin_profil') ?>"><i class="fas fa-user-cog"></i> Profil</a></li>
 
         <?php elseif ($_SESSION['role'] == 'mahasiswa') : ?>
             <!-- MENU MAHASISWA -->
@@ -83,7 +84,7 @@
                  class="rounded-circle me-3" 
                  style="width: 48px; height: 48px; object-fit: cover; border: 2px solid rgba(255,255,255,0.2);">
             <div class="lh-1">
-                <div class="fw-bold"><?= htmlspecialchars($_SESSION['username']) ?></div>
+                <div class="fw-bold"><?= htmlspecialchars($header_nama ?? $_SESSION['username']) ?></div>
                 <!-- Menampilkan Role secara otomatis (Huruf pertama kapital) -->
                 <small class="text-white-50"><?= ucfirst($_SESSION['role']) ?></small>
             </div>
