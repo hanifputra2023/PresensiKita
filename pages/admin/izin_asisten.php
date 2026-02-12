@@ -180,6 +180,162 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-izin {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 28px;
+    }
+    
+    .welcome-banner-izin::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-izin 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-izin {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .welcome-banner-izin h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-izin .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+        margin: 0;
+    }
+    
+    .welcome-banner-izin .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-izin .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        margin-bottom: 16px;
+    }
+    
+    .welcome-banner-izin .banner-badge i {
+        font-size: 8px;
+        animation: pulse-badge-izin 2s infinite;
+    }
+    
+    @keyframes pulse-badge-izin {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    /* Dark Mode */
+    [data-theme="dark"] .welcome-banner-izin {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive */
+    @media (max-width: 768px) {
+        .welcome-banner-izin {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-izin h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-izin .banner-subtitle {
+            font-size: 14px;
+        }
+        
+        .welcome-banner-izin .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .welcome-banner-izin {
+            padding: 20px;
+            border-radius: 14px;
+        }
+        
+        .welcome-banner-izin h1 {
+            font-size: 20px;
+        }
+        
+        .welcome-banner-izin .banner-subtitle {
+            font-size: 13px;
+        }
+        
+        .welcome-banner-izin .banner-icon {
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+        }
+        
+        .welcome-banner-izin .banner-badge {
+            font-size: 11px;
+            padding: 6px 16px;
+        }
+    }
+
     /* Avatar Styling */
     .avatar-circle {
         width: 40px;
@@ -208,6 +364,14 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
         align-items: center;
         justify-content: center;
         border-radius: 6px;
+    }
+    
+    /* Override width untuk mobile button grid */
+    .mobile-btn-item .btn-action,
+    .mobile-btn-item.btn-action {
+        width: 100% !important;
+        height: auto !important;
+        padding: 0.375rem 0.75rem !important;
     }
     
     /* Modal Styling */
@@ -291,6 +455,57 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
         background-color: var(--bg-card);
         border-color: var(--border-color);
     }
+    
+    /* Mobile Tab Navigation 2x2 Layout */
+    @media (max-width: 576px) {
+        .izin-asisten-page .nav-pills {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 0.5rem !important;
+        }
+        
+        .izin-asisten-page .nav-pills .nav-item {
+            flex: 0 0 calc(50% - 0.25rem) !important;
+            max-width: calc(50% - 0.25rem) !important;
+        }
+        
+        .izin-asisten-page .nav-pills .nav-item .nav-link {
+            width: 100% !important;
+            text-align: center !important;
+            padding: 0.5rem 0.25rem !important;
+            font-size: 0.8rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+    }
+
+    /* Mobile Button Grid for 2x2 Layout */
+    .mobile-btn-grid {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.5rem !important;
+    }
+    
+    .mobile-btn-item {
+        flex: 0 0 calc(50% - 0.25rem) !important;
+        max-width: calc(50% - 0.25rem) !important;
+        min-width: calc(50% - 0.25rem) !important;
+    }
+    
+    .mobile-btn-item.btn {
+        width: 100% !important;
+    }
+    
+    .mobile-btn-item form {
+        flex: 0 0 calc(50% - 0.25rem) !important;
+        max-width: calc(50% - 0.25rem) !important;
+        width: 100% !important;
+    }
+    
+    .mobile-btn-item form button {
+        width: 100% !important;
+    }
 </style>
 
 <div class="container-fluid izin-asisten-page">
@@ -301,7 +516,23 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-user-clock me-2"></i>Persetujuan Izin Asisten</h4>
+                
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-izin">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="banner-icon">
+                            <i class="fas fa-user-clock"></i>
+                        </div>
+                        <div>
+                            <h1 class="mb-1">Persetujuan Izin Asisten</h1>
+                            <p class="banner-subtitle mb-0">Kelola dan setujui pengajuan izin dari asisten praktikum</p>
+                        </div>
+                    </div>
+                    <span class="banner-badge">
+                        <i class="fas fa-circle"></i>
+                        MANAJEMEN IZIN
+                    </span>
+                </div>
                 
                 <?= show_alert() ?>
                 
@@ -736,57 +967,118 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                                         <?php endif; ?>
                                     </div>
                                     
-                                    <!-- Actions -->
-                                    <?php if ($r['status_approval'] == 'pending'): ?>
-                                        <div class="d-flex gap-2">
-                                            <form method="POST" class="flex-fill" onsubmit="return confirm('Setujui pengajuan izin ini?')">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="approve" value="<?= $r['id'] ?>">
-                                                <input type="hidden" name="tab" value="<?= $active_tab ?>">
-                                                <button type="submit" class="btn btn-success btn-sm w-100 btn-action justify-content-center">
-                                                    <i class="fas fa-check"></i> Setujui
-                                                </button>
-                                            </form>
-                                            <button class="btn btn-danger btn-sm flex-fill btn-action justify-content-center" 
-                                                    data-bs-toggle="modal" data-bs-target="#modalRejectMobile<?= $r['id'] ?>">
-                                                <i class="fas fa-times"></i> Tolak
-                                            </button>
+                    <!-- Actions -->
+                    <?php if ($r['status_approval'] == 'pending'): ?>
+                        <div class="d-flex flex-wrap gap-2 mobile-btn-grid">
+                            <form method="POST" class="mobile-btn-item" onsubmit="return confirm('Setujui pengajuan izin ini?')">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="approve" value="<?= $r['id'] ?>">
+                                <input type="hidden" name="tab" value="<?= $active_tab ?>">
+                                <button type="submit" class="btn btn-success btn-sm w-100 btn-action justify-content-center">
+                                    <i class="fas fa-check"></i> Setujui
+                                </button>
+                            </form>
+                            <button class="btn btn-danger btn-sm mobile-btn-item btn-action justify-content-center" 
+                                    data-bs-toggle="modal" data-bs-target="#modalRejectMobile<?= $r['id'] ?>">
+                                <i class="fas fa-times"></i> Tolak
+                            </button>
+                            <button class="btn btn-outline-primary btn-sm mobile-btn-item btn-action justify-content-center" 
+                                    data-bs-toggle="modal" data-bs-target="#modalDetailMobile<?= $r['id'] ?>">
+                                <i class="fas fa-eye"></i> Detail
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm mobile-btn-item btn-action justify-content-center" 
+                                    onclick="confirmSlideDelete('single', <?= $r['id'] ?>)">
+                                <i class="fas fa-trash"></i> Hapus
+                            </button>
+                        </div>
+                        
+                        <!-- Modal Reject Mobile -->
+                        <div class="modal fade" id="modalRejectMobile<?= $r['id'] ?>" tabindex="-1">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <form method="POST">
+                                        <div class="modal-header custom-gradient-danger">
+                                            <h6 class="modal-title text-white">
+                                                <i class="fas fa-times-circle me-2"></i>Tolak Pengajuan
+                                            </h6>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                                         </div>
-                                        
-                                        <!-- Modal Reject Mobile -->
-                                        <div class="modal fade" id="modalRejectMobile<?= $r['id'] ?>" tabindex="-1">
-                                            <div class="modal-dialog modal-dialog-centered">
-                                                <div class="modal-content">
-                                                    <form method="POST">
-                                                        <div class="modal-header custom-gradient-danger">
-                                                            <h6 class="modal-title text-white">
-                                                                <i class="fas fa-times-circle me-2"></i>Tolak Pengajuan
-                                                            </h6>
-                                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            <input type="hidden" name="id" value="<?= $r['id'] ?>">
-                                                            <p class="small text-muted mb-3">
-                                                                Menolak izin <strong><?= $r['nama_asisten'] ?></strong> untuk jadwal 
-                                                                <?= $r['nama_mk'] ?> pada <?= format_tanggal($r['tanggal']) ?>
-                                                            </p>
-                                                            <div class="mb-3">
-                                                                <label class="form-label fw-bold">Alasan Penolakan <span class="text-danger">*</span></label>
-                                                                <textarea name="alasan_reject" class="form-control" rows="3" 
-                                                                          required placeholder="Alasan penolakan..."></textarea>
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
-                                                            <button type="submit" name="reject" class="btn btn-danger btn-sm">
-                                                                <i class="fas fa-times me-1"></i>Tolak
-                                                            </button>
-                                                        </div>
-                                                    </form>
-                                                </div>
+                                        <div class="modal-body">
+                                            <input type="hidden" name="id" value="<?= $r['id'] ?>">
+                                            <p class="small text-muted mb-3">
+                                                Menolak izin <strong><?= $r['nama_asisten'] ?></strong> untuk jadwal 
+                                                <?= $r['nama_mk'] ?> pada <?= format_tanggal($r['tanggal']) ?>
+                                            </p>
+                                            <div class="mb-3">
+                                                <label class="form-label fw-bold">Alasan Penolakan <span class="text-danger">*</span></label>
+                                                <textarea name="alasan_reject" class="form-control" rows="3" 
+                                                          required placeholder="Alasan penolakan..."></textarea>
                                             </div>
                                         </div>
-                                    <?php else: ?>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Batal</button>
+                                            <button type="submit" name="reject" class="btn btn-danger btn-sm">
+                                                <i class="fas fa-times me-1"></i>Tolak
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Modal Detail Mobile for Pending -->
+                        <div class="modal fade" id="modalDetailMobile<?= $r['id'] ?>" tabindex="-1">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header custom-gradient">
+                                        <h6 class="modal-title text-white">
+                                            <i class="fas fa-info-circle me-2"></i>Detail Pengajuan
+                                        </h6>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="info-row">
+                                            <div class="info-label">Asisten</div>
+                                            <div class="info-value"><strong><?= $r['nama_asisten'] ?></strong></div>
+                                        </div>
+                                        <div class="info-row">
+                                            <div class="info-label">Status</div>
+                                            <div class="info-value">
+                                                <?php if ($r['status'] == 'izin'): ?>
+                                                    <span class="badge bg-warning text-dark">Izin</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-info">Sakit</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                        <div class="info-row">
+                                            <div class="info-label">Jadwal</div>
+                                            <div class="info-value"><?= $r['nama_mk'] ?> · <?= $r['nama_kelas'] ?></div>
+                                        </div>
+                                        <div class="info-row">
+                                            <div class="info-label">Tanggal</div>
+                                            <div class="info-value"><?= format_tanggal($r['tanggal']) ?></div>
+                                        </div>
+                                        <div class="info-row">
+                                            <div class="info-label">Waktu</div>
+                                            <div class="info-value"><?= format_waktu($r['jam_mulai']) ?> - <?= format_waktu($r['jam_selesai']) ?></div>
+                                        </div>
+                                        <div class="info-row">
+                                            <div class="info-label">Pengganti</div>
+                                            <div class="info-value"><?= $r['nama_pengganti'] ?: '<span class="text-muted">Tidak ada</span>' ?></div>
+                                        </div>
+                                        <div class="info-row">
+                                            <div class="info-label">Alasan</div>
+                                            <div class="info-value"><?= $r['catatan'] ?: '<span class="text-muted">Tidak ada</span>' ?></div>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
                                         <div class="d-flex gap-2">
                                             <button class="btn btn-outline-secondary btn-sm flex-fill" data-bs-toggle="modal" 
                                                     data-bs-target="#modalDetailMobile<?= $r['id'] ?>">

@@ -133,6 +133,46 @@ $s = array_merge([
     'contact_wa' => '',
     'maintenance_mode' => '0'
 ], $settings_data);
+
+// Greeting berdasarkan waktu
+$greeting = sapaan_waktu();
+
+// Get real server resource usage
+$memory_usage = memory_get_usage(true);
+$memory_limit = ini_get('memory_limit');
+// Convert memory limit to bytes
+$memory_limit_bytes = $memory_limit;
+if (preg_match('/^(\d+)(.)$/', $memory_limit, $matches)) {
+    $val = $matches[1];
+    $unit = strtoupper($matches[2]);
+    switch ($unit) {
+        case 'G': $memory_limit_bytes = $val * 1024 * 1024 * 1024; break;
+        case 'M': $memory_limit_bytes = $val * 1024 * 1024; break;
+        case 'K': $memory_limit_bytes = $val * 1024; break;
+        default: $memory_limit_bytes = $val;
+    }
+}
+$memory_percent = ($memory_limit_bytes > 0) ? round(($memory_usage / $memory_limit_bytes) * 100, 1) : 0;
+
+// Get disk space
+$disk_free = @disk_free_space("/");
+$disk_total = @disk_total_space("/");
+$disk_used = $disk_total - $disk_free;
+$disk_percent = ($disk_total > 0) ? round(($disk_used / $disk_total) * 100, 1) : 0;
+
+// Get database size
+$db_name = mysqli_real_escape_string($conn, 'presensi');
+$db_size_query = mysqli_query($conn, "SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'size_mb' FROM information_schema.tables WHERE table_schema = '$db_name'");
+$db_size_row = mysqli_fetch_assoc($db_size_query);
+$db_size_mb = $db_size_row['size_mb'] ?? 0;
+
+// Get total records in database (as indicator of system load)
+$total_records_query = mysqli_query($conn, "SELECT 
+    (SELECT COUNT(*) FROM mahasiswa) + 
+    (SELECT COUNT(*) FROM asisten) + 
+    (SELECT COUNT(*) FROM jadwal) + 
+    (SELECT COUNT(*) FROM presensi_mahasiswa) as total");
+$total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -157,7 +197,7 @@ $s = array_merge([
     --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
     
     /* Light mode colors */
-    --bg-main: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 50%, #e0f2fe 100%);
+    --bg-main: #b8caff;
     --bg-header: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
     --text-primary: #1e293b;
     --text-secondary: #64748b;
@@ -187,7 +227,7 @@ $s = array_merge([
     --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.6), 0 10px 10px -5px rgba(0,0,0,0.5);
     
     /* Dark mode specific colors */
-    --bg-main: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+    --bg-main: #0f172a;
     --bg-header: linear-gradient(135deg, #1e293b 0%, #334155 100%);
     --text-primary: #f1f5f9;
     --text-secondary: #cbd5e1;
@@ -201,9 +241,75 @@ $s = array_merge([
 /* Base Layout */
 .settings-modern {
     min-height: 100vh;
-    background: var(--bg-main);
+    background-color: var(--bg-main);
     position: relative;
     transition: background 0.4s ease;
+}
+
+/* Welcome Banner - Same as Dashboard */
+.welcome-banner {
+    background: linear-gradient(135deg, #0066cc 0%, #00ccff 100%);
+    border-radius: 24px;
+    padding: 40px;
+    margin-bottom: 30px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.2);
+}
+
+.welcome-banner::before {
+    content: '';
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+    top: -100px;
+    right: -100px;
+    pointer-events: none;
+}
+
+.welcome-content h1 {
+    color: white;
+    font-size: 32px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+}
+
+.welcome-content .subtitle {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 16px;
+    margin: 0;
+    font-weight: 400;
+}
+
+.welcome-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 8px 16px;
+    border-radius: 20px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.welcome-badge i {
+    font-size: 8px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+[data-theme="dark"] .welcome-banner {
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
 }
 
 .settings-modern::before {
@@ -212,40 +318,14 @@ $s = array_merge([
     top: 0;
     left: 0;
     right: 0;
-    height: 320px;
-    background: var(--bg-header);
-    clip-path: polygon(0 0, 100% 0, 100% 70%, 0% 100%);
+    height: 0px;
     z-index: 0;
     transition: background 0.4s ease;
 }
 
-/* Header Styling */
+/* Header Styling - Removed, replaced with welcome banner */
 .page-header-modern {
-    position: relative;
-    z-index: 1;
-    margin-bottom: 40px;
-}
-
-.header-content {
-    padding: 60px 0 40px;
-}
-
-.header-title {
-    font-size: 32px;
-    font-weight: 800;
-    color: var(--text-header);
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
-    transition: color 0.3s ease;
-}
-
-.header-subtitle {
-    font-size: 16px;
-    color: var(--text-header);
-    opacity: 0.9;
-    font-weight: 400;
-    max-width: 600px;
-    transition: color 0.3s ease;
+    display: none;
 }
 
 /* Main Content */
@@ -866,7 +946,7 @@ $s = array_merge([
 
 .btn-primary-modern {
     background: linear-gradient(135deg, var(--primary), var(--primary-light));
-    color: white;
+    color: white !important;
     box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2);
 }
 
@@ -874,11 +954,21 @@ $s = array_merge([
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0, 102, 204, 0.3);
     background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    color: white !important;
+}
+
+.btn-primary-modern:active,
+.btn-primary-modern:focus {
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary)) !important;
+    color: white !important;
+    transform: translateY(0);
+    box-shadow: 0 4px 15px rgba(0, 102, 204, 0.2) !important;
+    outline: none;
 }
 
 .btn-danger-modern {
     background: linear-gradient(135deg, var(--danger), #f87171);
-    color: white;
+    color: white !important;
     box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
 }
 
@@ -886,6 +976,52 @@ $s = array_merge([
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
     background: linear-gradient(135deg, #dc2626, var(--danger));
+    color: white !important;
+}
+
+.btn-danger-modern:active,
+.btn-danger-modern:focus {
+    background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    color: white !important;
+    transform: translateY(0);
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2) !important;
+    outline: none;
+}
+
+/* Custom Clean Button - Attractive for both light and dark themes */
+.btn-clean-log {
+    background: linear-gradient(135deg, #fde047, #fbbf24);
+    color: white;
+    border: 1px solid #fbbf24;
+    box-shadow: 0 4px 15px rgba(251, 191, 36, 0.3);
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.btn-clean-log:hover {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border-color: #d97706;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.4);
+}
+
+.btn-clean-log:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 8px rgba(251, 191, 36, 0.2);
+}
+
+[data-theme="dark"] .btn-clean-log {
+    background: linear-gradient(135deg, #fde047, #fbbf24);
+    color: white;
+    border-color: #fbbf24;
+}
+
+[data-theme="dark"] .btn-clean-log:hover {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border-color: #d97706;
+    box-shadow: 0 8px 20px rgba(251, 191, 36, 0.3);
 }
 
 /* Save Button Container */
@@ -1022,16 +1158,15 @@ $s = array_merge([
             
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10">
-                <!-- Header -->
-                <div class="page-header-modern">
-                    <div class="header-content">
-                        <h1 class="header-title">
-                            <i class="fas fa-sliders-h me-2"></i>
-                            Pengaturan Sistem
-                        </h1>
-                        <p class="header-subtitle">
-                            Kelola konfigurasi aplikasi, preferensi sistem, dan pengaturan lainnya
-                        </p>
+                <!-- Welcome Banner - Same as Dashboard -->
+                <div class="welcome-banner">
+                    <div class="welcome-content">
+                        <div class="welcome-badge">
+                            <i class="fas fa-circle"></i>
+                            <?= format_tanggal(date('Y-m-d')) ?>
+                        </div>
+                        <h1><?= $greeting ?>, Admin!</h1>
+                        <p class="subtitle">Kelola konfigurasi aplikasi, preferensi sistem, dan pengaturan lainnya</p>
                     </div>
                 </div>
                 
@@ -1207,7 +1342,7 @@ $s = array_merge([
                                                     Hapus riwayat aktivitas sistem yang sudah tidak diperlukan. 
                                                     Aksi ini akan menghapus semua log presensi.
                                                 </div>
-                                                <button type="button" onclick="clearLogs()" class="btn btn-outline-modern btn-modern w-100">
+                                                <button type="button" onclick="clearLogs()" class="btn btn-clean-log btn-modern w-100">
                                                     <i class="fas fa-broom me-2"></i>
                                                     Bersihkan Log
                                                 </button>
@@ -1257,7 +1392,7 @@ $s = array_merge([
                             </div>
                             
                             <!-- Informasi Sistem -->
-                            <div class="col-12">
+                            <div class="col-12" style="margin-top: 30px;">
                                 <div class="glass-card">
                                     <div class="card-header-glass">
                                         <div class="card-title-glass">
@@ -1314,23 +1449,23 @@ $s = array_merge([
                                                                 <i class="fas fa-memory"></i>
                                                                 Memory Usage
                                                             </span>
-                                                            <span class="progress-value-modern" id="memoryValue"><?= round(memory_get_usage(true)/1048576, 2) ?> MB</span>
+                                                            <span class="progress-value-modern"><?= round($memory_usage/1048576, 2) ?> MB / <?= $memory_limit ?></span>
                                                         </div>
                                                         <div class="progress-bar-modern">
-                                                            <div class="progress-fill-modern" id="memoryBar" style="width: 45%"></div>
+                                                            <div class="progress-fill-modern" style="width: <?= $memory_percent ?>%"></div>
                                                         </div>
                                                     </div>
                                                     
                                                     <div class="progress-modern">
                                                         <div class="progress-header-modern">
                                                             <span class="progress-label-modern">
-                                                                <i class="fas fa-microchip"></i>
-                                                                CPU Load
+                                                                <i class="fas fa-database"></i>
+                                                                Database Size
                                                             </span>
-                                                            <span class="progress-value-modern" id="cpuValue">Medium</span>
+                                                            <span class="progress-value-modern"><?= $db_size_mb ?> MB</span>
                                                         </div>
                                                         <div class="progress-bar-modern">
-                                                            <div class="progress-fill-modern" id="cpuBar" style="width: 65%"></div>
+                                                            <div class="progress-fill-modern" style="width: <?= min(100, ($db_size_mb / 100) * 100) ?>%"></div>
                                                         </div>
                                                     </div>
                                                     
@@ -1340,10 +1475,25 @@ $s = array_merge([
                                                                 <i class="fas fa-hdd"></i>
                                                                 Disk Space
                                                             </span>
-                                                            <span class="progress-value-modern" id="diskValue">4.2 GB / 10 GB</span>
+                                                            <span class="progress-value-modern">
+                                                                <?= $disk_free !== false ? round($disk_used/1073741824, 2) . ' GB / ' . round($disk_total/1073741824, 2) . ' GB' : 'N/A' ?>
+                                                            </span>
                                                         </div>
                                                         <div class="progress-bar-modern">
-                                                            <div class="progress-fill-modern" style="width: 42%"></div>
+                                                            <div class="progress-fill-modern" style="width: <?= $disk_percent ?>%"></div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="progress-modern">
+                                                        <div class="progress-header-modern">
+                                                            <span class="progress-label-modern">
+                                                                <i class="fas fa-table"></i>
+                                                                Total Records
+                                                            </span>
+                                                            <span class="progress-value-modern"><?= number_format($total_records) ?> records</span>
+                                                        </div>
+                                                        <div class="progress-bar-modern">
+                                                            <div class="progress-fill-modern" style="width: <?= min(100, ($total_records / 10000) * 100) ?>%"></div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1471,47 +1621,6 @@ if (maintenanceSwitch) {
         }
     });
 }
-
-// Dynamic Resource Monitoring
-function updateResourceStats() {
-    // Simulate dynamic resource usage
-    const memory = Math.min(100, 30 + Math.random() * 50);
-    const cpu = Math.min(100, 40 + Math.random() * 50);
-    const disk = Math.min(100, 30 + Math.random() * 30);
-    
-    // Update progress bars
-    const memoryBar = document.getElementById('memoryBar');
-    const cpuBar = document.getElementById('cpuBar');
-    
-    if (memoryBar) memoryBar.style.width = memory + '%';
-    if (cpuBar) cpuBar.style.width = cpu + '%';
-    
-    // Update text values
-    const memoryValue = document.getElementById('memoryValue');
-    const cpuValue = document.getElementById('cpuValue');
-    const diskValue = document.getElementById('diskValue');
-    
-    if (memoryValue) {
-        const memMB = Math.round(memory * 0.8);
-        memoryValue.textContent = memMB + ' MB';
-    }
-    
-    if (cpuValue) {
-        let cpuText = 'Rendah';
-        if (cpu > 75) cpuText = 'Tinggi';
-        else if (cpu > 45) cpuText = 'Sedang';
-        cpuValue.textContent = cpuText;
-    }
-    
-    if (diskValue) {
-        const used = Math.round(disk * 0.1);
-        diskValue.textContent = used + '.2 GB / 10 GB';
-    }
-}
-
-// Update every 2.5 seconds
-setInterval(updateResourceStats, 2500);
-updateResourceStats();
 
 // Add hover animations
 document.querySelectorAll('.action-card-modern').forEach(card => {

@@ -216,16 +216,206 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner - Modern Design */
+    .welcome-banner-lab {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.2);
+    }
+    
+    .welcome-banner-lab::before {
+        content: '';
+        position: absolute;
+        top: -100px;
+        right: -100px;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(78, 115, 223, 0.5) 0%, transparent 70%);
+        animation: pulse-glow-lab 4s ease-in-out infinite;
+    }
+    
+    .welcome-banner-lab::after {
+        content: '';
+        position: absolute;
+        bottom: -150px;
+        left: -100px;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(54, 185, 204, 0.3) 0%, transparent 70%);
+        animation: pulse-glow-lab 4s ease-in-out infinite 2s;
+    }
+    
+    @keyframes pulse-glow-lab {
+        0%, 100% { transform: scale(1); opacity: 0.4; }
+        50% { transform: scale(1.05); opacity: 0.6; }
+    }
+    
+    .welcome-content-lab h1 {
+        color: white;
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .welcome-content-lab .subtitle {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 16px;
+        margin: 0;
+        font-weight: 400;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .welcome-badge-lab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 20px;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        position: relative;
+        z-index: 2;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .welcome-badge-lab i {
+        font-size: 8px;
+        animation: pulse-badge-lab 2s infinite;
+    }
+    
+    @keyframes pulse-badge-lab {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .btn-add-lab {
+        position: relative;
+        z-index: 2;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-add-lab:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn-add-lab i {
+        margin-right: 8px;
+    }
+    
+    /* Filter Bar Modern */
+    .filter-bar-lab {
+        background: var(--bg-card);
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 24px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .filter-bar-lab .form-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+    
+    .filter-bar-lab .form-control {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 10px 14px;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+    }
+    
+    .filter-bar-lab .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+        background: var(--bg-card);
+    }
+    
+    .filter-bar-lab .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-bar-lab .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
     /* Card Styling & Selection */
-    .lab-card { transition: all 0.2s; border: 1px solid var(--border-color); background-color: var(--bg-card); }
-    .lab-card .card-title { font-weight: 600; color: var(--text-main); }
+    .lab-card { 
+        transition: all 0.3s ease; 
+        border: 1px solid var(--border-color); 
+        background-color: var(--bg-card);
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    .lab-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .lab-card .card-title { 
+        font-weight: 700; 
+        color: var(--text-main);
+        font-size: 1.1rem;
+    }
+    
+    .lab-card .badge {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .lab-card .text-muted {
+        font-size: 0.9rem;
+    }
+    
+    .lab-card .text-muted i {
+        color: var(--primary-color);
+        width: 20px;
+    }
     
     .lab-card.selected { 
         border-color: var(--primary-color); 
-        background-color: rgba(0, 102, 204, 0.05); 
-        box-shadow: 0 0 0 1px var(--primary-color);
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(0, 102, 204, 0.02) 100%);
+        box-shadow: 0 0 0 2px var(--primary-color), 0 4px 16px rgba(0, 102, 204, 0.2);
     }
-    [data-theme="dark"] .lab-card.selected { background-color: rgba(0, 102, 204, 0.15); }
+    [data-theme="dark"] .lab-card.selected { 
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.2) 0%, rgba(0, 102, 204, 0.1) 100%);
+    }
 
     .card-select-overlay { 
         position: absolute; top: 15px; left: 15px; z-index: 5; 
@@ -251,64 +441,283 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
     .select-mode .lab-card .card-body { padding-top: 3.5rem; }
 
     .lab-card .action-buttons {
-        display: flex; gap: 0.5rem; margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 1rem;
+        display: flex; 
+        gap: 0.5rem; 
+        margin-top: auto; 
+        border-top: 1px solid var(--border-color); 
+        padding-top: 1rem;
     }
-    .lab-card .action-buttons .btn { flex-grow: 1; }
+    .lab-card .action-buttons .btn { 
+        flex-grow: 1;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .lab-card .action-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
 
     /* Sticky Bottom Bar untuk Bulk Action */
     #bulkActionBar {
-        position: fixed; bottom: -100px; left: 0; right: 0;
-        background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
-        padding: 15px 30px; z-index: 1000;
+        position: fixed; 
+        bottom: -100px; 
+        left: 0; 
+        right: 0;
+        background: var(--bg-card); 
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
+        padding: 20px 30px; 
+        z-index: 1000;
         transition: bottom 0.3s ease-in-out;
-        display: flex; justify-content: space-between; align-items: center;
-        border-top: 1px solid var(--border-color);
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        border-top: 2px solid var(--primary-color);
+        backdrop-filter: blur(10px);
     }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
+    #bulkActionBar.show { 
+        bottom: 0; 
+    }
+    [data-theme="dark"] #bulkActionBar { 
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.4); 
+    }
+    
+    #bulkActionBar .badge {
+        font-size: 1.2rem;
+        padding: 8px 16px;
+        border-radius: 10px;
+    }
+    
+    #bulkActionBar .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+        transition: all 0.3s ease;
+    }
+    
+    #bulkActionBar .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
     
     /* Penyesuaian agar konten tidak tertutup bar */
     body { padding-bottom: 80px; } 
+    
+    /* Modal Modern Styling */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modal-header {
+        border-bottom: 2px solid var(--border-color);
+        padding: 20px 24px;
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.05) 0%, transparent 100%);
+    }
+    
+    .modal-title {
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    
+    .modal-body {
+        padding: 24px;
+    }
+    
+    .modal-body .form-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    
+    .modal-body .form-control,
+    .modal-body .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 10px 14px;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-body .form-control:focus,
+    .modal-body .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    }
+    
+    .modal-footer {
+        border-top: 2px solid var(--border-color);
+        padding: 16px 24px;
+    }
+    
+    .modal-footer .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+    }
 
     /* SLIDER CONFIRM STYLE */
     .slider-container {
-        position: relative; width: 100%; height: 55px;
-        background: #f0f2f5; border-radius: 30px;
-        user-select: none; overflow: hidden;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+        position: relative; 
+        width: 100%; 
+        height: 60px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 30px;
+        user-select: none; 
+        overflow: hidden;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        border: 2px solid var(--border-color);
     }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
+    [data-theme="dark"] .slider-container { 
+        background: linear-gradient(135deg, var(--bg-input) 0%, rgba(255, 255, 255, 0.05) 100%);
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); 
+    }
 
     .slider-text {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 600; color: #888; font-size: 14px;
-        text-transform: uppercase; letter-spacing: 1px;
-        z-index: 1; pointer-events: none; transition: opacity 0.3s;
+        position: absolute; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        font-weight: 700; 
+        color: #888; 
+        font-size: 14px;
+        text-transform: uppercase; 
+        letter-spacing: 1.5px;
+        z-index: 1; 
+        pointer-events: none; 
+        transition: opacity 0.3s;
     }
-    [data-theme="dark"] .slider-text { color: var(--text-muted); }
+    [data-theme="dark"] .slider-text { 
+        color: var(--text-muted); 
+    }
 
     .slider-handle {
-        position: absolute; top: 5px; left: 5px;
-        width: 45px; height: 45px;
-        background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2;
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        position: absolute; 
+        top: 6px; 
+        left: 6px;
+        width: 48px; 
+        height: 48px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 50%; 
+        cursor: pointer; 
+        z-index: 2;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        color: white; 
+        font-size: 20px; 
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
         transition: transform 0.1s;
     }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress {
-        position: absolute; top: 0; left: 0; height: 100%;
-        background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0;
+    .slider-handle:active { 
+        cursor: grabbing; 
+        transform: scale(0.95); 
     }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
+    .slider-progress {
+        position: absolute; 
+        top: 0; 
+        left: 0; 
+        height: 100%;
+        background: linear-gradient(90deg, rgba(220, 53, 69, 0.3) 0%, rgba(220, 53, 69, 0.1) 100%);
+        width: 0; 
+        z-index: 0;
+        transition: width 0.1s ease;
+    }
+    .slider-container.unlocked .slider-handle { 
+        width: calc(100% - 12px); 
+        border-radius: 30px; 
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    }
+    .slider-container.unlocked .slider-progress {
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.3) 0%, rgba(40, 167, 69, 0.1) 100%);
+    }
+    .slider-container.unlocked .slider-text { 
+        opacity: 0; 
+    }
 
     @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+        #bulkActionBar { 
+            flex-direction: column; 
+            gap: 10px; 
+            padding: 15px; 
+        }
+        #bulkActionBar > div { 
+            width: 100%; 
+            display: flex; 
+            justify-content: space-between; 
+        }
+        #bulkActionBar button { 
+            flex: 1; 
+        }
+        
+        .welcome-banner-lab {
+            padding: 24px;
+        }
+        
+        .welcome-content-lab h1 {
+            font-size: 24px;
+        }
+        
+        .btn-add-lab {
+            width: 100%;
+            justify-content: center;
+        }
     }
+    
+    /* Dark mode adjustments */
+    [data-theme="dark"] .filter-bar-lab {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
+    [data-theme="dark"] .lab-card {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
+    [data-theme="dark"] .lab-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.2);
+    }
+    
+    /* Smooth transitions for all interactive elements */
+    * {
+        transition-property: background-color, border-color, box-shadow, transform;
+        transition-duration: 0.3s;
+        transition-timing-function: ease;
+    }
+    
+    /* Page fade-in animation */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .lab-card {
+        animation: fadeInUp 0.5s ease forwards;
+    }
+    
+    .lab-card:nth-child(1) { animation-delay: 0.1s; }
+    .lab-card:nth-child(2) { animation-delay: 0.15s; }
+    .lab-card:nth-child(3) { animation-delay: 0.2s; }
+    .lab-card:nth-child(4) { animation-delay: 0.25s; }
+    .lab-card:nth-child(5) { animation-delay: 0.3s; }
+    .lab-card:nth-child(6) { animation-delay: 0.35s; }
+    .lab-card:nth-child(7) { animation-delay: 0.4s; }
+    .lab-card:nth-child(8) { animation-delay: 0.45s; }
+    .lab-card:nth-child(9) { animation-delay: 0.5s; }
 </style>
 
 <div class="container-fluid">
@@ -320,30 +729,45 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
                 
-                <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-flask me-2"></i>Kelola Laboratorium</h4>
-                    <button class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah Lab
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-lab">
+                    <div class="welcome-content-lab d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <div class="welcome-badge-lab">
+                                <i class="fas fa-circle"></i>
+                                Manajemen Laboratorium
+                            </div>
+                            <h1><i class="fas fa-flask me-3"></i>Kelola Laboratorium</h1>
+                            <p class="subtitle">Atur dan kelola data laboratorium dengan sistem koordinat dan kapasitas yang akurat</p>
+                        </div>
+                        <button class="btn btn-add-lab" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus"></i>Tambah Lab
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
+                <div class="card filter-bar-lab">
+                    <div class="card-body p-0">
                         <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
                             <input type="hidden" name="page" value="admin_lab">
-                            <div class="col-12 col-md">
-                                <label for="searchInput" class="form-label small">Cari Nama/Kode Lab</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
+                            <div class="col-12 col-md-8">
+                                <label for="searchInput" class="form-label">Cari Laboratorium</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" style="border-radius: 12px 0 0 12px; border: 2px solid var(--border-color); border-right: none;">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari nama/kode lab..." value="<?= htmlspecialchars($search) ?>" style="border-left: none !important;">
+                                </div>
                             </div>
-                            <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
+                            <div class="col-12 col-md-4 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
+                                <button type="button" class="btn btn-outline-primary" id="btnSelectMode" onclick="toggleSelectMode()">
+                                    <i class="fas fa-check-square me-1"></i> Mode Pilih
                                 </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                                <div class="d-none align-items-center justify-content-center px-3 py-2 bg-light rounded" id="selectAllContainer" style="border: 2px solid var(--border-color);">
+                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="cursor: pointer;">
+                                    <label class="form-check-label fw-bold ms-2 small mb-0" for="selectAll" style="cursor:pointer;">Pilih Semua</label>
                                 </div>
                             </div>
                         </form>
@@ -590,14 +1014,14 @@ function toggleSelectMode() {
     
     if (isSelectMode) {
         container.classList.add('select-mode');
-        btn.classList.replace('btn-outline-secondary', 'btn-secondary');
-        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
+        btn.classList.replace('btn-outline-primary', 'btn-primary');
+        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal Pilih';
         selectAllContainer.classList.remove('d-none');
         selectAllContainer.classList.add('d-flex');
     } else {
         container.classList.remove('select-mode');
-        btn.classList.replace('btn-secondary', 'btn-outline-secondary');
-        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Pilih';
+        btn.classList.replace('btn-primary', 'btn-outline-primary');
+        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Mode Pilih';
         selectAllContainer.classList.add('d-none');
         selectAllContainer.classList.remove('d-flex');
         

@@ -618,6 +618,124 @@ if ($lab_list_query) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+/* Welcome Banner - Modern dengan tema biru */
+.welcome-banner-jadwal {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    margin-bottom: 28px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+}
+
+.welcome-banner-jadwal::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(78, 115, 223, 0.5) 0%, transparent 70%);
+    animation: pulse-glow-jadwal 4s ease-in-out infinite;
+}
+
+.welcome-banner-jadwal::after {
+    content: '';
+    position: absolute;
+    bottom: -150px;
+    left: -100px;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(54, 185, 204, 0.3) 0%, transparent 70%);
+    animation: pulse-glow-jadwal 4s ease-in-out infinite 2s;
+}
+
+@keyframes pulse-glow-jadwal {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-content-jadwal {
+    position: relative;
+    z-index: 2;
+}
+
+.welcome-badge-jadwal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    width: fit-content;
+    margin-bottom: 16px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.welcome-badge-jadwal i {
+    font-size: 8px;
+    animation: pulse-badge-jadwal 2s infinite;
+}
+
+@keyframes pulse-badge-jadwal {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.welcome-banner-jadwal h1 {
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0 0 8px 0;
+    color: #fff;
+    line-height: 1.2;
+}
+
+.welcome-banner-jadwal .subtitle {
+    margin: 0;
+    opacity: 0.85;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+/* Responsive untuk Welcome Banner */
+@media (max-width: 768px) {
+    .welcome-banner-jadwal {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-jadwal h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-jadwal .subtitle {
+        font-size: 14px;
+    }
+    
+    .welcome-badge-jadwal {
+        font-size: 12px;
+        padding: 6px 12px;
+    }
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-jadwal {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
 /* Custom responsive styles for Jadwal page */
 @media (max-width: 767.98px) {
     .card.mb-2 .card-body .d-flex.justify-content-between { flex-wrap: wrap; gap: 0.75rem; }
@@ -907,8 +1025,20 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
                 
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Kelola Jadwal</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-jadwal">
+                    <div class="welcome-content-jadwal">
+                        <div class="welcome-badge-jadwal">
+                            <i class="fas fa-circle"></i>
+                            JADWAL PRAKTIKUM
+                        </div>
+                        <h1>Kelola Jadwal</h1>
+                        <p class="subtitle">Manajemen jadwal praktikum, rolling, dan kalender kegiatan</p>
+                    </div>
+                </div>
+                
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4">
+                    <div></div>
                     <div class="d-flex flex-column flex-md-row gap-2">
                         <!-- [BARU] Tombol Switch View -->
                         <div class="btn-group w-100 w-md-auto" role="group">

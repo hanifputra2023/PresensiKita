@@ -307,6 +307,194 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-users {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .welcome-banner-users::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-users 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-users {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes pulse-badge-users {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        }
+    }
+    
+    .welcome-banner-users h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        animation: pulse-badge-users 2s ease-in-out infinite;
+    }
+    
+    .welcome-banner-users .banner-badge i {
+        font-size: 8px;
+        margin-right: 6px;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .welcome-banner-users .btn-banner-primary {
+        background: white;
+        color: var(--primary-color);
+        border: 2px solid white;
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .btn-banner-primary:hover {
+        background: rgba(255, 255, 255, 0.95);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        color: var(--primary-color);
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-users {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .welcome-banner-users {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-users h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-users .banner-subtitle {
+            font-size: 14px;
+        }
+        
+        .welcome-banner-users .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-users .btn-banner-primary {
+            width: 100%;
+            justify-content: center;
+            display: flex;
+            align-items: center;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .welcome-banner-users {
+            padding: 20px;
+            border-radius: 14px;
+        }
+        
+        .welcome-banner-users h1 {
+            font-size: 20px;
+        }
+        
+        .welcome-banner-users .banner-subtitle {
+            font-size: 13px;
+        }
+        
+        .welcome-banner-users .banner-icon {
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+        }
+        
+        .welcome-banner-users .banner-badge {
+            font-size: 11px;
+            padding: 6px 16px;
+        }
+    }
+    
     /* Card Selection Styles */
     .user-card { transition: all 0.2s; border: 1px solid var(--border-color); }
     .user-card.selected { border-color: var(--primary-color); background-color: rgba(0, 102, 204, 0.05); box-shadow: 0 0 0 1px var(--primary-color); }
@@ -510,11 +698,27 @@ if (isset($_GET['ajax_search'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-user-cog me-2"></i>Kelola Pengguna</h4>
-                    <button class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah Pengguna
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-users">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-user-cog"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Pengguna</h1>
+                                    <p class="banner-subtitle mb-0">Manajemen akun pengguna sistem untuk admin, asisten, dan mahasiswa</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-circle"></i>USER MANAGEMENT
+                            </span>
+                        </div>
+                        <button class="btn btn-banner-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus me-2"></i>Tambah Pengguna
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>

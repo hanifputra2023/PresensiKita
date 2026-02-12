@@ -35,10 +35,215 @@ $result = mysqli_query($conn, $query);
 <?php include 'includes/header.php'; ?>
 
 <style>
+/* Welcome Banner Modern */
+.welcome-banner-berita-acara {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.welcome-banner-berita-acara::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-berita-acara 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-berita-acara {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.6;
+    }
+}
+
+@keyframes pulse-badge-berita-acara {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+    }
+}
+
+.welcome-banner-berita-acara h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-berita-acara .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-berita-acara .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-berita-acara .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+    animation: pulse-badge-berita-acara 2s ease-in-out infinite;
+}
+
+.welcome-banner-berita-acara .banner-badge i {
+    font-size: 8px;
+    margin-right: 6px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.welcome-banner-berita-acara .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 1;
+    font-size: 15px;
+}
+
+.welcome-banner-berita-acara .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-berita-acara {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .welcome-banner-berita-acara {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-berita-acara h1 {
+        font-size: 22px;
+    }
+    
+    .welcome-banner-berita-acara .banner-subtitle {
+        font-size: 14px;
+    }
+    
+    .welcome-banner-berita-acara .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-berita-acara .banner-badge {
+        font-size: 11px;
+        padding: 6px 14px;
+    }
+    
+    .welcome-banner-berita-acara .btn-banner {
+        padding: 10px 20px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-banner-berita-acara {
+        padding: 20px;
+    }
+    
+    .welcome-banner-berita-acara h1 {
+        font-size: 19px;
+    }
+    
+    .welcome-banner-berita-acara .banner-subtitle {
+        font-size: 13px;
+    }
+    
+    .welcome-banner-berita-acara .banner-icon {
+        width: 45px;
+        height: 45px;
+        font-size: 20px;
+    }
+    
+    .welcome-banner-berita-acara .banner-badge {
+        font-size: 10px;
+        padding: 5px 12px;
+    }
+    
+    .welcome-banner-berita-acara .btn-banner {
+        padding: 10px 18px;
+        font-size: 13px;
+    }
+}
+
+@media (min-width: 577px) {
+    .welcome-banner-berita-acara .btn-banner {
+        width: auto;
+    }
+}
+
 @media print {
     .sidebar, .no-print { display: none !important; }
     .content-wrapper { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
     .card { border: none !important; shadow: none !important; }
+    .welcome-banner-berita-acara { display: none; }
 }
 </style>
 
@@ -49,11 +254,27 @@ $result = mysqli_query($conn, $query);
         </div>
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-                    <h4 class="mb-0"><i class="fas fa-file-signature me-2"></i>Rekap Berita Acara Praktikum</h4>
-                    <button onclick="window.print()" class="btn btn-secondary">
-                        <i class="fas fa-print me-1"></i> Cetak
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-berita-acara no-print">
+                    <div class="d-flex justify-content-between align-items-start gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="banner-icon">
+                                    <i class="fas fa-file-signature"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Berita Acara Praktikum</h1>
+                                    <p class="banner-subtitle mb-0">Rekap dan monitoring berita acara pelaksanaan praktikum</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-circle me-1"></i>DOCUMENTATION
+                            </span>
+                        </div>
+                        <button onclick="window.print()" class="btn btn-banner">
+                            <i class="fas fa-print me-2"></i>Cetak Laporan
+                        </button>
+                    </div>
                 </div>
 
                 <div class="card mb-4 no-print">

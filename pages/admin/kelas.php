@@ -171,6 +171,164 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner - Modern Design */
+    .welcome-banner-kelas {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.2);
+    }
+    
+    .welcome-banner-kelas::before {
+        content: '';
+        position: absolute;
+        top: -100px;
+        right: -100px;
+        width: 400px;
+        height: 400px;
+        background: radial-gradient(circle, rgba(78, 115, 223, 0.5) 0%, transparent 70%);
+        animation: pulse-glow-kelas 4s ease-in-out infinite;
+    }
+    
+    .welcome-banner-kelas::after {
+        content: '';
+        position: absolute;
+        bottom: -150px;
+        left: -100px;
+        width: 350px;
+        height: 350px;
+        background: radial-gradient(circle, rgba(54, 185, 204, 0.3) 0%, transparent 70%);
+        animation: pulse-glow-kelas 4s ease-in-out infinite 2s;
+    }
+    
+    @keyframes pulse-glow-kelas {
+        0%, 100% { transform: scale(1); opacity: 0.4; }
+        50% { transform: scale(1.05); opacity: 0.6; }
+    }
+    
+    .welcome-content-kelas h1 {
+        color: white;
+        font-size: 32px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        letter-spacing: -0.5px;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .welcome-content-kelas .subtitle {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 16px;
+        margin: 0;
+        font-weight: 400;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .welcome-badge-kelas {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 8px 16px;
+        border-radius: 20px;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 16px;
+        position: relative;
+        z-index: 2;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .welcome-badge-kelas i {
+        font-size: 8px;
+        animation: pulse-badge 2s infinite;
+    }
+    
+    @keyframes pulse-badge {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .btn-add-kelas {
+        position: relative;
+        z-index: 2;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-add-kelas:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .btn-add-kelas i {
+        margin-right: 8px;
+    }
+    
+    /* Filter Bar Modern */
+    .filter-bar-kelas {
+        background: var(--bg-card);
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: var(--card-shadow);
+        margin-bottom: 24px;
+        border: 1px solid var(--border-color);
+    }
+    
+    .filter-bar-kelas .form-label {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+    }
+    
+    .filter-bar-kelas .form-control,
+    .filter-bar-kelas .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 10px 14px;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+    }
+    
+    .filter-bar-kelas .form-control:focus,
+    .filter-bar-kelas .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+        background: var(--bg-card);
+    }
+    
+    .filter-bar-kelas .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+    }
+    
+    .filter-bar-kelas .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
     /* [FIX] Beri ruang lebih di atas konten card agar tidak tertimpa checkbox */
     .class-card .card-body {
         padding-top: 1.5rem;
@@ -192,24 +350,61 @@ if (isset($_GET['ajax_search'])) {
     }
     .class-card .action-buttons .btn {
         flex-grow: 1; /* Membuat tombol berbagi lebar yang sama */
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .class-card .action-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     /* Card Styling */
     .class-card { 
-        transition: all 0.2s; 
+        transition: all 0.3s ease; 
         border: 1px solid var(--border-color);
         background-color: var(--bg-card);
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    .class-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .class-card .card-title {
+        color: var(--text-main);
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    
+    .class-card .badge {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .class-card .text-muted {
+        font-size: 0.9rem;
+    }
+    
+    .class-card .text-muted i {
+        color: var(--primary-color);
+        width: 20px;
     }
     
     /* Style untuk Checkbox Selection */
     .class-card.selected { 
         border-color: var(--primary-color); 
-        background-color: rgba(0, 102, 204, 0.05); 
-        box-shadow: 0 0 0 1px var(--primary-color);
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(0, 102, 204, 0.02) 100%);
+        box-shadow: 0 0 0 2px var(--primary-color), 0 4px 16px rgba(0, 102, 204, 0.2);
     }
     
     [data-theme="dark"] .class-card.selected {
-        background-color: rgba(0, 102, 204, 0.15);
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.2) 0%, rgba(0, 102, 204, 0.1) 100%);
     }
 
     .card-select-overlay { 
@@ -263,14 +458,15 @@ if (isset($_GET['ajax_search'])) {
         left: 0; 
         right: 0;
         background: var(--bg-card);
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
-        padding: 15px 30px; 
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
+        padding: 20px 30px; 
         z-index: 1000;
         transition: bottom 0.3s ease-in-out;
         display: flex; 
         justify-content: space-between; 
         align-items: center;
-        border-top: 1px solid var(--border-color);
+        border-top: 2px solid var(--primary-color);
+        backdrop-filter: blur(10px);
     }
     
     #bulkActionBar.show { 
@@ -278,30 +474,119 @@ if (isset($_GET['ajax_search'])) {
     }
     
     [data-theme="dark"] #bulkActionBar {
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.4);
+    }
+    
+    #bulkActionBar .badge {
+        font-size: 1.2rem;
+        padding: 8px 16px;
+        border-radius: 10px;
+    }
+    
+    #bulkActionBar .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+        transition: all 0.3s ease;
+    }
+    
+    #bulkActionBar .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
     /* Penyesuaian agar konten tidak tertutup bar */
     body { padding-bottom: 80px; } 
+    
+    /* Modal Modern Styling */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modal-header {
+        border-bottom: 2px solid var(--border-color);
+        padding: 20px 24px;
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.05) 0%, transparent 100%);
+    }
+    
+    .modal-title {
+        font-weight: 700;
+        color: var(--text-main);
+    }
+    
+    .modal-body {
+        padding: 24px;
+    }
+    
+    .modal-body .form-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    
+    .modal-body .form-control,
+    .modal-body .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 10px 14px;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-body .form-control:focus,
+    .modal-body .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    }
+    
+    .modal-footer {
+        border-top: 2px solid var(--border-color);
+        padding: 16px 24px;
+    }
+    
+    .modal-footer .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+    }
 
     /* SLIDER CONFIRM STYLE */
     .slider-container {
-        position: relative; width: 100%; height: 55px;
-        background: #f0f2f5; border-radius: 30px;
-        user-select: none; overflow: hidden;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+        position: relative; 
+        width: 100%; 
+        height: 60px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 30px;
+        user-select: none; 
+        overflow: hidden;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        border: 2px solid var(--border-color);
     }
     [data-theme="dark"] .slider-container {
-        background: var(--bg-input);
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        background: linear-gradient(135deg, var(--bg-input) 0%, rgba(255, 255, 255, 0.05) 100%);
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.3);
     }
 
     .slider-text {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 600; color: #888; font-size: 14px;
-        text-transform: uppercase; letter-spacing: 1px;
-        z-index: 1; pointer-events: none;
+        position: absolute; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        font-weight: 700;
+        color: #888; 
+        font-size: 14px;
+        text-transform: uppercase; 
+        letter-spacing: 1.5px;
+        z-index: 1; 
+        pointer-events: none;
         transition: opacity 0.3s;
     }
     [data-theme="dark"] .slider-text {
@@ -309,24 +594,50 @@ if (isset($_GET['ajax_search'])) {
     }
 
     .slider-handle {
-        position: absolute; top: 5px; left: 5px;
-        width: 45px; height: 45px;
-        background: #dc3545; /* Merah Danger */
-        border-radius: 50%; cursor: pointer; z-index: 2;
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 18px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        position: absolute; 
+        top: 6px; 
+        left: 6px;
+        width: 48px; 
+        height: 48px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 50%; 
+        cursor: pointer; 
+        z-index: 2;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        color: white; 
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
         transition: transform 0.1s;
     }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
+    .slider-handle:active { 
+        cursor: grabbing; 
+        transform: scale(0.95); 
+    }
     .slider-progress {
-        position: absolute; top: 0; left: 0; height: 100%;
-        background: rgba(220, 53, 69, 0.2); /* Merah transparan */
-        width: 0; z-index: 0;
+        position: absolute; 
+        top: 0; 
+        left: 0; 
+        height: 100%;
+        background: linear-gradient(90deg, rgba(220, 53, 69, 0.3) 0%, rgba(220, 53, 69, 0.1) 100%);
+        width: 0; 
+        z-index: 0;
+        transition: width 0.1s ease;
     }
     /* Ketika sukses di-slide */
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
+    .slider-container.unlocked .slider-handle { 
+        width: calc(100% - 12px); 
+        border-radius: 30px;
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    }
+    .slider-container.unlocked .slider-progress {
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.3) 0%, rgba(40, 167, 69, 0.1) 100%);
+    }
+    .slider-container.unlocked .slider-text { 
+        opacity: 0; 
+    }
     
     /* Responsive adjustments */
     @media (max-width: 576px) {
@@ -343,7 +654,66 @@ if (isset($_GET['ajax_search'])) {
         #bulkActionBar button {
             flex: 1;
         }
+        
+        .welcome-banner-kelas {
+            padding: 24px;
+        }
+        
+        .welcome-content-kelas h1 {
+            font-size: 24px;
+        }
+        
+        .btn-add-kelas {
+            width: 100%;
+            justify-content: center;
+        }
     }
+    
+    /* Dark mode adjustments */
+    [data-theme="dark"] .filter-bar-kelas {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
+    [data-theme="dark"] .class-card {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
+    [data-theme="dark"] .class-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.2);
+    }
+    
+    /* Smooth transitions for all interactive elements */
+    * {
+        transition-property: background-color, border-color, box-shadow, transform;
+        transition-duration: 0.3s;
+        transition-timing-function: ease;
+    }
+    
+    /* Page fade-in animation */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .class-card {
+        animation: fadeInUp 0.5s ease forwards;
+    }
+    
+    .class-card:nth-child(1) { animation-delay: 0.1s; }
+    .class-card:nth-child(2) { animation-delay: 0.15s; }
+    .class-card:nth-child(3) { animation-delay: 0.2s; }
+    .class-card:nth-child(4) { animation-delay: 0.25s; }
+    .class-card:nth-child(5) { animation-delay: 0.3s; }
+    .class-card:nth-child(6) { animation-delay: 0.35s; }
+    .class-card:nth-child(7) { animation-delay: 0.4s; }
+    .class-card:nth-child(8) { animation-delay: 0.45s; }
+    .class-card:nth-child(9) { animation-delay: 0.5s; }
 </style>
 
 <div class="container-fluid">
@@ -354,25 +724,40 @@ if (isset($_GET['ajax_search'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="page-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i>Kelola Kelas</h4>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-kelas">
+                    <div class="welcome-content-kelas d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <div class="welcome-badge-kelas">
+                                <i class="fas fa-circle"></i>
+                                Manajemen Kelas
+                            </div>
+                            <h1><i class="fas fa-chalkboard-teacher me-3"></i>Kelola Kelas</h1>
+                            <p class="subtitle">Atur dan kelola semua data kelas dengan mudah dan efisien</p>
+                        </div>
+                        <button class="btn btn-add-kelas" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus"></i>Tambah Kelas
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
+                <div class="card filter-bar-kelas">
+                    <div class="card-body p-0">
                         <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
                             <input type="hidden" name="page" value="admin_kelas">
-                            <div class="col-12 col-md-5">
-                                <label for="searchInput" class="form-label small">Cari Nama/Kode Kelas</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
+                            <div class="col-12 col-md-4">
+                                <label for="searchInput" class="form-label">Cari Kelas</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-transparent border-end-0" style="border-radius: 12px 0 0 12px; border: 2px solid var(--border-color); border-right: none;">
+                                        <i class="fas fa-search text-muted"></i>
+                                    </span>
+                                    <input type="text" name="search" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cari nama/kode kelas..." value="<?= htmlspecialchars($search) ?>" style="border-left: none !important;">
+                                </div>
                             </div>
-                            <div class="col-12 col-md-5">
-                                <label for="prodiFilter" class="form-label small">Filter Program Studi</label>
+                            <div class="col-12 col-md-3">
+                                <label for="prodiFilter" class="form-label">Program Studi</label>
                                 <select name="prodi" id="prodiFilter" class="form-select">
                                     <option value="">Semua Prodi</option>
                                     <?php mysqli_data_seek($prodi_list, 0); while ($p = mysqli_fetch_assoc($prodi_list)): ?>
@@ -380,13 +765,13 @@ if (isset($_GET['ajax_search'])) {
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
+                            <div class="col-12 col-md-5 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
+                                <button type="button" class="btn btn-outline-primary" id="btnSelectMode" onclick="toggleSelectMode()">
+                                    <i class="fas fa-check-square me-1"></i> Mode Pilih
                                 </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                                <div class="d-none align-items-center justify-content-center px-3 py-2 bg-light rounded" id="selectAllContainer" style="border: 2px solid var(--border-color);">
+                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="cursor: pointer;">
+                                    <label class="form-check-label fw-bold ms-2 small mb-0" for="selectAll" style="cursor:pointer;">Pilih Semua</label>
                                 </div>
                             </div>
                         </form>
@@ -561,14 +946,14 @@ function toggleSelectMode() {
     
     if (isSelectMode) {
         container.classList.add('select-mode');
-        btn.classList.replace('btn-outline-secondary', 'btn-secondary');
-        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
+        btn.classList.replace('btn-outline-primary', 'btn-primary');
+        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal Pilih';
         selectAllContainer.classList.remove('d-none');
         selectAllContainer.classList.add('d-flex');
     } else {
         container.classList.remove('select-mode');
-        btn.classList.replace('btn-secondary', 'btn-outline-secondary');
-        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Pilih';
+        btn.classList.replace('btn-primary', 'btn-outline-primary');
+        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Mode Pilih';
         selectAllContainer.classList.add('d-none');
         selectAllContainer.classList.remove('d-flex');
         

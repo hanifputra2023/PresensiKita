@@ -860,6 +860,215 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+    /* Welcome Banner Modern */
+    .welcome-banner-laporan {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 1.5rem;
+    }
+    
+    .welcome-banner-laporan::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-laporan 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-laporan {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes pulse-badge-laporan {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        }
+    }
+    
+    .welcome-banner-laporan h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-laporan .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-laporan .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-laporan .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        animation: pulse-badge-laporan 2s ease-in-out infinite;
+    }
+    
+    .welcome-banner-laporan .banner-badge i {
+        font-size: 8px;
+        margin-right: 6px;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    .welcome-banner-laporan .btn-banner {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-laporan .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    /* Export buttons 2x2 grid - all screens */
+    .welcome-banner-laporan .d-flex.gap-2 {
+        flex-wrap: wrap !important;
+        max-width: 280px;
+    }
+    
+    .welcome-banner-laporan .d-flex.gap-2 .form-check {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        order: -1;
+        margin-bottom: 0.25rem;
+    }
+    
+    .welcome-banner-laporan .d-flex.gap-2 .btn-banner {
+        flex: 0 0 calc(50% - 0.25rem) !important;
+        max-width: calc(50% - 0.25rem) !important;
+        justify-content: center !important;
+        text-align: center;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-laporan {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .welcome-banner-laporan {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-laporan h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-laporan .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .welcome-banner-laporan {
+            padding: 20px;
+            border-radius: 14px;
+        }
+        
+        .welcome-banner-laporan h1 {
+            font-size: 20px;
+        }
+        
+        .welcome-banner-laporan .banner-icon {
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+        }
+        
+        .welcome-banner-laporan .banner-badge {
+            font-size: 11px;
+            padding: 6px 16px;
+        }
+        
+        .welcome-banner-laporan .banner-subtitle {
+            font-size: 13px;
+        }
+    }
+    
+    @media print {
+        .welcome-banner-laporan {
+            display: none;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -868,25 +1077,41 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2 no-print">
-                    <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Laporan Presensi</h4>
-                    <div class="d-grid d-md-flex gap-2 justify-content-md-end align-items-center">
-                        <div class="form-check form-switch me-md-3">
-                            <input class="form-check-input" type="checkbox" role="switch" id="sertakanDetail" checked>
-                            <label class="form-check-label small" for="sertakanDetail">Sertakan Detail Pertemuan</label>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-laporan no-print">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Laporan Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Export dan analisis data presensi mahasiswa per periode</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-circle"></i>REPORTING SYSTEM
+                            </span>
                         </div>
-                        <button onclick="exportExcel()" class="btn btn-success">
-                            <i class="fas fa-file-excel me-1"></i>Export Excel
-                        </button>
-                        <button onclick="exportRekapNilai()" class="btn btn-warning text-dark">
-                            <i class="fas fa-file-excel me-1"></i>Rekap Nilai
-                        </button>
-                        <button class="btn btn-danger" onclick="exportPDF()">
-                            <i class="fas fa-file-pdf me-1"></i>Export PDF
-                        </button>
-                        <button class="btn btn-secondary" onclick="printPage()">
-                            <i class="fas fa-print me-1"></i>Cetak
-                        </button>
+                        <div class="d-flex flex-wrap gap-2 justify-content-md-end align-items-center">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" role="switch" id="sertakanDetail" checked style="cursor: pointer;">
+                                <label class="form-check-label small" for="sertakanDetail" style="cursor: pointer; user-select: none;">Detail Pertemuan</label>
+                            </div>
+                            <button onclick="exportExcel()" class="btn btn-banner btn-sm">
+                                <i class="fas fa-file-excel me-1"></i>Excel
+                            </button>
+                            <button onclick="exportRekapNilai()" class="btn btn-banner btn-sm">
+                                <i class="fas fa-file-excel me-1"></i>Rekap Nilai
+                            </button>
+                            <button class="btn btn-banner btn-sm" onclick="exportPDF()">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </button>
+                            <button class="btn btn-banner btn-sm" onclick="printPage()">
+                                <i class="fas fa-print me-1"></i>Cetak
+                            </button>
+                        </div>
                     </div>
                 </div>
                 

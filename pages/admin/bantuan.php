@@ -69,40 +69,181 @@ if ($active_tab == 'pending') {
     $where_clause = "WHERE t.status = 'ditolak'";
 }
 
-// Hitung badge notifikasi dan ambil tiket, tetapi lindungi jika tabel tidak ada
-$tbl_exists = mysqli_query($conn, "SHOW TABLES LIKE 'tiket_bantuan'");
-if (!$tbl_exists || mysqli_num_rows($tbl_exists) == 0) {
-    // Tabel tidak ditemukan — hindari query fatal dan beri notifikasi ringan
-    set_alert('danger', 'Tabel <code>tiket_bantuan</code> tidak ditemukan. Modul bantuan dinonaktifkan sementara.');
-    $count_pending = 0;
-    $count_proses = 0;
-    $tickets = [];
-} else {
-    $count_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'pending'"))['total'];
-    $count_proses = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'proses'"))['total'];
+// Hitung badge notifikasi
+$count_pending = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'pending'"))['total'];
+$count_proses = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM tiket_bantuan WHERE status = 'proses'"))['total'];
 
-    // Ambil Data Tiket (Join dengan tabel mahasiswa dan kelas untuk info lengkap)
-    $query = "SELECT t.*, 
-              COALESCE(m.nama, a.nama) as nama_pengirim, 
-              COALESCE(k.nama_kelas, 'Asisten') as info_tambahan,
-              t.nim as id_pengirim
-              FROM tiket_bantuan t 
-              LEFT JOIN mahasiswa m ON t.nim = m.nim 
-              LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
-              LEFT JOIN asisten a ON t.nim = a.kode_asisten
-              $where_clause
-              ORDER BY t.created_at DESC";
-    $result = mysqli_query($conn, $query);
-    $tickets = [];
-    while ($row = mysqli_fetch_assoc($result)) {
-        $tickets[] = $row;
-    }
+// Ambil Data Tiket (Join dengan tabel mahasiswa dan kelas untuk info lengkap)
+$query = "SELECT t.*, 
+          COALESCE(m.nama, a.nama) as nama_pengirim, 
+          COALESCE(k.nama_kelas, 'Asisten') as info_tambahan,
+          t.nim as id_pengirim
+          FROM tiket_bantuan t 
+          LEFT JOIN mahasiswa m ON t.nim = m.nim 
+          LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas 
+          LEFT JOIN asisten a ON t.nim = a.kode_asisten
+          $where_clause
+          ORDER BY t.created_at DESC";
+$result = mysqli_query($conn, $query);
+$tickets = [];
+while ($row = mysqli_fetch_assoc($result)) {
+    $tickets[] = $row;
 }
 ?>
 
 <?php include 'includes/header.php'; ?>
 
-<div class="container-fluid">
+<style>
+    /* Welcome Banner Modern - Bantuan */
+    .welcome-banner-bantuan {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp-bantuan 0.5s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 28px;
+    }
+
+    .welcome-banner-bantuan::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-bantuan 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow-bantuan {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.05); opacity: 0.6; }
+    }
+
+    @keyframes fadeInUp-bantuan {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .welcome-banner-bantuan h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0 0 8px 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-bantuan .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+        margin: 0;
+    }
+
+    .welcome-banner-bantuan .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-bantuan .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        margin-bottom: 16px;
+    }
+
+    .welcome-banner-bantuan .banner-badge i {
+        font-size: 8px;
+        animation: pulse-badge-bantuan 2s infinite;
+    }
+
+    @keyframes pulse-badge-bantuan {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    [data-theme="dark"] .welcome-banner-bantuan {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    @media (max-width: 768px) {
+        .welcome-banner-bantuan { padding: 24px; border-radius: 16px; }
+        .welcome-banner-bantuan h1 { font-size: 24px; }
+        .welcome-banner-bantuan .banner-subtitle { font-size: 14px; }
+        .welcome-banner-bantuan .banner-icon { width: 50px; height: 50px; font-size: 22px; }
+    }
+
+    @media (max-width: 576px) {
+        .welcome-banner-bantuan { padding: 20px; border-radius: 14px; }
+        .welcome-banner-bantuan h1 { font-size: 20px; }
+        .welcome-banner-bantuan .banner-subtitle { font-size: 13px; }
+        .welcome-banner-bantuan .banner-icon { width: 45px; height: 45px; font-size: 20px; }
+        .welcome-banner-bantuan .banner-badge { font-size: 11px; padding: 6px 16px; }
+
+        /* Tab pills responsive 3 atas 2 bawah */
+        .bantuan-page .nav-pills {
+            display: flex !important;
+            flex-wrap: wrap !important;
+            gap: 0.4rem !important;
+        }
+
+        .bantuan-page .nav-pills .nav-item {
+            flex: 0 0 calc(33.333% - 0.27rem) !important;
+        }
+
+        .bantuan-page .nav-pills .nav-item:nth-child(4),
+        .bantuan-page .nav-pills .nav-item:nth-child(5) {
+            flex: 0 0 calc(50% - 0.2rem) !important;
+        }
+
+        .bantuan-page .nav-pills .nav-link {
+            width: 100% !important;
+            text-align: center !important;
+            padding: 0.45rem 0.25rem !important;
+            font-size: 0.75rem !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            white-space: nowrap !important;
+        }
+
+        .bantuan-page .nav-pills .nav-link i {
+            margin-right: 3px !important;
+            font-size: 0.7rem !important;
+        }
+
+        .bantuan-page .nav-pills .nav-link .badge {
+            font-size: 0.6rem !important;
+            padding: 2px 5px !important;
+            margin-left: 3px !important;
+        }
+    }
+</style>
+
+<div class="container-fluid bantuan-page">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
             <?php include 'includes/sidebar.php'; ?>
@@ -110,8 +251,21 @@ if (!$tbl_exists || mysqli_num_rows($tbl_exists) == 0) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4 class="mb-0"><i class="fas fa-headset me-2"></i>Manajemen Pesan Bantuan</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-bantuan">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="banner-icon">
+                            <i class="fas fa-headset"></i>
+                        </div>
+                        <div>
+                            <h1 class="mb-1">Manajemen Pesan Bantuan</h1>
+                            <p class="banner-subtitle mb-0">Kelola dan tanggapi tiket bantuan dari mahasiswa & asisten</p>
+                        </div>
+                    </div>
+                    <span class="banner-badge">
+                        <i class="fas fa-circle"></i>
+                        HELP CENTER
+                    </span>
                 </div>
                 
                 <?= show_alert() ?>

@@ -79,7 +79,7 @@ if ($view == 'kelas') {
 // Eksekusi Query Utama
 $q_data = mysqli_query($conn, $sql);
 
-// Persiapan Data untuk Grafik (Chart.js)
+// ============ PERSIAPAN DATA UNTUK GRAFIK BATANG MODERN ============
 $json_labels = [];
 $json_hadir = [];
 $json_izin = [];
@@ -97,10 +97,7 @@ while ($row = mysqli_fetch_assoc($q_data)) {
     $json_sakit[] = (int)$row['sakit'];
     $json_alpha[] = (int)$row['alpha'];
 }
-mysqli_data_seek($q_data, 0); // Reset pointer agar bisa diloop ulang di tabel
-
-// 4. Handle Export Excel (CSV)
-
+mysqli_data_seek($q_data, 0); // Reset pointer untuk digunakan kembali di tabel
 
 // ============ TOTAL KESELURUHAN ============
 $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT 
@@ -126,6 +123,191 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-statistik {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 24px;
+    }
+    
+    .welcome-banner-statistik::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-statistik 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-statistik {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes pulse-badge-statistik {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        }
+    }
+    
+    .welcome-banner-statistik h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-statistik .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        margin: 8px 0 0 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-statistik .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-statistik .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        animation: pulse-badge-statistik 2s ease-in-out infinite;
+    }
+    
+    .welcome-banner-statistik .btn-banner {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-statistik .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    /* Export Buttons Wrapper */
+    .export-buttons-wrapper {
+        width: auto;
+    }
+    
+    .btn-export-responsive {
+        white-space: nowrap;
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-statistik {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .welcome-banner-statistik {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-statistik h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-statistik .banner-subtitle {
+            font-size: 14px;
+        }
+        
+        .welcome-banner-statistik .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .export-buttons-wrapper {
+            width: 100%;
+            gap: 0.5rem !important;
+        }
+        
+        .btn-export-responsive {
+            flex: 1;
+            min-width: 0;
+            justify-content: center;
+            display: flex;
+            align-items: center;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .export-buttons-wrapper {
+            flex-direction: column;
+            width: 100%;
+        }
+        
+        .btn-export-responsive {
+            width: 100%;
+        }
+    }
+
 /* ===== STATISTIK PAGE STYLES ===== */
 .statistik-content {
     padding: 20px;
@@ -473,6 +655,25 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     font-size: 0.8rem;
 }
 
+/* Chart Container - Modern */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 380px;
+    margin-top: 10px;
+    padding: 5px;
+}
+@media (max-width: 768px) {
+    .chart-container {
+        height: 300px;
+    }
+}
+@media (max-width: 576px) {
+    .chart-container {
+        height: 260px;
+    }
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1200px) {
     .summary-grid {
@@ -613,10 +814,6 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     display: none;
 }
 
-
-
-
-
 [data-theme="dark"] .page-header-banner {
     background: var(--banner-gradient);
 }
@@ -700,31 +897,6 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     background: linear-gradient(135deg, #1a2a6c, #2c5364) !important;
     border-bottom: 1px solid var(--border-color) !important;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 </style>
 
 <div class="container-fluid">
@@ -736,8 +908,36 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
         <div class="col-md-9 col-lg-10">
             <div class="statistik-content">
                 
-                <!-- Header Banner -->
-                <div class="page-header-banner no-print">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-statistik no-print">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Statistik Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Analisis data kehadiran per kelas, mata kuliah, dan laboratorium</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-chart-bar me-1"></i>ANALYTICS CENTER
+                            </span>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap export-buttons-wrapper">
+                            <a href="pages/admin/export_statistik.php?view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" target="_blank" class="btn btn-banner btn-export-responsive">
+                                <i class="fas fa-file-excel me-2"></i>Export Excel
+                            </a>
+                            <button class="btn btn-banner btn-export-responsive" onclick="exportPDF()">
+                                <i class="fas fa-file-pdf me-2"></i>Export PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Old Header (Hidden) -->
+                <div class="page-header-banner no-print" style="display: none;">
                     <div class="header-content">
                         <div>
                             <h4><i class="fas fa-chart-pie me-2"></i>Statistik Presensi</h4>
@@ -850,13 +1050,27 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                     </div>
                 </div>
 
-                <!-- Chart Section -->
+                <!-- Chart Section (Stacked Bar Modern) -->
                 <div class="card mb-4 shadow-sm border-0 no-print">
                     <div class="card-body">
-                        <h5 class="card-title mb-4 fw-bold text-secondary"><i class="fas fa-chart-bar me-2"></i>Grafik Visualisasi</h5>
-                        <div style="position: relative; height: 350px; width: 100%;">
+                        <h5 class="card-title mb-4 fw-bold text-secondary">
+                            <i class="fas fa-chart-bar me-2"></i>Grafik Presensi 
+                            <?php if ($view == 'kelas'): ?>per Kelas
+                            <?php elseif ($view == 'mk'): ?>per Mata Kuliah
+                            <?php else: ?>per Laboratorium
+                            <?php endif; ?>
+                        </h5>
+                        <?php if (count($json_labels) > 0): ?>
+                        <div class="chart-container">
                             <canvas id="presensiChart"></canvas>
                         </div>
+                        <?php else: ?>
+                        <div class="empty-state py-4">
+                            <i class="fas fa-chart-bar"></i>
+                            <h5>Belum Ada Data</h5>
+                            <p>Grafik akan muncul setelah ada data presensi</p>
+                        </div>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -1094,11 +1308,7 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                     <td class="text-center"><?= $row['izin'] ?></td>
                     <td class="text-center"><?= $row['sakit'] ?></td>
                     <td class="text-center"><?= $row['alpha'] ?></td>
-                    <td class="text-center"><span style="background-color: #d4edda; color: #155724; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['hadir'] ?></span></td>
-                    <td class="text-center"><span style="background-color: #fff3cd; color: #856404; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['izin'] ?></span></td>
-                    <td class="text-center"><span style="background-color: #d1ecf1; color: #0c5460; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['sakit'] ?></span></td>
-                    <td class="text-center"><span style="background-color: #f8d7da; color: #721c24; padding: 2px 8px; border-radius: 4px; display: inline-block; font-weight: bold;"><?= $row['alpha'] ?></span></td>
-                    <td class="text-center"><?= $total ?></td>
+                    <td class="text-center"><strong><?= $total ?></strong></td>
                     <td class="text-center"><?= $persen ?>%</td>
                 </tr>
             <?php 
@@ -1159,6 +1369,186 @@ function exportPDF() {
         document.body.removeChild(wrapper);
     });
 }
+
+// Inisialisasi Chart.js - Stacked Bar Chart MODERN
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('presensiChart');
+    if (!ctx) return;
+    
+    // Data dari PHP (maksimal 12 item agar tidak terlalu ramai)
+    const labels = <?= json_encode(array_slice($json_labels, 0, 12)) ?>;
+    const dataHadir = <?= json_encode(array_slice($json_hadir, 0, 12)) ?>;
+    const dataIzin = <?= json_encode(array_slice($json_izin, 0, 12)) ?>;
+    const dataSakit = <?= json_encode(array_slice($json_sakit, 0, 12)) ?>;
+    const dataAlpha = <?= json_encode(array_slice($json_alpha, 0, 12)) ?>;
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Hadir',
+                    data: dataHadir,
+                    backgroundColor: '#10b981', // emerald modern
+                    borderRadius: 6,
+                    borderSkipped: false,
+                },
+                {
+                    label: 'Izin',
+                    data: dataIzin,
+                    backgroundColor: '#f59e0b', // amber
+                    borderRadius: 6,
+                    borderSkipped: false,
+                },
+                {
+                    label: 'Sakit',
+                    data: dataSakit,
+                    backgroundColor: '#3b82f6', // blue
+                    borderRadius: 6,
+                    borderSkipped: false,
+                },
+                {
+                    label: 'Alpha',
+                    data: dataAlpha,
+                    backgroundColor: '#ef4444', // red
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    top: 10,
+                    bottom: 10
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    stacked: true,
+                    grid: {
+                        color: 'rgba(0,0,0,0.03)',
+                        drawBorder: false,
+                        lineWidth: 1
+                    },
+                    ticks: {
+                        font: {
+                            family: "'Inter', system-ui, -apple-system, sans-serif",
+                            size: 11,
+                            weight: '400'
+                        },
+                        color: '#6b7280'
+                    }
+                },
+                x: {
+                    stacked: true,
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            family: "'Inter', system-ui, -apple-system, sans-serif",
+                            size: 11,
+                            weight: '500'
+                        },
+                        color: '#4b5563',
+                        maxRotation: 30,
+                        minRotation: 20
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'center',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        boxWidth: 8,
+                        boxHeight: 8,
+                        padding: 20,
+                        font: {
+                            family: "'Inter', system-ui, -apple-system, sans-serif",
+                            size: 12,
+                            weight: '500'
+                        },
+                        color: '#374151'
+                    }
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    backgroundColor: 'rgba(17, 24, 39, 0.9)',
+                    titleColor: '#f9fafb',
+                    bodyColor: '#e5e7eb',
+                    padding: 12,
+                    cornerRadius: 8,
+                    displayColors: true,
+                    boxPadding: 6
+                }
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeOutQuart'
+            }
+        }
+    });
+});
+
+// Function to show detail mahasiswa modal
+function showDetailMahasiswa(status, kode_kelas = '', kode_mk = '', kode_lab = '') {
+    const bulan = document.querySelector('input[name="bulan"]').value;
+    
+    // Build query string
+    let queryString = `bulan=${bulan}&status=${status}`;
+    if (kode_kelas) queryString += `&kelas=${kode_kelas}`;
+    if (kode_mk) queryString += `&mk=${kode_mk}`;
+    if (kode_lab) queryString += `&lab=${kode_lab}`;
+    
+    // Fetch detail data
+    fetch(`api/get_detail_statistik.php?${queryString}`)
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById('modalContent').innerHTML = data;
+            
+            // Update modal title
+            const statusLabel = {
+                'hadir': 'Hadir',
+                'izin': 'Izin',
+                'sakit': 'Sakit',
+                'alpha': 'Alpha',
+                'belum': 'Belum Presensi'
+            };
+            document.getElementById('modalTitle').innerHTML = `<i class="fas fa-users me-2"></i>Daftar Mahasiswa - ${statusLabel[status] || status}`;
+            
+            // Show modal
+            new bootstrap.Modal(document.getElementById('detailModal')).show();
+        })
+        .catch(error => {
+            document.getElementById('modalContent').innerHTML = '<div class="alert alert-danger">Error loading data</div>';
+            console.error('Error:', error);
+        });
+}
+
+// Make stat badges clickable
+document.addEventListener('DOMContentLoaded', function() {
+    // Attach click handlers to stat badges
+    const badges = document.querySelectorAll('[data-status]');
+    badges.forEach(badge => {
+        badge.style.cursor = 'pointer';
+        badge.addEventListener('click', function() {
+            const status = this.getAttribute('data-status');
+            const kelas = this.getAttribute('data-kelas') || '';
+            const mk = this.getAttribute('data-mk') || '';
+            const lab = this.getAttribute('data-lab') || '';
+            showDetailMahasiswa(status, kelas, mk, lab);
+        });
+    });
+});
 </script>
 
 <!-- Modal Detail Mahasiswa -->
@@ -1218,123 +1608,3 @@ function exportPDF() {
 </style>
 
 <?php include 'includes/footer.php'; ?>
-
-<script>
-// Inisialisasi Chart.js
-document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('presensiChart').getContext('2d');
-    
-    // Data dari PHP
-    const labels = <?= json_encode(array_slice($json_labels, 0, 20)) ?>; // Ambil max 20 item agar tidak penuh
-    const dataHadir = <?= json_encode(array_slice($json_hadir, 0, 20)) ?>;
-    const dataIzin = <?= json_encode(array_slice($json_izin, 0, 20)) ?>;
-    const dataSakit = <?= json_encode(array_slice($json_sakit, 0, 20)) ?>;
-    const dataAlpha = <?= json_encode(array_slice($json_alpha, 0, 20)) ?>;
-
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Hadir',
-                    data: dataHadir,
-                    backgroundColor: '#28a745',
-                    borderColor: '#1e7e34',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Izin',
-                    data: dataIzin,
-                    backgroundColor: '#ffc107',
-                    borderColor: '#d39e00',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Sakit',
-                    data: dataSakit,
-                    backgroundColor: '#17a2b8',
-                    borderColor: '#117a8b',
-                    borderWidth: 1
-                },
-                {
-                    label: 'Alpha',
-                    data: dataAlpha,
-                    backgroundColor: '#dc3545',
-                    borderColor: '#bd2130',
-                    borderWidth: 1
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    stacked: true // Stacked bar chart agar lebih rapi
-                },
-                x: {
-                    stacked: true
-                }
-            },
-            plugins: {
-                legend: {
-                    position: 'top',
-                }
-            }
-        }
-    });
-});
-
-// Function to show detail mahasiswa modal
-function showDetailMahasiswa(status, kode_kelas = '', kode_mk = '', kode_lab = '') {
-    const bulan = document.querySelector('input[name="bulan"]').value;
-    
-    // Build query string
-    let queryString = `bulan=${bulan}&status=${status}`;
-    if (kode_kelas) queryString += `&kelas=${kode_kelas}`;
-    if (kode_mk) queryString += `&mk=${kode_mk}`;
-    if (kode_lab) queryString += `&lab=${kode_lab}`;
-    
-    // Fetch detail data
-    fetch(`api/get_detail_statistik.php?${queryString}`)
-        .then(response => response.text())
-        .then(data => {
-            document.getElementById('modalContent').innerHTML = data;
-            
-            // Update modal title
-            const statusLabel = {
-                'hadir': 'Hadir',
-                'izin': 'Izin',
-                'sakit': 'Sakit',
-                'alpha': 'Alpha',
-                'belum': 'Belum Presensi'
-            };
-            document.getElementById('modalTitle').textContent = `Daftar Mahasiswa - ${statusLabel[status] || status}`;
-            
-            // Show modal
-            new bootstrap.Modal(document.getElementById('detailModal')).show();
-        })
-        .catch(error => {
-            document.getElementById('modalContent').innerHTML = '<div class="alert alert-danger">Error loading data</div>';
-            console.error('Error:', error);
-        });
-}
-
-// Make stat badges clickable
-document.addEventListener('DOMContentLoaded', function() {
-    // Attach click handlers to stat badges
-    const badges = document.querySelectorAll('[data-status]');
-    badges.forEach(badge => {
-        badge.style.cursor = 'pointer';
-        badge.addEventListener('click', function() {
-            const status = this.getAttribute('data-status');
-            const kelas = this.getAttribute('data-kelas') || '';
-            const mk = this.getAttribute('data-mk') || '';
-            const lab = this.getAttribute('data-lab') || '';
-            showDetailMahasiswa(status, kelas, mk, lab);
-        });
-    });
-});
-</script>

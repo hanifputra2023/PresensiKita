@@ -76,6 +76,114 @@ while ($row = mysqli_fetch_assoc($pengumuman_query)) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-pengumuman {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner-pengumuman::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-pengumuman 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-pengumuman {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes pulse-badge-pengumuman {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        }
+    }
+    
+    .welcome-banner-pengumuman h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-pengumuman .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-pengumuman .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-pengumuman .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        animation: pulse-badge-pengumuman 2s ease-in-out infinite;
+    }
+    
+    .welcome-banner-pengumuman .banner-badge i {
+        font-size: 8px;
+        margin-right: 6px;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
     /* Bulk Selection Styles */
     .select-checkbox-col { display: none; width: 40px; text-align: center; }
     .select-mode .select-checkbox-col { display: table-cell; }
@@ -103,7 +211,50 @@ while ($row = mysqli_fetch_assoc($pengumuman_query)) {
     .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
     .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
     .slider-container.unlocked .slider-text { opacity: 0; }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-pengumuman {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .welcome-banner-pengumuman {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-pengumuman h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-pengumuman .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+    }
+    
     @media (max-width: 576px) {
+        .welcome-banner-pengumuman .d-flex.gap-2.align-items-center {
+            width: 100%;
+            flex-direction: column;
+        }
+        
+        .welcome-banner-pengumuman .d-flex.gap-2.align-items-center .btn {
+            width: 100%;
+            padding: 12px 20px;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .welcome-banner-pengumuman #selectAllContainer {
+            width: 100%;
+            justify-content: center;
+        }
+        
         #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
         #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
         #bulkActionBar button { flex: 1; }
@@ -117,21 +268,38 @@ while ($row = mysqli_fetch_assoc($pengumuman_query)) {
         </div>
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-bullhorn me-2"></i>Kelola Pengumuman</h4>
-                    <div class="d-flex gap-2 align-items-center">
-                        <div class="d-none d-flex align-items-center me-2" id="selectAllContainer">
-                            <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                            <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-pengumuman mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-bullhorn"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Pengumuman</h1>
+                                    <p class="banner-subtitle mb-0">Buat dan kelola pengumuman untuk mahasiswa dan asisten</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-circle"></i>SISTEM PENGUMUMAN
+                            </span>
                         </div>
-                        <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                            <i class="fas fa-check-square me-1"></i> Pilih
-                        </button>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                            <i class="fas fa-plus me-1"></i>Buat Pengumuman
-                        </button>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="d-none d-flex align-items-center me-2" id="selectAllContainer" style="background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 10px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3);">
+                                <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="border-color: rgba(255,255,255,0.6);">
+                                <label class="form-check-label fw-bold ms-2 small text-white" for="selectAll" style="cursor:pointer">Semua</label>
+                            </div>
+                            <button type="button" class="btn" id="btnSelectMode" onclick="toggleSelectMode()" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-check-square me-1"></i> Pilih
+                            </button>
+                            <button class="btn" data-bs-toggle="modal" data-bs-target="#modalTambah" style="background: white; color: var(--primary-color); border: 2px solid white; padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-plus me-1"></i>Buat Pengumuman
+                            </button>
+                        </div>
                     </div>
                 </div>
+                
                 <?= show_alert() ?>
                 <div class="card shadow-sm border-0" id="pengumumanContainer">
                     <div class="card-body">
