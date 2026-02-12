@@ -44,6 +44,10 @@ if (empty($header_foto) || !file_exists($header_foto)) {
         (function() {
             var theme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', theme);
+            
+            // Initialize Sidebar State
+            var sidebarState = localStorage.getItem('sidebarState') || 'expanded';
+            document.documentElement.setAttribute('data-sidebar', sidebarState);
         })();
     </script>
     <style>
@@ -1003,6 +1007,157 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             .content-wrapper {
                 padding-top: 0 !important;
             }
+        }
+        
+        /* ============ COLLAPSIBLE SIDEBAR (DESKTOP ONLY) ============ */
+        @media (min-width: 992px) {
+            /* Smooth Transition for Layout Elements */
+            .row > .col-md-3.col-lg-2,
+            .row > .col-md-9.col-lg-10,
+            .sidebar,
+            .sidebar .nav-link,
+            .sidebar-brand,
+            .sidebar-brand img,
+            .sidebar-toggle-btn,
+            .sidebar .d-flex.align-items-center {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            /* Collapsed State: Sidebar Container */
+            [data-sidebar="collapsed"] .row > .col-md-3.col-lg-2 {
+                width: 80px !important;
+                flex: 0 0 80px !important;
+                max-width: 80px !important;
+            }
+
+            /* Collapsed State: Content Area */
+            [data-sidebar="collapsed"] .row > .col-md-9.col-lg-10 {
+                margin-left: 80px !important;
+                width: calc(100% - 80px) !important;
+                flex: 0 0 calc(100% - 80px) !important;
+                max-width: calc(100% - 80px) !important;
+            }
+
+            /* Collapsed State: Sidebar Internals */
+            [data-sidebar="collapsed"] .sidebar {
+                padding: 10px !important;
+                align-items: center;
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+
+            /* Hide horizontal overflow on nav */
+            [data-sidebar="collapsed"] .sidebar .nav {
+                overflow-x: hidden;
+                width: 100%;
+            }
+
+            [data-sidebar="collapsed"] .sidebar .nav-item {
+                overflow: hidden;
+                width: 100%;
+            }
+
+            /* Hide Text in Nav Links */
+            [data-sidebar="collapsed"] .sidebar .nav-link {
+                font-size: 0;
+                justify-content: center;
+                padding: 12px 0;
+                width: 100%;
+                text-align: center;
+            }
+
+            /* Center Icons */
+            [data-sidebar="collapsed"] .sidebar .nav-link i {
+                font-size: 1.25rem;
+                margin-right: 0 !important;
+                width: auto;
+            }
+
+            /* Hide Logo/Brand when collapsed */
+            [data-sidebar="collapsed"] .sidebar-brand {
+                display: none !important;
+            }
+
+            /* Adjust Footer Profile */
+            [data-sidebar="collapsed"] .sidebar .d-flex.align-items-center.text-white {
+                flex-direction: column;
+                padding: 0 !important;
+                text-align: center;
+                margin-bottom: 1rem !important;
+            }
+            [data-sidebar="collapsed"] .sidebar .rounded-circle.me-3 {
+                margin-right: 0 !important;
+                margin-bottom: 5px;
+                width: 36px !important;
+                height: 36px !important;
+            }
+            [data-sidebar="collapsed"] .sidebar .lh-1 {
+                display: none;
+            }
+
+            /* Adjust Footer Buttons */
+            [data-sidebar="collapsed"] .sidebar .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 8px !important;
+                width: 100%;
+            }
+            [data-sidebar="collapsed"] .sidebar .btn-outline-light {
+                padding: 8px 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            /* Toggle Button Position in Collapsed Mode */
+            [data-sidebar="collapsed"] .sidebar-toggle-btn {
+                right: -12px;
+            }
+            [data-sidebar="collapsed"] .sidebar-toggle-btn i {
+                transform: rotate(180deg);
+            }
+        }
+
+        /* Toggle Button Style - Positioned at sidebar edge */
+        .sidebar-toggle-btn {
+            position: fixed;
+            top: 20px;
+            left: calc(16.666667% - 12px); /* Positioned at the edge of sidebar (col-lg-2 = 16.67%) */
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--sidebar-bg);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            display: none; /* Hidden on mobile */
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1060;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar-toggle-btn i {
+            font-size: 10px;
+            transition: transform 0.3s ease;
+        }
+        
+        @media (min-width: 992px) {
+            .sidebar-toggle-btn {
+                display: flex;
+            }
+        }
+        
+        /* Adjust for collapsed sidebar */
+        [data-sidebar="collapsed"] .sidebar-toggle-btn {
+            left: 68px; /* 80px sidebar - 12px offset */
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            transform: scale(1.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
         
         /* Hide scrollbar for sidebar but allow scroll */
