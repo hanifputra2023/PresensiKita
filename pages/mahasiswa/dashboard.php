@@ -1,0 +1,1805 @@
+<?php
+$page = 'mahasiswa_dashboard';
+$mahasiswa = get_mahasiswa_login();
+$nim = $mahasiswa['nim'];
+$kelas = $mahasiswa['kode_kelas'];
+$sesi = $mahasiswa['sesi'] ?? 1;
+
+// Jadwal hari ini yang SEDANG AKTIF (dalam rentang waktu)
+$today = date('Y-m-d');
+$now_time = date('H:i:s');
+$toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
+$toleransi_sesudah = TOLERANSI_SESUDAH; // menit setelah jam_selesai
+
+// OPTIMISASI: Hitung batas waktu di PHP agar query SQL bisa menggunakan index (SARGable)
+// Jadwal aktif jika: Jam Mulai <= (Sekarang + Toleransi)
+$waktu_batas_masuk = date('H:i:s', strtotime("+$toleransi_sebelum minutes"));
+
+// Jadwal aktif = sudah masuk waktu mulai (dengan toleransi sebelum) DAN belum lewat jam_selesai (TANPA toleransi)
+// Langsung hilang begitu jam_selesai tercapai
+// Inhall hanya ditampilkan untuk mahasiswa yang terdaftar di penggantian_inhall
+$jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as presensi_status,
+                                        a1.nama as asisten1_nama, a2.nama as asisten2_nama
+                                        FROM jadwal j 
+                                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                        LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = '$nim'
+                                        LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
+                                        LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
+                                        WHERE j.tanggal = '$today' AND j.kode_kelas = '$kelas'
+                                        AND j.jam_mulai <= '$waktu_batas_masuk'
+                                        AND (j.sesi = 0 OR j.sesi = '$sesi')
+                                        AND j.jam_selesai > '$now_time'
+                                        AND (
+                                            j.jenis != 'inhall'
+                                            OR EXISTS (
+                                                SELECT 1 FROM penggantian_inhall pi 
+                                                JOIN jadwal jx ON pi.jadwal_asli_id = jx.id
+                                                WHERE pi.nim = '$nim' 
+                                                AND pi.status IN ('terdaftar', 'hadir')
+                                                AND jx.kode_mk = j.kode_mk
+                                            )
+                                            OR p.id IS NOT NULL
+                                        )
+                                        ORDER BY j.jam_mulai");
+
+// Statistik presensi kumulatif (tidak hitung jadwal mendatang), dengan perhitungan alpha yang akurat
+// EXCLUDE jadwal inhall dari statistik (inhall bersifat opsional)
+$stat = mysqli_fetch_assoc(mysqli_query($conn, "
+    SELECT 
+        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
+        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
+        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
+        SUM(CASE 
+            WHEN p.status = 'alpha' THEN 1
+            WHEN (p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+            ELSE 0 
+        END) as alpha,
+        COUNT(j.id) as total
+    FROM jadwal j
+    LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
+    JOIN mahasiswa m ON m.nim = '$nim'
+    WHERE j.kode_kelas = '$kelas'
+    AND (j.sesi = 0 OR j.sesi = '$sesi')
+    AND j.jenis != 'inhall'
+    AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
+    AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW())
+"));
+
+// Jadwal terdekat (5 jadwal mendatang) - termasuk jadwal HARI INI yang belum aktif
+// PERBAIKAN: Tampilkan jadwal hari ini yang jam_mulai-nya masih akan datang (belum masuk waktu aktif)
+// DAN jadwal di hari-hari mendatang
+// Inhall hanya ditampilkan untuk mahasiswa yang terdaftar di penggantian_inhall
+$jadwal_terdekat = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as presensi_status,
+                                         a1.nama as asisten1_nama, a2.nama as asisten2_nama
+                                         FROM jadwal j 
+                                         LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                         LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
+                                         LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = '$nim'
+                                         LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
+                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
+                                         WHERE j.kode_kelas = '$kelas'
+                                         AND (j.sesi = 0 OR j.sesi = '$sesi')
+                                         AND (
+                                             j.tanggal > '$today'
+                                             OR (
+                                                 j.tanggal = '$today' 
+                                                 AND j.jam_mulai > '$waktu_batas_masuk'
+                                             )
+                                         )
+                                         AND (
+                                             j.jenis != 'inhall'
+                                             OR EXISTS (
+                                                 SELECT 1 FROM penggantian_inhall pi 
+                                                 JOIN jadwal jx ON pi.jadwal_asli_id = jx.id
+                                                 WHERE pi.nim = '$nim' 
+                                                 AND pi.status IN ('terdaftar', 'hadir')
+                                                 AND jx.kode_mk = j.kode_mk
+                                             )
+                                             OR p.id IS NOT NULL
+                                         )
+                                         ORDER BY j.tanggal, j.jam_mulai LIMIT 5");
+
+// Greeting berdasarkan waktu
+$hour = date('H');
+if ($hour < 12) {
+    $greeting = "Selamat Pagi";
+    $greeting_icon = "sun";
+} elseif ($hour < 15) {
+    $greeting = "Selamat Siang";
+    $greeting_icon = "sun";
+} elseif ($hour < 18) {
+    $greeting = "Selamat Sore";
+    $greeting_icon = "cloud-sun";
+} else {
+    $greeting = "Selamat Malam";
+    $greeting_icon = "moon";
+}
+
+// Quotes Motivasi Random (Fitur Premium)
+$quotes = [
+    "Jadilah orang yang berilmu, biar kamu punya pilihan dalam hidup. Tanpa ilmu, kamu cuma bisa nerima apa yang sisa.",
+    "Jangan cuma mau dapet suksesnya, tapi nggak mau dapet pusingnya. Dunia ini nggak semurah itu, Bro.",
+    "Investasi terbaik itu bukan emas atau saham, tapi apa yang kamu masukin ke dalam kepala kamu hari ini.",
+    "Ilmu itu kayak kunci. Semakin banyak yang kamu punya, semakin banyak pintu yang bisa kamu buka sendiri tanpa bantuan orang lain.",
+    "Belajar itu cara kamu menghormati masa depanmu sendiri. Jangan khianati dirimu yang versi 10 tahun lagi cuma karena males hari ini.",
+    "Orang tua kita nggak butuh harta kita nanti, mereka cuma mau lihat anak yang mereka besarin nggak direndahin orang karena nggak tahu apa-apa.",
+    "Mending sekarang kamu pusing karena baca buku, daripada nanti kamu pusing karena nggak tahu besok mau makan apa.",
+    "Jangan bangga jadi orang yang santai kalau aslinya kamu cuma males. Dunia nggak bakal kasih penghargaan buat orang yang cuma diem.",
+    "Pintar itu bukan buat sombong, tapi buat tameng. Biar kamu nggak gampang ditipu dan nggak gampang diinjek-injek orang.",
+    "Rasa malas itu sebenernya adalah penghalang antara kamu dan versi terbaik dari dirimu. Singkirkan atau kamu tetep di situ aja.",
+    "Jangan nunggu butuh baru belajar. Belajarlah biar pas kesempatan dateng, kamu udah jadi orang yang paling siap buat ambil itu.",
+    "Setiap halaman yang kamu baca hari ini adalah satu langkah menjauh dari jurang kebodohan di masa depan.",
+    "Ilmu itu satu-satunya hal yang nggak bakal ninggalin kamu meskipun kamu udah nggak punya apa-apa lagi.",
+    "Berhentilah membandingkan progresmu dengan orang lain. Fokus aja bikin otakmu lebih berisi dibanding kemarin.",
+    "Belajar itu emang capek, tapi lebih capek lagi kalau harus pura-pura ngerti padahal aslinya nggak tahu apa-apa.",
+    "Dunia ini keras bagi mereka yang malas, tapi sangat bersahabat bagi mereka yang punya otak dan niat.",
+    "Tuhan kasih kamu otak buat mikir, jangan cuma dipake buat scrolling hal nggak berguna sampai ketiduran.",
+    "Orang hebat nggak lahir dari kenyamanan. Mereka lahir dari malam-malam yang dipake buat mikir keras pas yang lain udah tidur.",
+    "Kejar ilmu seolah-olah kamu bakal hidup selamanya, dan berbuat baiklah seolah-olah kamu bakal mati besok.",
+    "Jangan kasih kendor! Masa depanmu nggak butuh alasanmu, masa depanmu butuh hasil dari usahamu hari ini."
+];
+$daily_quote = $quotes[array_rand($quotes)];
+
+// Hitung persentase kehadiran
+$total = $stat['total'] ?: 1;
+$persen = round((($stat['hadir'] ?: 0) / $total) * 100);
+// Fetch Pengumuman Terbaru (3 Teratas)
+$pengumuman_query = mysqli_query($conn, "SELECT * FROM pengumuman
+                                        WHERE target_role IN ('semua', 'mahasiswa')
+                                        AND status = 'active'
+                                        ORDER BY created_at DESC LIMIT 3");
+// Simpan ke array agar bisa dipakai di dua tempat (desktop alerts & mobile modal)
+$pengumuman_list = [];
+while ($p = mysqli_fetch_assoc($pengumuman_query)) {
+    $pengumuman_list[] = $p;
+}
+$jumlah_pengumuman = count($pengumuman_list);
+
+// Get Badges
+$badges = get_mahasiswa_badges($nim);
+
+// Get Points & Level (Fitur Baru)
+$my_points = get_mahasiswa_points($nim);
+$my_level = get_mahasiswa_level($my_points);
+$next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my_level['min']) * 100;
+?>
+<?php include 'includes/header.php'; ?>
+
+<style>
+/* ===== MAHASISWA DASHBOARD MODERN STYLE ===== */
+.dashboard-content {
+    padding: 24px;
+    max-width: 1400px;
+    animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Announcement Style */
+.announcement-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 28px;
+}
+.announcement-item {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    display: flex;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+.announcement-item.alert {
+    margin-bottom: 0;
+}
+.announcement-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border-color: #0066cc;
+}
+.announcement-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(180deg, #0066cc 0%, #00ccff 100%);
+}
+.announcement-icon-box {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+    color: #0284c7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.announcement-content {
+    flex: 1;
+    padding-right: 20px;
+}
+.announcement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.announcement-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+}
+.announcement-time {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+}
+.announcement-body {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+.announcement-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    opacity: 0.4;
+    cursor: pointer;
+    padding: 4px;
+    transition: all 0.2s;
+    z-index: 2;
+}
+.announcement-close:hover {
+    opacity: 1;
+    color: #ef4444;
+    transform: rotate(90deg);
+}
+[data-theme="dark"] .announcement-icon-box {
+    background: rgba(2, 132, 199, 0.2);
+    color: #38bdf8;
+}
+
+/* Welcome Banner */
+.welcome-banner {
+    background: var(--banner-gradient);
+    border-radius: 20px;
+    padding: 0;
+    color: white;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+    min-height: 160px;
+}
+/* OPTIMISASI: Matikan animasi berat di mobile */
+@media (max-width: 768px) {
+    .welcome-banner::before, .welcome-banner::after {
+        display: none;
+        animation: none;
+    }
+    .stats-glass {
+        backdrop-filter: none !important;
+        background: rgba(255,255,255,0.2);
+    }
+}
+.welcome-banner::before {
+    content: '';
+    position: absolute;
+    top: -100px;
+    right: -100px;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite;
+}
+.welcome-banner::after {
+    content: '';
+    position: absolute;
+    bottom: -120px;
+    left: -80px;
+    width: 280px;
+    height: 280px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+    animation: float 6s ease-in-out infinite 3s;
+}
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-20px); }
+}
+.welcome-content {
+    padding: 28px 32px;
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.welcome-content .greeting {
+    font-size: 0.85rem;
+    opacity: 0.9;
+    margin-bottom: 4px;
+    letter-spacing: 0.5px;
+}
+.welcome-content h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.welcome-content .quote {
+    font-size: 0.9rem;
+    font-style: italic;
+    opacity: 0.9;
+    margin-bottom: 12px;
+    max-width: 600px;
+    font-weight: 300;
+}
+.welcome-content .info-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 4px;
+}
+.welcome-content .info-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    backdrop-filter: blur(5px);
+}
+.welcome-stats {
+    padding: 28px 32px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 100%;
+    z-index: 2;
+    pointer-events: none;
+}
+.stats-glass {
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 18px 24px;
+    display: flex;
+    gap: 28px;
+    border: 1px solid rgba(255,255,255,0.2);
+    pointer-events: auto;
+}
+.stats-glass .stat-item {
+    text-align: center;
+}
+.stats-glass .stat-num {
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1;
+}
+.stats-glass .stat-label {
+    font-size: 0.7rem;
+    opacity: 0.85;
+    margin-top: 4px;
+}
+
+/* Jadwal Aktif Alert */
+.jadwal-aktif-alert {
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+    border: 1px solid #66cc00;
+    border-left: 4px solid #66cc00;
+    border-radius: 16px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+.jadwal-aktif-alert .pulse-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #66cc00, #17a673);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.4rem;
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+}
+@media (max-width: 768px) {
+    .jadwal-aktif-alert .pulse-icon {
+        animation: none;
+    }
+}
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(28, 200, 138, 0.4); }
+    50% { box-shadow: 0 0 0 15px rgba(28, 200, 138, 0); }
+}
+.jadwal-aktif-alert .jadwal-info {
+    flex: 1;
+    min-width: 0;
+}
+.jadwal-aktif-alert .jadwal-info h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #155724;
+    margin: 0 0 4px 0;
+}
+.jadwal-aktif-alert .jadwal-info p {
+    font-size: 0.85rem;
+    color: #155724;
+    margin: 0;
+    opacity: 0.85;
+}
+.jadwal-aktif-alert .jadwal-info .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: #155724;
+}
+.jadwal-aktif-alert .btn-scan {
+    background: linear-gradient(135deg, #66cc00, #17a673);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s;
+    flex-shrink: 0;
+}
+.jadwal-aktif-alert .btn-scan:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(28, 200, 138, 0.4);
+    color: white;
+}
+.jadwal-aktif-alert .status-done {
+    background: #66cc00;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+/* Stat Cards Grid */
+.stat-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.stat-card {
+    background: var(--bg-card);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    transition: all 0.25s ease;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+.stat-icon.hadir { background: linear-gradient(135deg, #d4edda, #c3e6cb); color: #66cc00; }
+.stat-icon.izin { background: linear-gradient(135deg, #cce5ff, #b8daff); color: #0066cc; }
+.stat-icon.sakit { background: linear-gradient(135deg, #fff3cd, #ffeeba); color: #ffaa00; }
+.stat-icon.alpha { background: linear-gradient(135deg, #f8d7da, #f5c6cb); color: #ff3333; }
+.stat-info h3 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    line-height: 1;
+}
+.stat-info p {
+    color: var(--text-muted);
+    margin: 4px 0 0 0;
+    font-size: 0.75rem;
+}
+
+/* Main Grid */
+.main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+/* Card Box */
+.card-box {
+    background: var(--bg-card);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+}
+.card-box .card-header-custom {
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--banner-gradient);
+}
+.card-box .card-header-custom h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--putih);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.card-box .card-header-custom h3 i {
+    color: var(--putih);
+}
+.card-box .card-body-custom {
+    padding: 20px 24px;
+}
+
+/* Ring Chart */
+.ring-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 0;
+}
+.ring-chart {
+    position: relative;
+    width: 140px;
+    height: 140px;
+}
+.ring-chart svg {
+    transform: rotate(-90deg);
+    width: 140px;
+    height: 140px;
+}
+.ring-bg {
+    fill: none;
+    stroke: var(--border-color);
+    stroke-width: 10;
+}
+.ring-progress {
+    fill: none;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s ease;
+}
+.ring-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+.ring-text .persen {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.ring-text .label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+/* Quick Actions */
+.quick-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+}
+.quick-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 14px;
+    background: var(--bg-body);
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--text-main);
+    transition: all 0.25s ease;
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+}
+.quick-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.quick-btn.scan::before { background: linear-gradient(135deg, #66cc00, #17a673); }
+.quick-btn.riwayat::before { background: linear-gradient(135deg, #0066cc, #0099ff); }
+.quick-btn.jadwal::before { background: linear-gradient(135deg, #00ccff, #258391); }
+.quick-btn.izin::before { background: linear-gradient(135deg, #ffaa00, #dda20a); }
+.quick-btn.jurnal::before { background: linear-gradient(135deg, #6f42c1, #8540f5); }
+.quick-btn.ulasan::before { background: linear-gradient(135deg, #e83e8c, #f66d9b); }
+.quick-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+    color: white;
+}
+.quick-btn:hover::before {
+    opacity: 1;
+}
+.quick-btn i, .quick-btn span {
+    position: relative;
+    z-index: 1;
+}
+.quick-btn i {
+    font-size: 1.4rem;
+    margin-bottom: 8px;
+    transition: color 0.25s;
+}
+.quick-btn.scan i { color: #66cc00; }
+.quick-btn.riwayat i { color: #0066cc; }
+.quick-btn.jadwal i { color: #00ccff; }
+.quick-btn.izin i { color: #ffaa00; }
+.quick-btn.jurnal i { color: #6f42c1; }
+.quick-btn.ulasan i { color: #e83e8c; }
+.quick-btn:hover i {
+    color: white;
+}
+.quick-btn span {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-align: center;
+}
+
+/* Jadwal List */
+.jadwal-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+.jadwal-item {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: var(--bg-body);
+    border-radius: 16px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid var(--border-color);
+    position: relative;
+    overflow: hidden;
+}
+.jadwal-item::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: transparent;
+    transition: background 0.3s ease;
+}
+.jadwal-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 102, 204, 0.3);
+    background: var(--bg-card);
+}
+.jadwal-item:hover::before {
+    background: #0066cc;
+}
+.jadwal-item.today {
+    background: linear-gradient(to right, rgba(46, 204, 113, 0.08), rgba(46, 204, 113, 0.02));
+    border-color: rgba(46, 204, 113, 0.3);
+}
+.jadwal-item.today::before {
+    background: #2ecc71;
+}
+.jadwal-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 70px;
+    height: 70px;
+    background: rgba(0, 102, 204, 0.08);
+    border-radius: 14px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+.jadwal-item.today .jadwal-date {
+    background: rgba(46, 204, 113, 0.15);
+}
+.jadwal-date .day {
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: #0066cc;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.jadwal-item.today .jadwal-date .day {
+    color: #218838;
+}
+.jadwal-date .month {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.jadwal-info-item {
+    flex: 1;
+    min-width: 0;
+}
+.jadwal-info-item h4 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: var(--text-main);
+    line-height: 1.3;
+}
+.jadwal-info-item .meta {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+.jadwal-info-item .meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.jadwal-info-item .meta i {
+    color: #a0aec0;
+    font-size: 0.85rem;
+}
+.jadwal-info-item .asisten {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.jadwal-status {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+    flex-shrink: 0;
+}
+.jadwal-badge {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.jadwal-badge.materi { background: #cce5ff; color: #0066cc; }
+.jadwal-badge.inhall { background: #fff3cd; color: #856404; }
+.jadwal-badge.praresponsi { background: #f8d7da; color: #721c24; }
+.jadwal-badge.responsi { background: #f8d7da; color: #721c24; }
+.jadwal-badge.ujikom { background: #f8d7da; color: #721c24; }
+.status-badge {
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.status-badge.hadir { background: #d4edda; color: #155724; }
+.status-badge.izin { background: #cce5ff; color: #004085; }
+.status-badge.sakit { background: #fff3cd; color: #856404; }
+.status-badge.alpha { background: #f8d7da; color: #721c24; }
+.status-badge.belum { background: #e2e3e5; color: #383d41; }
+.status-badge.menunggu { background: #fff3cd; color: #856404; }
+
+/* Empty State */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+.empty-state i {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+.empty-state p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .main-grid {
+        grid-template-columns: 1fr;
+    }
+}
+@media (max-width: 1110px) {
+    .welcome-banner {
+        min-height: auto;
+    }
+    .welcome-stats {
+        position: relative;
+        padding: 0 32px 28px;
+        width: 100%;
+        height: auto;
+        justify-content: flex-start;
+        pointer-events: auto;
+    }
+    .stats-glass {
+        width: 100%;
+        justify-content: space-around;
+    }
+}
+@media (max-width: 992px) {
+    .stat-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 768px) {
+    .dashboard-content {
+        padding: 16px;
+    }
+    .welcome-banner {
+        grid-template-columns: 1fr;
+        min-height: auto;
+    }
+    .welcome-content {
+        padding: 20px 24px;
+    }
+    .welcome-content h1 {
+        font-size: 1.3rem;
+    }
+    .welcome-stats {
+        padding: 0 24px 20px;
+        position: relative;
+        width: auto;
+        height: auto;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+    }
+    .stats-glass {
+        width: 100%;
+        justify-content: space-around;
+        gap: 16px;
+        padding: 14px 20px;
+    }
+    .stats-glass .stat-num {
+        font-size: 1.25rem;
+    }
+    .jadwal-aktif-alert {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+    .jadwal-aktif-alert .jadwal-info .meta {
+        justify-content: center;
+    }
+    .stat-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+    .stat-card {
+        padding: 16px;
+    }
+    .stat-icon {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+    }
+    .stat-info h3 {
+        font-size: 1.25rem;
+    }
+    .main-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    .quick-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+    }
+    .quick-btn {
+        padding: 14px 10px;
+    }
+    .quick-btn i {
+        font-size: 1.2rem;
+        margin-bottom: 6px;
+    }
+    .quick-btn span {
+        font-size: 0.7rem;
+    }
+    .ring-chart {
+        width: 110px;
+        height: 110px;
+    }
+    .ring-chart svg {
+        width: 110px;
+        height: 110px;
+    }
+    .ring-text .persen {
+        font-size: 1.4rem;
+    }
+}
+@media (max-width: 480px) {
+    .stat-cards-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .quick-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .welcome-content .info-badges {
+        gap: 6px;
+        width: 100%;
+    }
+    .welcome-content .info-badge {
+        font-size: 0.7rem;
+        padding: 5px 10px;
+        flex: 0 1 auto;
+    }
+    .jadwal-info-item .meta {
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+    }
+}
+
+/* Extra Small Phones (320px - 375px) */
+@media (max-width: 375px) {
+    .welcome-content {
+        padding: 16px 18px;
+    }
+    .welcome-content h1 {
+        font-size: 1.15rem;
+    }
+    .welcome-content .quote {
+        font-size: 0.8rem;
+        margin-bottom: 10px;
+    }
+    .welcome-content .info-badges {
+        gap: 5px;
+        flex-wrap: wrap;
+    }
+    .welcome-content .info-badge {
+        font-size: 0.65rem;
+        padding: 4px 8px;
+        border-radius: 14px;
+    }
+    .welcome-stats {
+        padding: 0 18px 16px;
+    }
+    .stats-glass {
+        padding: 12px 14px;
+        gap: 10px;
+    }
+    .stats-glass .stat-num {
+        font-size: 1.1rem;
+    }
+    .stats-glass .stat-label {
+        font-size: 0.6rem;
+    }
+}
+
+/* Very Small Phones (below 320px) */
+@media (max-width: 320px) {
+    .welcome-content .info-badges {
+        gap: 4px;
+    }
+    .welcome-content .info-badge {
+        font-size: 0.6rem;
+        padding: 3px 6px;
+    }
+    .stats-glass {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+    }
+    .stats-glass .stat-item {
+        min-width: 45px;
+    }
+}
+
+/* Mobile Announcement Popup */
+.mobile-announcement-fab {
+    display: none;
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0066cc 0%, #00ccff 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4);
+    cursor: pointer;
+    z-index: 1000;
+    transition: all 0.3s ease;
+    animation: fabPulse 2s infinite;
+}
+.mobile-announcement-fab:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 25px rgba(0, 102, 204, 0.5);
+}
+.mobile-announcement-fab i {
+    font-size: 1.3rem;
+}
+.mobile-announcement-fab .fab-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #ef4444;
+    color: white;
+    font-size: 0.7rem;
+    font-weight: 700;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.4);
+}
+@keyframes fabPulse {
+    0%, 100% { box-shadow: 0 4px 20px rgba(0, 102, 204, 0.4); }
+    50% { box-shadow: 0 4px 30px rgba(0, 102, 204, 0.6); }
+}
+
+/* Modal Announcement Mobile - Centered & Modern */
+.announcement-modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+.announcement-modal-overlay.show {
+    opacity: 1;
+}
+.announcement-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    width: calc(100% - 32px);
+    max-width: 400px;
+    max-height: 80vh;
+    background: var(--bg-card);
+    border-radius: 20px;
+    z-index: 1051;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+.announcement-modal.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+.announcement-modal-header {
+    padding: 20px 20px 16px;
+    background: var(--primary-color);
+    color: var(--putih);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.announcement-modal-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--putih);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.announcement-modal-header h5 i {
+    color: var(--putih);
+}
+.announcement-modal-close {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    color: var(--putih);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    font-size: 0.9rem;
+}
+.announcement-modal-close:hover {
+    background: rgba(255,255,255,0.3);
+    transform: scale(1.1);
+}
+.announcement-modal-body {
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+}
+.announcement-modal-item {
+    background: var(--bg-sidebar);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-left: 4px solid #0066cc;
+    transition: all 0.2s ease;
+}
+.announcement-modal-item:last-child {
+    margin-bottom: 0;
+}
+.announcement-modal-item .ann-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+.announcement-modal-item .ann-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.announcement-modal-item .ann-body {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+/* Responsive: Hide desktop announcements on mobile, show FAB */
+@media (max-width: 768px) {
+    .announcement-wrapper {
+        display: none !important;
+    }
+    .mobile-announcement-fab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+/* Dark mode untuk modal */
+[data-theme="dark"] .announcement-modal-item {
+    background: rgba(255, 255, 255, 0.05);
+    border-left-color: #38bdf8;
+}
+[data-theme="dark"] .mobile-announcement-fab {
+    background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+}
+
+/* Responsive Jadwal Item */
+@media (max-width: 768px) {
+    .jadwal-item {
+        flex-wrap: wrap;
+        padding: 16px;
+        gap: 16px;
+    }
+    .jadwal-date {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+    }
+    .jadwal-date .day {
+        font-size: 1.3rem;
+    }
+    .jadwal-date .month {
+        font-size: 0.65rem;
+    }
+    .jadwal-info-item {
+        width: calc(100% - 72px);
+        flex: none;
+    }
+    .jadwal-info-item h4 {
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+    .jadwal-status {
+        width: 100%;
+        flex-direction: row;
+        justify-content: flex-start;
+        padding-top: 12px;
+        border-top: 1px dashed var(--border-color);
+        margin-top: 4px;
+    }
+}
+
+/* Dark Mode Fixes */
+[data-theme="dark"] .welcome-banner {
+    background: var(--banner-gradient);
+}
+[data-theme="dark"] .jadwal-aktif-alert {
+    background: rgba(40, 167, 69, 0.15);
+    border-color: rgba(40, 167, 69, 0.3);
+    border-left-color: #2ecc71;
+}
+[data-theme="dark"] .jadwal-aktif-alert .jadwal-info h4,
+[data-theme="dark"] .jadwal-aktif-alert .jadwal-info p,
+[data-theme="dark"] .jadwal-aktif-alert .jadwal-info .meta {
+    color: var(--text-main);
+}
+[data-theme="dark"] .jadwal-aktif-alert .pulse-icon {
+    background: rgba(40, 167, 69, 0.2);
+    color: #2ecc71;
+    box-shadow: none;
+}
+
+[data-theme="dark"] .stat-icon.hadir { background: rgba(40, 167, 69, 0.2); color: #2ecc71; }
+[data-theme="dark"] .stat-icon.izin { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+[data-theme="dark"] .stat-icon.sakit { background: rgba(23, 162, 184, 0.2); color: #17a2b8; }
+[data-theme="dark"] .stat-icon.alpha { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+
+[data-theme="dark"] .jadwal-item:hover {
+    background-color: rgba(255,255,255,0.05);
+    border-color: #66b0ff;
+}
+[data-theme="dark"] .jadwal-item.today {
+    background: linear-gradient(to right, rgba(46, 204, 113, 0.1), rgba(46, 204, 113, 0.05));
+    border-color: rgba(46, 204, 113, 0.3);
+}
+[data-theme="dark"] .jadwal-date {
+    background: rgba(255, 255, 255, 0.05);
+}
+[data-theme="dark"] .jadwal-date .day {
+    color: #66b0ff;
+}
+[data-theme="dark"] .jadwal-date .month {
+    color: #a0aec0;
+}
+[data-theme="dark"] .jadwal-item.today .jadwal-date {
+    background: rgba(46, 204, 113, 0.15);
+}
+[data-theme="dark"] .jadwal-item.today .jadwal-date .day {
+    color: #2ecc71;
+}
+
+[data-theme="dark"] .jadwal-badge.materi { background: rgba(13, 110, 253, 0.2); color: #6ea8fe; }
+[data-theme="dark"] .jadwal-badge.inhall { background: rgba(255, 193, 7, 0.2); color: #ffda6a; }
+[data-theme="dark"] .jadwal-badge.praresponsi { background: rgba(13, 202, 240, 0.2); color: #6edff6; }
+[data-theme="dark"] .jadwal-badge.responsi { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+[data-theme="dark"] .jadwal-badge.ujikom { background: rgba(220, 53, 69, 0.2); color: #ea868f; }
+
+[data-theme="dark"] .status-badge.hadir { background: rgba(40, 167, 69, 0.2); color: #2ecc71; }
+[data-theme="dark"] .status-badge.izin { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+[data-theme="dark"] .status-badge.sakit { background: rgba(23, 162, 184, 0.2); color: #17a2b8; }
+[data-theme="dark"] .status-badge.alpha { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+[data-theme="dark"] .status-badge.belum { background: rgba(255, 255, 255, 0.1); color: #a0aec0; }
+[data-theme="dark"] .status-badge.menunggu { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+
+[data-theme="dark"] .quick-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+[data-theme="dark"] .quick-btn.scan i { color: #2ecc71; }
+[data-theme="dark"] .quick-btn.riwayat i { color: #66b0ff; }
+[data-theme="dark"] .quick-btn.jadwal i { color: #33d6ff; }
+[data-theme="dark"] .quick-btn.izin i { color: #ffc107; }
+[data-theme="dark"] .quick-btn.jurnal i { color: #a57ccf; }
+[data-theme="dark"] .quick-btn.ulasan i { color: #f08eb3; }
+[data-theme="dark"] .quick-btn:hover {
+    box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+    border-color: transparent;
+    color: #ffffff;
+}
+[data-theme="dark"] .quick-btn:hover i {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .card-box {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+[data-theme="dark"] .card-header-custom {
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom-color: var(--border-color);
+}
+[data-theme="dark"] .card-header-custom h3 {
+    color: var(--text-main);
+}
+[data-theme="dark"] .card-body-custom {
+    color: var(--text-main);
+}
+
+/* Presensi Stats inside Card */
+.presensi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 20px;
+}
+.presensi-item {
+    text-align: center;
+    padding: 10px 4px;
+    background: var(--bg-body);
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+.presensi-item .num {
+    font-size: 1.1rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+.presensi-item .lbl {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.presensi-item.hadir .num { color: #66cc00; }
+.presensi-item.izin .num { color: #0066cc; }
+.presensi-item.sakit .num { color: #ffaa00; }
+.presensi-item.alpha .num { color: #ff3333; }
+
+[data-theme="dark"] .presensi-item {
+    background: rgba(255,255,255,0.05);
+    border-color: var(--border-color);
+}
+</style>
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-3 col-lg-2 px-0">
+            <?php include 'includes/sidebar.php'; ?>
+        </div>
+        
+        <div class="col-md-9 col-lg-10">
+            <div class="dashboard-content">
+                <?= show_alert() ?>
+                
+                <!-- Pengumuman Section (Desktop Only) -->
+                <?php if ($jumlah_pengumuman > 0): ?>
+                    <div class="announcement-wrapper">
+                        <?php foreach($pengumuman_list as $p): ?>
+                        <div class="announcement-item alert fade show" role="alert">
+                            <div class="announcement-icon-box">
+                                <i class="fas fa-bullhorn"></i>
+                            </div>
+                            <div class="announcement-content">
+                                <div class="announcement-header">
+                                    <h5 class="announcement-title"><?= htmlspecialchars($p['judul']) ?></h5>
+                                    <span class="announcement-time">
+                                        <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+                                    </span>
+                                </div>
+                                <div class="announcement-body">
+                                    <?= nl2br(htmlspecialchars($p['isi'])) ?>
+                                </div>
+                            </div>
+                            <button type="button" class="announcement-close" data-bs-dismiss="alert" aria-label="Close">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- Welcome Banner -->
+                <div class="welcome-banner">
+                    <div class="welcome-content">
+                        <h1 class="mb-2"><i class="fas fa-<?= $greeting_icon ?> me-2"></i><?= $greeting ?>, <?= $mahasiswa['nama'] ?></h1>
+                        <div class="quote">"<?= $daily_quote ?>"</div>
+                        <div class="info-badges">
+                            <span class="info-badge"><i class="fas fa-id-card me-1"></i><?= $mahasiswa['nim'] ?></span>
+                            <span class="info-badge"><i class="fas fa-users me-1"></i>Kelas <?= $mahasiswa['nama_kelas'] ?></span>
+                            <span class="info-badge"><i class="fas fa-calendar-alt me-1"></i><?= format_tanggal($today) ?></span>
+                        </div>
+                        
+                        <!-- Level Progress -->
+                        <div class="mt-3 p-2 rounded" style="background: rgba(255,255,255,0.15); backdrop-filter: blur(5px);">
+                            <div class="d-flex justify-content-between align-items-center mb-1 text-white">
+                                <small class="fw-bold"><i class="fas fa-<?= $my_level['icon'] ?> me-1"></i><?= $my_level['name'] ?></small>
+                                <small><?= $my_points ?> / <?= $my_level['max'] ?> XP</small>
+                            </div>
+                            <div class="progress" style="height: 6px; background: rgba(0,0,0,0.2);">
+                                <div class="progress-bar bg-warning" role="progressbar" 
+                                     style="width: <?= $next_level_progress ?>%" 
+                                     aria-valuenow="<?= $next_level_progress ?>" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <div class="text-end mt-1">
+                                <small style="font-size: 0.65rem; opacity: 0.8;">Kumpulkan poin dengan hadir tepat waktu!</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="welcome-stats">
+                        <div class="stats-glass">
+                            <div class="stat-item">
+                                <span class="stat-num"><?= $stat['hadir'] ?: 0 ?></span>
+                                <span class="stat-label">Hadir</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num"><?= $stat['total'] ?: 0 ?></span>
+                                <span class="stat-label">Total</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-num"><?= $persen ?>%</span>
+                                <span class="stat-label">Kehadiran</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Gamification Badges -->
+                <?php if (!empty($badges)): ?>
+                <div class="mb-4">
+                    <h5 class="mb-3 d-flex align-items-center"><i class="fas fa-trophy text-warning me-2 flex-shrink-0"></i>Pencapaian Kamu</h5>
+                    <div class="row g-3">
+                        <?php foreach($badges as $badge): ?>
+                        <div class="col-12">
+                        <div class="card border-<?= $badge['color'] ?> shadow-sm h-100">
+                            <div class="card-body d-flex align-items-center p-3">
+                                <div class="rounded-circle bg-<?= $badge['color'] ?> text-white d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-<?= $badge['icon'] ?> fa-lg"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-0 fw-bold"><?= $badge['title'] ?></h6>
+                                    <small class="text-muted"><?= $badge['desc'] ?></small>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <!-- Jadwal Aktif Alert - Tampilkan SEMUA jadwal aktif hari ini -->
+                <?php if (mysqli_num_rows($jadwal_hari_ini) > 0): ?>
+                    <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): ?>
+                    <div class="jadwal-aktif-alert">
+                        <div class="pulse-icon">
+                            <i class="fas fa-broadcast-tower"></i>
+                        </div>
+                        <div class="jadwal-info">
+                            <h4><i class="fas fa-clock me-2"></i>Praktikum Sedang Berlangsung!</h4>
+                            <p><strong><?= $jhi['nama_mk'] ?></strong> - <?= $jhi['materi'] ?></p>
+                            <div class="meta">
+                                <span><i class="fas fa-clock me-1"></i><?= format_waktu($jhi['jam_mulai']) ?> - <?= format_waktu($jhi['jam_selesai']) ?></span>
+                                <span><i class="fas fa-map-marker-alt me-1"></i><?= $jhi['nama_lab'] ?></span>
+                                <?php if ($jhi['sesi'] != 0): ?>
+                                    <span><i class="fas fa-users me-1"></i>Sesi <?= $jhi['sesi'] ?></span>
+                                <?php endif; ?>
+                                <span><i class="fas fa-user-tie me-1"></i><?= $jhi['asisten1_nama'] ?: '-' ?><?php if ($jhi['asisten2_nama']): ?>, <?= $jhi['asisten2_nama'] ?><?php endif; ?></span>
+                            </div>
+                        </div>
+                        <?php if ($jhi['presensi_status'] && $jhi['presensi_status'] != 'belum'): ?>
+                            <div class="status-done">
+                                <i class="fas fa-check-circle me-2"></i>Sudah <?= ucfirst($jhi['presensi_status']) ?>
+                            </div>
+                        <?php else: ?>
+                            <a href="index.php?page=mahasiswa_scanner" class="btn-scan">
+                                <i class="fas fa-qrcode"></i>Scan Presensi
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                    <?php endwhile; ?>
+                <?php endif; ?>
+                
+                <!-- Stat Cards -->
+                <div class="stat-cards-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon hadir">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $stat['hadir'] ?: 0 ?></h3>
+                            <p>Hadir</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon izin">
+                            <i class="fas fa-envelope"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $stat['izin'] ?: 0 ?></h3>
+                            <p>Izin</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon sakit">
+                            <i class="fas fa-medkit"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $stat['sakit'] ?: 0 ?></h3>
+                            <p>Sakit</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon alpha">
+                            <i class="fas fa-times-circle"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3><?= $stat['alpha'] ?: 0 ?></h3>
+                            <p>Alpha</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Main Grid -->
+                <div class="main-grid">
+                    <!-- Left: Kehadiran & Quick Actions -->
+                    <div style="display: flex; flex-direction: column; gap: 24px;">
+                        <!-- Persentase Kehadiran -->
+                        <div class="card-box">
+                            <div class="card-header-custom">
+                                <h3><i class="fas fa-chart-pie"></i> Persentase Kehadiran</h3>
+                            </div>
+                            <div class="card-body-custom">
+                                <div class="ring-container">
+                                    <div class="ring-chart">
+                                        <svg viewBox="0 0 140 140">
+                                            <circle class="ring-bg" cx="70" cy="70" r="60"/>
+                                            <circle class="ring-progress" cx="70" cy="70" r="60" 
+                                                    stroke="<?= $persen >= 75 ? '#66cc00' : ($persen >= 50 ? '#ffaa00' : '#ff3333') ?>"
+                                                    stroke-dasharray="377" 
+                                                    stroke-dashoffset="<?= 377 - (377 * $persen / 100) ?>"/>
+                                        </svg>
+                                        <div class="ring-text">
+                                            <span class="persen" style="color: <?= $persen >= 75 ? '#66cc00' : ($persen >= 50 ? '#ffaa00' : '#ff3333') ?>"><?= $persen ?>%</span>
+                                            <span class="label">Kehadiran</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="presensi-grid">
+                                    <div class="presensi-item hadir">
+                                        <div class="num"><?= $stat['hadir'] ?: 0 ?></div>
+                                        <div class="lbl">Hadir</div>
+                                    </div>
+                                    <div class="presensi-item izin">
+                                        <div class="num"><?= $stat['izin'] ?: 0 ?></div>
+                                        <div class="lbl">Izin</div>
+                                    </div>
+                                    <div class="presensi-item sakit">
+                                        <div class="num"><?= $stat['sakit'] ?: 0 ?></div>
+                                        <div class="lbl">Sakit</div>
+                                    </div>
+                                    <div class="presensi-item alpha">
+                                        <div class="num"><?= $stat['alpha'] ?: 0 ?></div>
+                                        <div class="lbl">Alpha</div>
+                                    </div>
+                                </div>
+                                <p class="text-center text-muted small mt-3 mb-0">
+                                    Total <?= $stat['total'] ?: 0 ?> pertemuan tercatat
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Actions -->
+                        <div class="card-box">
+                            <div class="card-header-custom">
+                                <h3><i class="fas fa-bolt" style="color: #ffaa00;"></i> Menu Cepat</h3>
+                            </div>
+                            <div class="card-body-custom">
+                                <div class="quick-grid">
+                                    <a href="index.php?page=mahasiswa_scanner" class="quick-btn scan">
+                                        <i class="fas fa-qrcode"></i>
+                                        <span>Scan QR</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_riwayat" class="quick-btn riwayat">
+                                        <i class="fas fa-history"></i>
+                                        <span>Riwayat</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_jurnal" class="quick-btn jurnal">
+                                        <i class="fas fa-book-open"></i>
+                                        <span>Jurnal</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_riwayat" class="quick-btn ulasan">
+                                        <i class="fas fa-star"></i>
+                                        <span>Ulasan</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_jadwal" class="quick-btn jadwal">
+                                        <i class="fas fa-calendar-alt"></i>
+                                        <span>Jadwal</span>
+                                    </a>
+                                    <a href="index.php?page=mahasiswa_izin" class="quick-btn izin">
+                                        <i class="fas fa-paper-plane"></i>
+                                        <span>Izin</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Jadwal Mendatang -->
+                    <div class="card-box">
+                        <div class="card-header-custom">
+                            <h3><i class="fas fa-calendar-alt"></i> Jadwal Mendatang</h3>
+                            <a href="index.php?page=mahasiswa_jadwal" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                        </div>
+                        <div class="card-body-custom">
+                            <?php if (mysqli_num_rows($jadwal_terdekat) > 0): ?>
+                                <div class="jadwal-list">
+                                    <?php while ($j = mysqli_fetch_assoc($jadwal_terdekat)): ?>
+                                        <?php 
+                                        $is_today = $j['tanggal'] == $today;
+                                        $waktu_buka = strtotime($j['jam_mulai']) - ($toleransi_sebelum * 60);
+                                        $waktu_sekarang = strtotime($now_time);
+                                        $belum_waktunya = $is_today && ($waktu_sekarang < $waktu_buka);
+                                        $sisa_menit = 0;
+                                        if ($belum_waktunya) {
+                                            $sisa_menit = ceil(($waktu_buka - $waktu_sekarang) / 60);
+                                        }
+                                        ?>
+                                        <div class="jadwal-item <?= $is_today ? 'today' : '' ?>">
+                                            <div class="jadwal-date">
+                                                <span class="day"><?= date('d', strtotime($j['tanggal'])) ?></span>
+                                                <span class="month"><?= date('M', strtotime($j['tanggal'])) ?></span>
+                                            </div>
+                                            <div class="jadwal-info-item">
+                                                <h4><?= $j['nama_mk'] ?></h4>
+                                                <div class="meta">
+                                                    <span><i class="fas fa-clock me-1"></i><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></span>
+                                                    <span><i class="fas fa-map-marker-alt me-1"></i><?= $j['nama_lab'] ?></span>
+                                                    <?php if ($j['sesi'] != 0): ?>
+                                                        <span><i class="fas fa-users me-1"></i>Sesi <?= $j['sesi'] ?></span>
+                                                    <?php endif; ?>
+                                                </div>
+                                                <div class="asisten">
+                                                    <i class="fas fa-user-tie me-1"></i><?= $j['asisten1_nama'] ?: '-' ?>
+                                                    <?php if ($j['asisten2_nama']): ?>, <?= $j['asisten2_nama'] ?><?php endif; ?>
+                                                </div>
+                                            </div>
+                                            <div class="jadwal-status">
+                                                <span class="jadwal-badge <?= $j['jenis'] ?>"><?= ucfirst($j['jenis']) ?></span>
+                                                <?php if ($j['presensi_status'] && $j['presensi_status'] != 'belum'): ?>
+                                                    <span class="status-badge <?= $j['presensi_status'] ?>"><?= ucfirst($j['presensi_status']) ?></span>
+                                                <?php elseif ($belum_waktunya): ?>
+                                                    <span class="status-badge menunggu">
+                                                        <i class="fas fa-hourglass-half me-1"></i>
+                                                        <?php if ($sisa_menit >= 60): ?>
+                                                            <?= floor($sisa_menit/60) ?>j <?= $sisa_menit % 60 ?>m
+                                                        <?php else: ?>
+                                                            <?= $sisa_menit ?>m
+                                                        <?php endif; ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="status-badge belum">Belum</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endwhile; ?>
+                                </div>
+                            <?php else: ?>
+                                <div class="empty-state">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <p>Tidak ada jadwal mendatang</p>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile Announcement Floating Button & Modal -->
+<?php if ($jumlah_pengumuman > 0): ?>
+<!-- Floating Action Button -->
+<button type="button" class="mobile-announcement-fab" id="mobileAnnouncementFab" onclick="openAnnouncementModal()">
+    <i class="fas fa-bullhorn"></i>
+    <span class="fab-badge"><?= $jumlah_pengumuman ?></span>
+</button>
+
+<!-- Overlay -->
+<div class="announcement-modal-overlay" id="announcementModalOverlay" onclick="closeAnnouncementModal()"></div>
+
+<!-- Centered Modal -->
+<div class="announcement-modal" id="announcementModal">
+    <div class="announcement-modal-header">
+        <h5><i class="fas fa-bullhorn"></i> Pengumuman</h5>
+        <button type="button" class="announcement-modal-close" onclick="closeAnnouncementModal()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="announcement-modal-body">
+        <?php foreach($pengumuman_list as $p): ?>
+        <div class="announcement-modal-item">
+            <div class="ann-title"><?= htmlspecialchars($p['judul']) ?></div>
+            <div class="ann-time">
+                <i class="far fa-clock"></i> <?= date('d M Y, H:i', strtotime($p['created_at'])) ?>
+            </div>
+            <div class="ann-body"><?= nl2br(htmlspecialchars($p['isi'])) ?></div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<script>
+// Mobile Announcement Modal Functions
+function openAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').style.display = 'block';
+    document.getElementById('announcementModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Trigger animation
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').classList.add('show');
+        document.getElementById('announcementModal').classList.add('show');
+    }, 10);
+}
+
+function closeAnnouncementModal() {
+    document.getElementById('announcementModalOverlay').classList.remove('show');
+    document.getElementById('announcementModal').classList.remove('show');
+    
+    setTimeout(() => {
+        document.getElementById('announcementModalOverlay').style.display = 'none';
+        document.getElementById('announcementModal').style.display = 'none';
+        document.body.style.overflow = '';
+    }, 300);
+}
+
+// Close on ESC key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeAnnouncementModal();
+});
+</script>
+<?php endif; ?>
+
+<?php include 'includes/footer.php'; ?>
