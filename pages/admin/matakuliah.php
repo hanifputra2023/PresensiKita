@@ -7,6 +7,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if ($aksi == 'tambah') {
         $kode = escape($_POST['kode_mk']);
         $nama = escape($_POST['nama_mk']);
+        $prodi = escape($_POST['program_studi']);
         $sks = (int)$_POST['sks'];
         $semester = escape($_POST['semester']);
         
@@ -18,19 +19,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (mysqli_num_rows($cek) > 0) {
             set_alert('danger', 'Kode mata kuliah sudah ada!');
         } else {
-            $stmt_ins = mysqli_prepare($conn, "INSERT INTO mata_kuliah VALUES (?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt_ins, "ssis", $kode, $nama, $sks, $semester);
+            $stmt_ins = mysqli_prepare($conn, "INSERT INTO mata_kuliah (kode_mk, nama_mk, program_studi, sks, semester) VALUES (?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_ins, "sssis", $kode, $nama, $prodi, $sks, $semester);
             mysqli_stmt_execute($stmt_ins);
             set_alert('success', 'Mata kuliah berhasil ditambahkan!');
         }
     } elseif ($aksi == 'edit') {
         $kode = escape($_POST['kode_mk']);
         $nama = escape($_POST['nama_mk']);
+        $prodi = escape($_POST['program_studi']);
         $sks = (int)$_POST['sks'];
         $semester = escape($_POST['semester']);
         
-        $stmt_upd = mysqli_prepare($conn, "UPDATE mata_kuliah SET nama_mk=?, sks=?, semester=? WHERE kode_mk=?");
-        mysqli_stmt_bind_param($stmt_upd, "siss", $nama, $sks, $semester, $kode);
+        $stmt_upd = mysqli_prepare($conn, "UPDATE mata_kuliah SET nama_mk=?, program_studi=?, sks=?, semester=? WHERE kode_mk=?");
+        mysqli_stmt_bind_param($stmt_upd, "ssiss", $nama, $prodi, $sks, $semester, $kode);
         mysqli_stmt_execute($stmt_upd);
         set_alert('success', 'Mata kuliah berhasil diupdate!');
     } elseif ($aksi == 'hapus') {
@@ -89,6 +91,9 @@ if ($search) {
     $matkul = mysqli_stmt_get_result($stmt_matkul);
 }
 
+// [BARU] Ambil daftar prodi untuk datalist
+$prodi_list = mysqli_query($conn, "SELECT DISTINCT program_studi FROM kelas WHERE program_studi IS NOT NULL AND program_studi != '' ORDER BY program_studi");
+
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
     ?>
@@ -113,10 +118,11 @@ if (isset($_GET['ajax_search'])) {
                                     <?= htmlspecialchars($m['sks']) ?> SKS
                                 </span>
                             </div>
+                            <p class="text-muted mb-2"><i class="fas fa-graduation-cap me-2"></i><?= htmlspecialchars($m['program_studi'] ?: 'Umum') ?></p>
                             <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i>Semester <?= htmlspecialchars($m['semester']) ?></p>
                             
                             <div class="mt-auto action-buttons">
-                                <button class="btn btn-sm btn-warning" onclick="editMK('<?= htmlspecialchars($m['kode_mk'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['nama_mk'], ENT_QUOTES) ?>', '<?= $m['sks'] ?>', '<?= $m['semester'] ?>')">
+                                <button class="btn btn-sm btn-warning" onclick="editMK(<?= htmlspecialchars(json_encode($m), ENT_QUOTES) ?>)">
                                     <i class="fas fa-edit me-1"></i>Edit
                                 </button>
                                         <button class="btn btn-sm btn-danger" onclick="hapusMK('<?= htmlspecialchars($m['kode_mk'], ENT_QUOTES) ?>')">
@@ -1022,7 +1028,7 @@ if (isset($_GET['ajax_search'])) {
                                             <div>
                                                 <span class="badge bg-primary mb-2"><?= htmlspecialchars($m['kode_mk']) ?></span>
                                                 <h5 class="card-title mb-1"><?= htmlspecialchars($m['nama_mk']) ?></h5>
-                                                <span class="badge bg-info mb-2"><?= htmlspecialchars($m['kode_mk']) ?></span>
+                                                
                                             </div>
                                             <span class="badge bg-primary">
                                                 <?= htmlspecialchars($m['sks']) ?> SKS
@@ -1031,7 +1037,7 @@ if (isset($_GET['ajax_search'])) {
                                         <p class="text-muted mb-2"><i class="fas fa-chalkboard-teacher me-2"></i>Semester <?= htmlspecialchars($m['semester']) ?></p>
                                         
                                         <div class="mt-auto action-buttons">
-                                            <button class="btn btn-sm btn-warning" onclick="editMK('<?= htmlspecialchars($m['kode_mk'], ENT_QUOTES) ?>', '<?= htmlspecialchars($m['nama_mk'], ENT_QUOTES) ?>', '<?= $m['sks'] ?>', '<?= $m['semester'] ?>')">
+                                            <button class="btn btn-sm btn-warning" onclick="editMK(<?= htmlspecialchars(json_encode($m), ENT_QUOTES) ?>)">
                                                 <i class="fas fa-edit me-1"></i>Edit
                                             </button>
                                             <button class="btn btn-sm btn-danger" onclick="confirmSlideDelete('single', '<?= htmlspecialchars($m['kode_mk'], ENT_QUOTES) ?>')">
@@ -1096,6 +1102,15 @@ if (isset($_GET['ajax_search'])) {
                         <input type="text" name="nama_mk" class="form-control" required>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label">Program Studi</label>
+                        <select name="program_studi" class="form-select">
+                            <option value="">-- MK Umum (Semua Prodi) --</option>
+                            <?php mysqli_data_seek($prodi_list, 0); while($p = mysqli_fetch_assoc($prodi_list)): ?>
+                                <option value="<?= htmlspecialchars($p['program_studi']) ?>"><?= htmlspecialchars($p['program_studi']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">SKS</label>
                         <input type="number" name="sks" class="form-control" value="3" required>
                     </div>
@@ -1129,8 +1144,21 @@ if (isset($_GET['ajax_search'])) {
                 </div>
                 <div class="modal-body">
                     <div class="mb-3">
+                        <label class="form-label">Kode Mata Kuliah</label>
+                        <input type="text" id="edit_kode_display" class="form-control" disabled>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label">Nama Mata Kuliah</label>
                         <input type="text" name="nama_mk" id="edit_nama" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Program Studi</label>
+                        <select name="program_studi" id="edit_prodi" class="form-select">
+                            <option value="">-- MK Umum (Semua Prodi) --</option>
+                            <?php mysqli_data_seek($prodi_list, 0); while($p = mysqli_fetch_assoc($prodi_list)): ?>
+                                <option value="<?= htmlspecialchars($p['program_studi']) ?>"><?= htmlspecialchars($p['program_studi']) ?></option>
+                            <?php endwhile; ?>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">SKS</label>
@@ -1175,11 +1203,13 @@ if (isset($_GET['ajax_search'])) {
 <form id="formHapusBulk" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_banyak"><div id="bulkInputs"></div></form>
 
 <script>
-function editMK(kode, nama, sks, semester) {
-    document.getElementById('edit_kode').value = kode;
-    document.getElementById('edit_nama').value = nama;
-    document.getElementById('edit_sks').value = sks;
-    document.getElementById('edit_semester').value = semester;
+function editMK(data) {
+    document.getElementById('edit_kode').value = data.kode_mk;
+    document.getElementById('edit_kode_display').value = data.kode_mk;
+    document.getElementById('edit_nama').value = data.nama_mk;
+    document.getElementById('edit_prodi').value = data.program_studi || '';
+    document.getElementById('edit_sks').value = data.sks;
+    document.getElementById('edit_semester').value = data.semester;
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 

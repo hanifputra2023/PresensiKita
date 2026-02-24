@@ -1395,8 +1395,8 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
     <div class="col-md-4 mb-3"><label class="form-label">Tanggal</label><input type="date" name="tanggal" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai" class="form-control" required></div>
-    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="tambah_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_tambah', 'tambah_sesi')"><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
-    <div class="col-md-4 mb-3"><label class="form-label">Mata Kuliah</label><select name="kode_mk" id="tambah_mk" class="form-select" required onchange="filterLabTambah()"><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list,0);while($m=mysqli_fetch_assoc($mk_list)):?><option value="<?=$m['kode_mk']?>"><?=htmlspecialchars($m['nama_mk'])?></option><?php endwhile;?></select></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="tambah_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_tambah', 'tambah_sesi'); filterMkByKelas('tambah_kelas', 'tambah_mk');"><option value="">-- Pilih --</option><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>" data-prodi="<?=htmlspecialchars($k['program_studi'])?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Mata Kuliah</label><select name="kode_mk" id="tambah_mk" class="form-select" required onchange="filterLabTambah()"><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list,0);while($m=mysqli_fetch_assoc($mk_list)):?><option value="<?=$m['kode_mk']?>" data-prodi="<?=htmlspecialchars($m['program_studi'])?>"><?=htmlspecialchars($m['nama_mk'])?></option><?php endwhile;?></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Lab</label><select name="kode_lab" id="tambah_lab" class="form-select"><option value="">-- Pilih MK dulu --</option></select><small class="text-muted">Otomatis filter lab sesuai MK</small></div>
     <div class="col-md-4 mb-3"><label class="form-label">Sesi</label><select name="sesi" id="tambah_sesi" class="form-select" onchange="checkAsisten2Warning(document.getElementById('tambah_kelas'), 'warning_asisten2_tambah', 'tambah_sesi')"><option value="0">Semua Sesi</option><option value="1">Sesi 1</option><option value="2">Sesi 2</option><option value="3">Sesi 3</option><option value="4">Sesi 4</option></select></div>
     <div class="col-md-12 mb-3"><label class="form-label">Materi</label><input type="text" name="materi" class="form-control" required></div>
@@ -1416,8 +1416,8 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
     <div class="col-md-4 mb-3"><label class="form-label">Tanggal</label><input type="date" name="tanggal" id="edit_tanggal" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai" id="edit_jam_mulai" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai" id="edit_jam_selesai" class="form-control" required></div>
-    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="edit_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_edit', 'edit_sesi')"><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
-    <div class="col-md-4 mb-3"><label class="form-label">Mata Kuliah</label><select name="kode_mk" id="edit_mk" class="form-select" required onchange="filterLabEdit()"><?php mysqli_data_seek($mk_list,0);while($m=mysqli_fetch_assoc($mk_list)):?><option value="<?=$m['kode_mk']?>"><?=htmlspecialchars($m['nama_mk'])?></option><?php endwhile;?></select></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="edit_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_edit', 'edit_sesi'); filterMkByKelas('edit_kelas', 'edit_mk');"><option value="">-- Pilih --</option><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>" data-prodi="<?=htmlspecialchars($k['program_studi'])?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Mata Kuliah</label><select name="kode_mk" id="edit_mk" class="form-select" required onchange="filterLabEdit()"><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list,0);while($m=mysqli_fetch_assoc($mk_list)):?><option value="<?=$m['kode_mk']?>" data-prodi="<?=htmlspecialchars($m['program_studi'])?>"><?=htmlspecialchars($m['nama_mk'])?></option><?php endwhile;?></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Lab</label><select name="kode_lab" id="edit_lab" class="form-select"><option value="">-- Pilih Lab --</option></select><small class="text-muted">Otomatis filter lab sesuai MK</small></div>
     <div class="col-md-4 mb-3"><label class="form-label">Sesi</label><select name="sesi" id="edit_sesi" class="form-select" onchange="checkAsisten2Warning(document.getElementById('edit_kelas'), 'warning_asisten2_edit', 'edit_sesi')"><option value="0">Semua Sesi</option><option value="1">Sesi 1</option><option value="2">Sesi 2</option><option value="3">Sesi 3</option><option value="4">Sesi 4</option></select></div>
     <div class="col-md-12 mb-3"><label class="form-label">Materi</label><input type="text" name="materi" id="edit_materi" class="form-control" required></div>
@@ -1457,8 +1457,8 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
 <form method="POST"><input type="hidden" name="aksi" value="generate"><div class="modal-header"><h5 class="modal-title"><i class="fas fa-magic me-2"></i>Generate Jadwal Rolling</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
     <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i><strong>Fitur ini akan:</strong><ul class="mb-0 mt-2"><li>Generate <strong>10 pertemuan</strong> (8 materi + Praresponsi + Responsi) & <strong>Inhall</strong></li><li>Lab akan <strong>rolling/berputar</strong> setiap pertemuan</li><li>Jadwal mingguan pada hari yang dipilih</li></ul></div>
-    <div class="mb-3"><label class="form-label">Kelas <span class="text-danger">*</span></label><select name="kode_kelas" class="form-select" required><option value="">-- Pilih --</option><?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?><option value="<?= $k['kode_kelas'] ?>"><?= htmlspecialchars($k['nama_kelas']) ?></option><?php endwhile; ?></select></div>
-    <div class="mb-3"><label class="form-label">Mata Kuliah <span class="text-danger">*</span></label><select name="kode_mk" class="form-select" required><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list, 0); while ($mk = mysqli_fetch_assoc($mk_list)): ?><option value="<?= $mk['kode_mk'] ?>"><?= htmlspecialchars($mk['nama_mk']) ?></option><?php endwhile; ?></select></div>
+    <div class="mb-3"><label class="form-label">Kelas <span class="text-danger">*</span></label><select name="kode_kelas" id="generate_kelas" class="form-select" required onchange="filterMkByKelas('generate_kelas', 'generate_mk'); checkAsisten2Warning(this, 'warning_asisten2_generate');"><option value="">-- Pilih --</option><?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?><option value="<?= $k['kode_kelas'] ?>" data-prodi="<?=htmlspecialchars($k['program_studi'])?>"><?= htmlspecialchars($k['nama_kelas']) ?></option><?php endwhile; ?></select></div>
+    <div class="mb-3"><label class="form-label">Mata Kuliah <span class="text-danger">*</span></label><select name="kode_mk" id="generate_mk" class="form-select" required><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list, 0); while ($mk = mysqli_fetch_assoc($mk_list)): ?><option value="<?= $mk['kode_mk'] ?>" data-prodi="<?=htmlspecialchars($mk['program_studi'])?>"><?= htmlspecialchars($mk['nama_mk']) ?></option><?php endwhile; ?></select></div>
     <div class="row">
         <div class="col-md-6 mb-3"><label class="form-label">Asisten 1</label><select name="kode_asisten_1" class="form-select"><option value="">-- Pilih --</option><?php mysqli_data_seek($asisten_list, 0); while ($a = mysqli_fetch_assoc($asisten_list)): ?><option value="<?= $a['kode_asisten'] ?>"><?= htmlspecialchars($a['nama']) ?></option><?php endwhile; ?></select></div>
         <div class="col-md-6 mb-3"><label class="form-label">Asisten 2 (Opsional)</label><select name="kode_asisten_2" class="form-select"><option value="">-- Tidak Ada --</option><?php mysqli_data_seek($asisten_list, 0); while ($a = mysqli_fetch_assoc($asisten_list)): ?><option value="<?= $a['kode_asisten'] ?>"><?= htmlspecialchars($a['nama']) ?></option><?php endwhile; ?></select></div>
@@ -1579,6 +1579,7 @@ function editJadwal(j) {
     document.getElementById('edit_jam_mulai').value = j.jam_mulai;
     document.getElementById('edit_jam_selesai').value = j.jam_selesai;
     document.getElementById('edit_kelas').value = j.kode_kelas;
+    filterMkByKelas('edit_kelas', 'edit_mk'); // Filter dulu
     document.getElementById('edit_mk').value = j.kode_mk;
     filterLabEdit(j.kode_lab || '');
     document.getElementById('edit_materi').value = j.materi;
@@ -1601,6 +1602,50 @@ function hapusPertemuan(pertemuanKe) {
     msg.innerHTML = `Anda akan menghapus <b>SEMUA JADWAL</b> untuk <b>Pertemuan ${pertemuanKe}</b>.<br>Aksi ini tidak dapat dibatalkan.`;
     resetSlider(); 
     modal.show();
+}
+
+function filterMkByKelas(kelasSelectId, mkSelectId) {
+    const kelasSelect = document.getElementById(kelasSelectId);
+    const mkSelect = document.getElementById(mkSelectId);
+    
+    if (!kelasSelect || !mkSelect) return;
+    
+    const selectedOption = kelasSelect.options[kelasSelect.selectedIndex];
+    const selectedProdi = selectedOption.getAttribute('data-prodi');
+    const normSelected = selectedProdi ? selectedProdi.trim().toLowerCase() : '';
+    
+    // Reset MK selection if current selection becomes invalid
+    const currentMkValue = mkSelect.value;
+    let currentMkValid = false;
+    
+    // Loop through MK options
+    for (let i = 0; i < mkSelect.options.length; i++) {
+        const option = mkSelect.options[i];
+        
+        // Skip placeholder
+        if (option.value === "") continue;
+
+        const mkProdi = option.getAttribute('data-prodi');
+        const normMk = mkProdi ? mkProdi.trim().toLowerCase() : '';
+        
+        // Show if prodi matches OR mk prodi is empty (general) OR no class selected
+        if (!normSelected || !normMk || normMk === normSelected) {
+            option.style.display = '';
+            option.hidden = false; // For better browser support
+            option.disabled = false;
+            if (option.value === currentMkValue) currentMkValid = true;
+        } else {
+            option.style.display = 'none';
+            option.hidden = true;
+            option.disabled = true;
+        }
+    }
+
+    // If current selection is now hidden, reset to empty and trigger change for dependent fields (like Lab)
+    if (currentMkValue !== "" && !currentMkValid) {
+        mkSelect.value = "";
+        mkSelect.dispatchEvent(new Event('change'));
+    }
 }
 
 function checkAsisten2Warning(kelasSelect, warningElementId, sesiSelectId = null) {
