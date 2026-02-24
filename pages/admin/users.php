@@ -307,8 +307,186 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-users {
+        background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+        background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff));
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner-users::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-users 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-users {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes pulse-badge-users {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        }
+    }
+    
+    .welcome-banner-users h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-users .banner-badge i {
+        font-size: 8px;
+        margin-right: 6px;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    [data-theme="dark"] .welcome-banner-users {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    @media (max-width: 768px) {
+        .welcome-banner-users {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-users h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-users .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+    }
+    
+    @media (min-width: 577px) and (max-width: 799px) {
+        .welcome-banner-users .d-flex.gap-2.align-items-center {
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 10px !important;
+        }
+        
+        .welcome-banner-users .d-flex.gap-2.align-items-center .btn {
+            padding: 10px 16px;
+            font-size: 14px;
+            flex: 1 1 auto;
+            min-width: 140px;
+        }
+        
+        .welcome-banner-users #selectAllContainer {
+            flex: 0 0 auto;
+        }
+        
+        .welcome-banner-users .d-flex.flex-column.flex-md-row {
+            flex-direction: column !important;
+            align-items: stretch !important;
+        }
+        
+        .welcome-banner-users .d-flex.flex-column.flex-md-row > div:last-child {
+            margin-top: 15px;
+            justify-content: center;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .welcome-banner-users .d-flex.gap-2.align-items-center {
+            width: 100%;
+            flex-direction: column;
+        }
+        
+        .welcome-banner-users .d-flex.gap-2.align-items-center .btn {
+            width: 100%;
+            padding: 12px 20px;
+            min-height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .welcome-banner-users #selectAllContainer {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
     /* Card Selection Styles */
-    .user-card { transition: all 0.2s; border: 1px solid var(--border-color); }
+    .user-card { transition: all 0.2s; border: 2px solid var(--border-color); }
     .user-card.selected { border-color: var(--primary-color); background-color: rgba(0, 102, 204, 0.05); box-shadow: 0 0 0 1px var(--primary-color); }
     [data-theme="dark"] .user-card.selected { background-color: rgba(0, 102, 204, 0.15); }
     .card-select-overlay { position: absolute; top: 10px; left: 10px; z-index: 5; display: none; opacity: 0; transition: opacity 0.3s; }
@@ -341,10 +519,12 @@ if (isset($_GET['ajax_search'])) {
 
     .user-card {
         transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        
     }
     .user-card:hover {
         transform: translateY(-5px);
         box-shadow: var(--card-shadow) !important;
+        
     }
     
     .user-card .card-body {
@@ -412,7 +592,8 @@ if (isset($_GET['ajax_search'])) {
     }
     
     .modal-header {
-        background: var(--banner-gradient);
+        background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
+        background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff));
         color: #fff;
     }
     
@@ -510,11 +691,36 @@ if (isset($_GET['ajax_search'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-user-cog me-2"></i>Kelola Pengguna</h4>
-                    <button class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah Pengguna
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-users mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-user-cog"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Pengguna</h1>
+                                    <p class="banner-subtitle mb-0">Manajemen akun pengguna sistem</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-circle"></i>MANAJEMEN USER
+                            </span>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center">
+                            <div class="d-none d-flex align-items-center me-2" id="selectAllContainer" style="background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 10px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3);">
+                                <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="border-color: rgba(255,255,255,0.6);">
+                                <label class="form-check-label fw-bold ms-2 small text-white" for="selectAll" style="cursor:pointer">Semua</label>
+                            </div>
+                            <button type="button" class="btn" id="btnSelectMode" onclick="toggleSelectMode()" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-check-square me-1"></i> Pilih
+                            </button>
+                            <button class="btn" data-bs-toggle="modal" data-bs-target="#modalTambah" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-plus me-1"></i>Tambah Pengguna
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>
@@ -526,15 +732,6 @@ if (isset($_GET['ajax_search'])) {
                             <div class="col-12 col-md">
                                 <label for="searchInput" class="form-label small">Cari Nama/NIM</label>
                                 <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
-                            </div>
-                            <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
-                                </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
-                                </div>
                             </div>
                         </form>
                     </div>

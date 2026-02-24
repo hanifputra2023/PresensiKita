@@ -212,15 +212,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if (mysqli_num_rows(mysqli_stmt_get_result($stmt_cek_user)) > 0) {
                 set_alert('danger', 'Username sudah digunakan! Silakan pilih username lain.');
             } else {
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'mahasiswa')");
-            mysqli_stmt_bind_param($stmt_user, "ss", $username, $hashed_password);
-            mysqli_stmt_execute($stmt_user);
-            $user_id = mysqli_insert_id($conn);
-            $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar, sesi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt_mhs, "sisssssi", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar, $sesi);
-            mysqli_stmt_execute($stmt_mhs);
-            set_alert('success', 'Mahasiswa berhasil ditambahkan!');
+                // [BARU] Cek Kuota Pendaftaran
+                $validasi_kuota = cek_kuota_pendaftaran($kelas, $sesi);
+                if (!$validasi_kuota['allowed']) {
+                    set_alert('danger', $validasi_kuota['message']);
+                } else {
+                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt_user = mysqli_prepare($conn, "INSERT INTO users (username, password, role) VALUES (?, ?, 'mahasiswa')");
+                    mysqli_stmt_bind_param($stmt_user, "ss", $username, $hashed_password);
+                    mysqli_stmt_execute($stmt_user);
+                    $user_id = mysqli_insert_id($conn);
+                    $stmt_mhs = mysqli_prepare($conn, "INSERT INTO mahasiswa (nim, user_id, nama, kode_kelas, prodi, no_hp, tanggal_daftar, sesi) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+                    mysqli_stmt_bind_param($stmt_mhs, "sisssssi", $nim, $user_id, $nama, $kelas, $prodi, $hp, $tanggal_daftar, $sesi);
+                    mysqli_stmt_execute($stmt_mhs);
+                    set_alert('success', 'Mahasiswa berhasil ditambahkan! ' . $validasi_kuota['message']);
+                }
             }
         }
     } elseif ($aksi == 'edit') {
@@ -231,10 +237,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $hp = escape($_POST['no_hp']);
         $sesi = (int)($_POST['sesi'] ?? 1);
         
-        $stmt_upd = mysqli_prepare($conn, "UPDATE mahasiswa SET nama=?, kode_kelas=?, prodi=?, no_hp=?, sesi=? WHERE id=?");
-        mysqli_stmt_bind_param($stmt_upd, "ssssii", $nama, $kelas, $prodi, $hp, $sesi, $id);
-        mysqli_stmt_execute($stmt_upd);
-        set_alert('success', 'Data mahasiswa berhasil diupdate!');
+        // [BARU] Cek perubahan kelas/sesi untuk validasi kuota
+        $q_cek_old = mysqli_query($conn, "SELECT kode_kelas, sesi FROM mahasiswa WHERE id = '$id'");
+        $old_data = mysqli_fetch_assoc($q_cek_old);
+        
+        $lanjut_update = true;
+        if ($old_data && ($old_data['kode_kelas'] != $kelas || $old_data['sesi'] != $sesi)) {
+            $validasi_kuota = cek_kuota_pendaftaran($kelas, $sesi);
+            if (!$validasi_kuota['allowed']) {
+                set_alert('danger', $validasi_kuota['message']);
+                $lanjut_update = false;
+            }
+        }
+
+        if ($lanjut_update) {
+            $stmt_upd = mysqli_prepare($conn, "UPDATE mahasiswa SET nama=?, kode_kelas=?, prodi=?, no_hp=?, sesi=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "ssssii", $nama, $kelas, $prodi, $hp, $sesi, $id);
+            mysqli_stmt_execute($stmt_upd);
+            set_alert('success', 'Data mahasiswa berhasil diupdate!');
+        }
     } elseif ($aksi == 'hapus') {
         $id = (int)$_POST['id'];
         // Prepared statement untuk get user_id
@@ -430,33 +451,327 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Card Selection Styles */
-    .mahasiswa-card { transition: all 0.2s; border: 1px solid var(--border-color); }
-    .mahasiswa-card.selected { border-color: var(--primary-color); background-color: rgba(0, 102, 204, 0.05); box-shadow: 0 0 0 1px var(--primary-color); }
-    [data-theme="dark"] .mahasiswa-card.selected { background-color: rgba(0, 102, 204, 0.15); }
-    .card-select-overlay { position: absolute; top: 10px; left: 10px; z-index: 5; display: none; opacity: 0; transition: opacity 0.3s; }
-    .select-mode .card-select-overlay { display: block; opacity: 1; }
-    .mahasiswa-card .card-body { transition: padding-top 0.3s; }
-    .select-mode .mahasiswa-card .card-body { padding-top: 2.5rem; }
-    .item-checkbox { width: 22px; height: 22px; cursor: pointer; border: 2px solid var(--text-muted); border-radius: 50%; }
-    .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
+    /* Welcome Banner Modern */
+    .welcome-banner-mahasiswa {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
     
+    .welcome-banner-mahasiswa::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-mahasiswa 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-mahasiswa {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    .welcome-banner-mahasiswa h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-mahasiswa .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-mahasiswa .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-mahasiswa .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-mahasiswa .btn-banner {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-mahasiswa .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    .welcome-banner-mahasiswa .btn-banner-primary {
+        background: white;
+        color: var(--primary-color);
+        border-color: white;
+    }
+    
+    .welcome-banner-mahasiswa .btn-banner-primary:hover {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--primary-color);
+    }
+    
+    /* Filter Bar Modern */
+    .filter-bar-mahasiswa {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px 28px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        animation: fadeInUp 0.5s ease 0.1s both;
+    }
+    
+    .filter-bar-mahasiswa .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+    }
+    
+    .filter-bar-mahasiswa .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .filter-bar-mahasiswa .filter-group-search {
+        flex: 2;
+        min-width: 280px;
+    }
+    
+    .filter-bar-mahasiswa .filter-group-action {
+        flex: 0 0 auto;
+        min-width: 120px;
+    }
+    
+    .filter-bar-mahasiswa .form-label-modern {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted, #666);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 10px;
+    }
+    
+    .filter-bar-mahasiswa .form-label-modern i {
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+    
+    .filter-bar-mahasiswa .search-input-wrapper {
+        position: relative;
+    }
+    
+    .filter-bar-mahasiswa .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted, #999);
+        font-size: 15px;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+    
+    .filter-bar-mahasiswa .search-input-wrapper:focus-within .search-icon {
+        color: var(--primary-color);
+    }
+    
+    .filter-bar-mahasiswa .form-control-modern {
+        width: 100%;
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 14px 16px 14px 46px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+        color: var(--text-color);
+    }
+    
+    .filter-bar-mahasiswa .form-control-modern::placeholder {
+        color: var(--text-muted, #999);
+        font-weight: 400;
+    }
+    
+    .filter-bar-mahasiswa .form-control-modern:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .filter-bar-mahasiswa .form-control-modern:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+        outline: none;
+    }
+    
+    .filter-bar-mahasiswa select.form-control-modern {
+        padding-left: 16px;
+        padding-right: 40px;
+        cursor: pointer;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 16px center;
+        background-size: 14px;
+    }
+    
+    .filter-bar-mahasiswa select.form-control-modern::-ms-expand {
+        display: none;
+    }
+    
+    .filter-bar-mahasiswa .btn-filter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: 2px solid var(--primary-color);
+        background: transparent;
+        color: var(--primary-color);
+        white-space: nowrap;
+        height: 52px;
+    }
+    
+    .filter-bar-mahasiswa .btn-filter:hover {
+        background: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+    }
+    
+    .filter-bar-mahasiswa .btn-filter.active {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .filter-bar-mahasiswa .select-all-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: rgba(0, 102, 204, 0.08);
+        border-radius: 12px;
+        height: 52px;
+    }
+    
+    .filter-bar-mahasiswa .select-all-wrapper label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-color);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    
+    /* Mahasiswa Card Modern */
     .mahasiswa-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        background: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        height: 100%;
+        animation: fadeInUp 0.5s ease both;
     }
+    
     .mahasiswa-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1.75rem rgba(58,59,69,.2) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        border-color: var(--primary-color);
     }
+    
+    .mahasiswa-card.selected {
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.05) 0%, rgba(0, 76, 153, 0.08) 100%);
+        border: 2px solid var(--primary-color);
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.2);
+    }
+    
+    .mahasiswa-card .card-checkbox {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 22px;
+        height: 22px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .mahasiswa-card .card-checkbox:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
     .mahasiswa-card .card-title {
         font-weight: 600;
         color: var(--text-main);
+        margin-bottom: 12px;
     }
+    
     .mahasiswa-card .card-body p i {
         width: 20px;
         text-align: center;
         color: var(--text-muted);
     }
+    
     .mahasiswa-card .action-buttons {
         display: flex;
         gap: 0.5rem;
@@ -464,37 +779,537 @@ if (isset($_GET['ajax_search'])) {
         border-top: 1px solid var(--border-color);
         padding-top: 1rem;
     }
+    
     .mahasiswa-card .action-buttons .btn {
         flex-grow: 1;
+        border-radius: 8px;
+        font-weight: 600;
     }
+    
+    /* Card Selection Styles */
+    .card-select-overlay {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 5;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .select-mode .card-select-overlay {
+        display: block;
+        opacity: 1;
+    }
+    
+    .mahasiswa-card .card-body {
+        transition: padding-top 0.3s;
+    }
+    
+    .select-mode .mahasiswa-card .card-body {
+        padding-top: 2.5rem;
+    }
+    
+    .item-checkbox {
+        width: 22px;
+        height: 22px;
+        cursor: pointer;
+        border: 2px solid var(--text-muted);
+        border-radius: 8px;
+    }
+    
+    .item-checkbox:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    /* Modal Modern Styling */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
     .modal-header {
         background: var(--banner-gradient);
-        color: #fff;
+        color: white;
+        border-radius: 20px 20px 0 0;
+        padding: 24px 30px;
+        border: none;
     }
-    /* Bulk Action Bar */
-    #bulkActionBar { position: fixed; bottom: -100px; left: 0; right: 0; background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 15px 30px; z-index: 1000; transition: bottom 0.3s ease-in-out; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
-    body { padding-bottom: 80px; }
     
-    /* Slider Confirm */
-    .slider-container { position: relative; width: 100%; height: 55px; background: #f0f2f5; border-radius: 30px; user-select: none; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
-    .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
-    .slider-handle { position: absolute; top: 5px; left: 5px; width: 45px; height: 45px; background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
-    @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+    .modal-header .modal-title {
+        font-weight: 700;
+        font-size: 1.3rem;
     }
-    /* Dark Mode Fixes */
+    
+    .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: 0.8;
+    }
+    
+    .modal-header .btn-close:hover {
+        opacity: 1;
+    }
+    
+    .modal-body {
+        padding: 30px;
+    }
+    
+    .modal-body .form-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    
+    .modal-body .form-control,
+    .modal-body .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 12px 16px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-body .form-control:focus,
+    .modal-body .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    }
+    
+    .modal-footer {
+        padding: 20px 30px;
+        border-top: 2px solid var(--border-color);
+    }
+    
+    .modal-footer .btn {
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 15px;
+    }
+    
+    /* Slider Confirm Modern */
+    .slider-container {
+        position: relative;
+        width: 100%;
+        height: 60px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 30px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        user-select: none;
+    }
+    
+    .slider-container.unlocked {
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    }
+    
+    .slider-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: 700;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        pointer-events: none;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        transition: opacity 0.3s;
+    }
+    
+    .slider-container.unlocked .slider-text {
+        opacity: 0;
+    }
+    
+    .slider-handle {
+        position: absolute;
+        left: 5px;
+        top: 5px;
+        width: 50px;
+        height: 50px;
+        background: white;
+        border-radius: 50%;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #dc3545;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+    
+    .slider-handle:active {
+        cursor: grabbing;
+        transform: scale(1.1);
+    }
+    
+    .slider-container.unlocked .slider-handle {
+        color: #28a745;
+        width: calc(100% - 10px);
+        border-radius: 30px;
+    }
+    
+    .slider-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        width: 0;
+        z-index: 0;
+        transition: width 0.1s;
+    }
+    
+    /* Bulk Action Bar */
+    .bulk-action-bar,
+    #bulkActionBar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        border-top: 2px solid var(--primary-color);
+        padding: 20px 30px;
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 1040;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .bulk-action-bar.show,
+    #bulkActionBar.show {
+        transform: translateY(0);
+    }
+    
+    .bulk-action-bar .selected-count,
+    #bulkActionBar .selected-count {
+        font-weight: 700;
+        font-size: 18px;
+        color: var(--primary-color);
+    }
+    
+    body {
+        padding-bottom: 80px;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Staggered animations for cards */
+    .mahasiswa-card:nth-child(1) { animation-delay: 0.1s; }
+    .mahasiswa-card:nth-child(2) { animation-delay: 0.15s; }
+    .mahasiswa-card:nth-child(3) { animation-delay: 0.2s; }
+    .mahasiswa-card:nth-child(4) { animation-delay: 0.25s; }
+    .mahasiswa-card:nth-child(5) { animation-delay: 0.3s; }
+    .mahasiswa-card:nth-child(6) { animation-delay: 0.35s; }
+    .mahasiswa-card:nth-child(7) { animation-delay: 0.4s; }
+    .mahasiswa-card:nth-child(8) { animation-delay: 0.45s; }
+    .mahasiswa-card:nth-child(n+9) { animation-delay: 0.5s; }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-mahasiswa {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    [data-theme="dark"] .filter-bar-mahasiswa {
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .filter-bar-mahasiswa .form-label-modern {
+        color: #aaa;
+    }
+    
+    [data-theme="dark"] .filter-bar-mahasiswa .form-control-modern {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    [data-theme="dark"] .filter-bar-mahasiswa .form-control-modern:hover,
+    [data-theme="dark"] .filter-bar-mahasiswa .form-control-modern:focus {
+        border-color: var(--primary-color);
+    }
+    
+    [data-theme="dark"] .filter-bar-mahasiswa select.form-control-modern {
+        background: rgba(255, 255, 255, 0.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 16px center;
+        background-size: 14px;
+    }
+    
+    [data-theme="dark"] .filter-bar-mahasiswa .select-all-wrapper {
+        background: rgba(0, 102, 204, 0.15);
+    }
+    
+    [data-theme="dark"] .mahasiswa-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .mahasiswa-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+    
+    [data-theme="dark"] .mahasiswa-card.selected {
+        background: rgba(0, 102, 204, 0.15);
+    }
+    
+    [data-theme="dark"] .bulk-action-bar,
+    [data-theme="dark"] #bulkActionBar {
+        background: rgba(30, 30, 30, 0.98);
+        border-top-color: var(--primary-color);
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+    }
+    
     [data-theme="dark"] .btn-warning,
     [data-theme="dark"] .btn-info {
         color: #212529 !important;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .welcome-banner-mahasiswa {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-mahasiswa h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-mahasiswa .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-mahasiswa .d-flex.gap-2 {
+            flex-direction: column !important;
+            width: 100% !important;
+        }
+        
+        .welcome-banner-mahasiswa .btn-banner {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .filter-bar-mahasiswa {
+            padding: 16px;
+            border-radius: 12px;
+        }
+        
+        .filter-bar-mahasiswa .filter-row {
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .filter-bar-mahasiswa .filter-group,
+        .filter-bar-mahasiswa .filter-group-search,
+        .filter-bar-mahasiswa .filter-group-action {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-mahasiswa .form-label-modern {
+            font-size: 0.7rem;
+            margin-bottom: 6px;
+        }
+        
+        .filter-bar-mahasiswa .form-control-modern {
+            padding: 12px 14px 12px 42px;
+            font-size: 14px;
+        }
+        
+        .filter-bar-mahasiswa select.form-control-modern {
+            padding-left: 14px;
+        }
+        
+        .filter-bar-mahasiswa .btn-filter {
+            width: 100%;
+            padding: 12px 16px;
+            height: 48px;
+        }
+        
+        .filter-bar-mahasiswa .action-buttons-mobile {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .filter-bar-mahasiswa .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-mahasiswa .select-all-wrapper {
+            width: 100%;
+            justify-content: center;
+            padding: 12px 14px;
+            height: 48px;
+        }
+        
+        .bulk-action-bar,
+        #bulkActionBar {
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+        }
+        
+        .bulk-action-bar > div,
+        #bulkActionBar > div {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .bulk-action-bar button,
+        #bulkActionBar button {
+            flex: 1;
+        }
+    }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-mahasiswa {
+            padding: 30px;
+        }
+        
+        .welcome-banner-mahasiswa > div {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 15px !important;
+        }
+        
+        .welcome-banner-mahasiswa > div > div:first-child {
+            width: 100% !important;
+        }
+        
+        .welcome-banner-mahasiswa h1 {
+            font-size: 26px;
+        }
+        
+        .welcome-banner-mahasiswa .d-flex.gap-2 {
+            flex-direction: column !important;
+            width: 100% !important;
+        }
+        
+        .welcome-banner-mahasiswa .btn.btn-banner {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 16px 28px !important;
+            font-size: 16px;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+        
+        .welcome-banner-mahasiswa .btn.btn-banner i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        /* Filter Bar Tablet */
+        .filter-bar-mahasiswa {
+            padding: 20px;
+        }
+        
+        .filter-bar-mahasiswa .filter-row {
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        
+        .filter-bar-mahasiswa .filter-group-search {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-mahasiswa .filter-group {
+            flex: 1 1 calc(50% - 7px);
+            min-width: calc(50% - 7px);
+        }
+        
+        .filter-bar-mahasiswa .filter-group-action {
+            flex: 1 1 calc(50% - 7px);
+            min-width: calc(50% - 7px);
+        }
+        
+        .filter-bar-mahasiswa .form-label-modern {
+            display: flex !important;
+        }
+        
+        .filter-bar-mahasiswa .btn-filter {
+            width: 100%;
+            padding: 14px 20px;
+            height: 52px;
+            font-size: 15px;
+        }
+        
+        .filter-bar-mahasiswa .action-buttons-mobile {
+            width: 100%;
+        }
+        
+        .filter-bar-mahasiswa .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-mahasiswa .select-all-wrapper {
+            flex: 1;
+            justify-content: center;
+            height: 52px;
+            padding: 14px 16px;
+        }
+    }
+    
+    /* Responsive untuk tablet besar (751px - 992px) */
+    @media (min-width: 751px) and (max-width: 992px) {
+        .filter-bar-mahasiswa {
+            padding: 22px;
+        }
+        
+        .filter-bar-mahasiswa .filter-row {
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .filter-bar-mahasiswa .filter-group-search {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-mahasiswa .filter-group {
+            flex: 1 1 auto;
+            min-width: 180px;
+        }
+        
+        .filter-bar-mahasiswa .filter-group-action {
+            flex: 0 0 auto;
+            min-width: auto;
+        }
     }
 </style>
 
@@ -506,34 +1321,63 @@ if (isset($_GET['ajax_search'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-user-graduate me-2"></i>Kelola Mahasiswa</h4>
-                    <div class="d-flex gap-2 flex-wrap justify-content-md-end">
-                        <a href="index.php?page=admin_mahasiswa&export=1<?= $filter_kelas ? '&kelas=' . $filter_kelas : '' ?>" class="btn btn-info">
-                            <i class="fas fa-file-export me-1"></i>Export
-                        </a>
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalImport">
-                            <i class="fas fa-file-import me-1"></i>Import
-                        </button>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                            <i class="fas fa-plus me-1"></i>Tambah
-                        </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-mahasiswa mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-user-graduate"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Mahasiswa</h1>
+                                    <p class="banner-subtitle mb-0">Manajemen data dan informasi mahasiswa</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-users me-1"></i>Manajemen Mahasiswa
+                            </span>
+                        </div>
+                        <div class="d-flex gap-2 flex-wrap">
+                            <a href="index.php?page=admin_mahasiswa&export=1<?= $filter_kelas ? '&kelas=' . $filter_kelas : '' ?>" class="btn btn-banner">
+                                <i class="fas fa-file-export me-2"></i>Export Data
+                            </a>
+                            <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalImport">
+                                <i class="fas fa-file-import me-2"></i>Import Data
+                            </button>
+                            <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                                <i class="fas fa-plus me-2"></i>Tambah Mahasiswa
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
                 <?= show_alert() ?>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
-                            <input type="hidden" name="page" value="admin_mahasiswa">
-                            <div class="col-12 col-md-5">
-                                <label for="search" class="form-label">Cari Nama atau NIM</label>
-                                <input type="text" name="search" id="search" class="form-control" value="<?= htmlspecialchars($search) ?>" placeholder="Masukkan nama atau NIM...">
+                <!-- Filter Bar -->
+                <div class="filter-bar-mahasiswa mb-4">
+                    <form method="GET" onsubmit="return false;">
+                        <input type="hidden" name="page" value="admin_mahasiswa">
+                        <div class="filter-row">
+                            <!-- Search Input -->
+                            <div class="filter-group filter-group-search">
+                                <label for="search" class="form-label-modern">
+                                    <i class="fas fa-search"></i>
+                                    Cari Mahasiswa
+                                </label>
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" name="search" id="search" class="form-control-modern" value="<?= htmlspecialchars($search) ?>" placeholder="Ketik nama atau NIM mahasiswa...">
+                                </div>
                             </div>
-                            <div class="col-12 col-md-5">
-                                <label for="kelas" class="form-label">Filter Kelas</label>
-                                <select name="kelas" id="kelas" class="form-select">
+                            
+                            <!-- Filter Kelas -->
+                            <div class="filter-group">
+                                <label for="kelas" class="form-label-modern">
+                                    <i class="fas fa-filter"></i>
+                                    Filter Kelas
+                                </label>
+                                <select name="kelas" id="kelas" class="form-control-modern">
                                     <option value="">Semua Kelas</option>
                                     <?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?>
                                         <option value="<?= $k['kode_kelas'] ?>" <?= $filter_kelas == $k['kode_kelas'] ? 'selected' : '' ?>>
@@ -542,17 +1386,26 @@ if (isset($_GET['ajax_search'])) {
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
-                                </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                            
+                            <!-- Action Buttons -->
+                            <div class="filter-group filter-group-action">
+                                <label class="form-label-modern d-none d-md-flex">
+                                    <i class="fas fa-cog"></i>
+                                    Aksi
+                                </label>
+                                <div class="d-flex gap-2 action-buttons-mobile">
+                                    <button type="button" class="btn-filter" id="btnSelectMode" onclick="toggleSelectMode()">
+                                        <i class="fas fa-check-square"></i>
+                                        <span>Pilih</span>
+                                    </button>
+                                    <div class="select-all-wrapper d-none" id="selectAllContainer">
+                                        <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="width: 20px; height: 20px; cursor: pointer; border-radius: 6px;">
+                                        <label class="m-0" for="selectAll">Semua</label>
+                                    </div>
                                 </div>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
                 
                 <div id="mahasiswaContainer">
@@ -650,20 +1503,21 @@ if (isset($_GET['ajax_search'])) {
                     <div class="mb-3"><label class="form-label">Nama</label><input type="text" name="nama" class="form-control" required></div>
                     <div class="mb-3">
                         <label class="form-label">Kelas</label>
-                        <select name="kode_kelas" class="form-select" required>
+                        <select name="kode_kelas" id="tambah_kelas" class="form-select" required>
+                            <option value="">-- Pilih Kelas --</option>
                             <?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?>
-                                <option value="<?= $k['kode_kelas'] ?>"><?= htmlspecialchars($k['nama_kelas']) ?></option>
+                                <option value="<?= $k['kode_kelas'] ?>" data-prodi="<?= htmlspecialchars($k['program_studi']) ?>"><?= htmlspecialchars($k['nama_kelas']) ?></option>
                             <?php endwhile; ?>
                         </select>
                     </div>
-                    <div class="mb-3"><label class="form-label">Program Studi</label><input type="text" name="prodi" class="form-control"></div>
+                    <div class="mb-3"><label class="form-label">Program Studi</label><input type="text" name="prodi" id="tambah_prodi" class="form-control"></div>
                     <div class="mb-3"><label class="form-label">No. HP</label><input type="text" name="no_hp" class="form-control"></div>
                     <div class="mb-3">
                         <label class="form-label">Sesi</label>
                         <select name="sesi" class="form-select">
-                            <option value="1" selected>Sesi 1</option>
-                            <option value="2">Sesi 2</option>
-                            <option value="3">Sesi 3</option>
+                            <?php for ($i = 1; $i <= 8; $i++): ?>
+                                <option value="<?= $i ?>" <?= $i == 1 ? 'selected' : '' ?>>Sesi <?= $i ?></option>
+                            <?php endfor; ?>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -693,7 +1547,7 @@ if (isset($_GET['ajax_search'])) {
                         <label class="form-label">Kelas</label>
                         <select name="kode_kelas" id="edit_kelas" class="form-select" required>
                             <?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?>
-                                <option value="<?= $k['kode_kelas'] ?>"><?= htmlspecialchars($k['nama_kelas']) ?></option>
+                                <option value="<?= $k['kode_kelas'] ?>" data-prodi="<?= htmlspecialchars($k['program_studi']) ?>"><?= htmlspecialchars($k['nama_kelas']) ?></option>
                             <?php endwhile; ?>
                         </select>
                     </div>
@@ -702,9 +1556,9 @@ if (isset($_GET['ajax_search'])) {
                     <div class="mb-3">
                         <label class="form-label">Sesi</label>
                         <select name="sesi" id="edit_sesi" class="form-select">
-                            <option value="1">Sesi 1</option>
-                            <option value="2">Sesi 2</option>
-                            <option value="3">Sesi 3</option>
+                            <?php for ($i = 1; $i <= 8; $i++): ?>
+                                <option value="<?= $i ?>">Sesi <?= $i ?></option>
+                            <?php endfor; ?>
                         </select>
                     </div>
                 </div>
@@ -795,6 +1649,24 @@ function toggleStatus(id, currentStatus) {
     document.getElementById('toggle_status').value = currentStatus;
     document.getElementById('formToggle').submit();
 }
+
+// Auto-fill Prodi saat Kelas dipilih
+document.addEventListener('DOMContentLoaded', function() {
+    const handleKelasChange = (selectId, inputId) => {
+        const select = document.getElementById(selectId);
+        const input = document.getElementById(inputId);
+        if(select && input) {
+            select.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                const prodi = selectedOption.getAttribute('data-prodi');
+                if(prodi) input.value = prodi;
+            });
+        }
+    };
+
+    handleKelasChange('tambah_kelas', 'tambah_prodi');
+    handleKelasChange('edit_kelas', 'edit_prodi');
+});
 
 // --- Selection & Bulk Action Logic ---
 let selectedItems = new Set();

@@ -38,6 +38,35 @@ function cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $kode_lab, $ex
     return false;
 }
 
+// [BARU] Fungsi Cek Kapasitas Lab vs Jumlah Mahasiswa
+function cekKapasitasLabJadwal($conn, $kode_kelas, $kode_lab, $sesi) {
+    // 1. Ambil Kapasitas Lab
+    $q_lab = mysqli_query($conn, "SELECT kapasitas, nama_lab FROM lab WHERE kode_lab = '$kode_lab'");
+    $d_lab = mysqli_fetch_assoc($q_lab);
+    $kapasitas = $d_lab['kapasitas'] ?? 0;
+    $nama_lab = $d_lab['nama_lab'] ?? $kode_lab;
+
+    // 2. Hitung Jumlah Mahasiswa
+    // Jika sesi = 0, hitung semua mahasiswa aktif di kelas tersebut
+    // Jika sesi > 0, hitung mahasiswa aktif di kelas & sesi tersebut
+    $sql_mhs = "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = '$kode_kelas' AND status = 'aktif'";
+    if ($sesi > 0) {
+        $sql_mhs .= " AND sesi = '$sesi'";
+    }
+    $q_mhs = mysqli_query($conn, $sql_mhs);
+    $d_mhs = mysqli_fetch_assoc($q_mhs);
+    $total_mhs = $d_mhs['total'];
+
+    if ($total_mhs > $kapasitas) {
+        $sesi_label = ($sesi == 0) ? "Semua Sesi" : "Sesi $sesi";
+        return [
+            'status' => false,
+            'msg' => "Kapasitas <strong>$nama_lab</strong> ($kapasitas kursi) tidak mencukupi untuk <strong>$total_mhs</strong> mahasiswa (Kelas $kode_kelas - $sesi_label)."
+        ];
+    }
+    return ['status' => true];
+}
+
 // [BARU] Fungsi untuk cek konflik jadwal asisten
 function cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $kode_asisten, $exclude_id = null) {
     if (empty($kode_asisten)) return false; // Jika tidak ada asisten, tidak perlu cek
@@ -72,6 +101,63 @@ function cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $kode_asis
     return ($result && mysqli_num_rows($result) > 0) ? mysqli_fetch_assoc($result) : false;
 }
 
+// [BARU] AJAX Handler for Live Validation
+if (isset($_GET['ajax_validate'])) {
+    // Clean buffer
+    while (ob_get_level()) ob_end_clean();
+    header('Content-Type: application/json');
+
+    $id = isset($_POST['id']) ? (int)$_POST['id'] : null;
+    $tanggal = escape($_POST['tanggal'] ?? '');
+    $jam_mulai = escape($_POST['jam_mulai'] ?? '');
+    $jam_selesai = escape($_POST['jam_selesai'] ?? '');
+    $lab = escape($_POST['kode_lab'] ?? '');
+    $kelas = escape($_POST['kode_kelas'] ?? '');
+    $asisten1 = escape($_POST['kode_asisten_1'] ?? '');
+    $asisten2 = escape($_POST['kode_asisten_2'] ?? '');
+    $sesi = (int)($_POST['sesi'] ?? 0);
+
+    $response = ['errors' => [], 'warnings' => []];
+
+    if ($tanggal && $jam_mulai && $jam_selesai) {
+        // 1. Cek Konflik Lab
+        if ($lab) {
+            $konflik_lab = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab, $id);
+            if ($konflik_lab) {
+                $response['errors'][] = "Konflik Lab: <strong>{$konflik_lab['nama_lab']}</strong> sudah digunakan oleh kelas <strong>{$konflik_lab['nama_kelas']}</strong>.";
+            }
+        }
+
+        // 2. Cek Konflik Asisten
+        if ($asisten1) {
+            $konflik_asisten1 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten1, $id);
+            if ($konflik_asisten1) {
+                $response['errors'][] = "Asisten 1 bentrok: Mengajar di kelas <strong>{$konflik_asisten1['nama_kelas']}</strong>.";
+            }
+        }
+        if ($asisten2) {
+            $konflik_asisten2 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten2, $id);
+            if ($konflik_asisten2) {
+                $response['errors'][] = "Asisten 2 bentrok: Mengajar di kelas <strong>{$konflik_asisten2['nama_kelas']}</strong>.";
+            }
+        }
+        if ($asisten1 && $asisten2 && $asisten1 === $asisten2) {
+            $response['errors'][] = "Asisten 1 dan 2 tidak boleh sama.";
+        }
+
+        // 3. Cek Kapasitas
+        if ($kelas && $lab) {
+            $cek_kapasitas = cekKapasitasLabJadwal($conn, $kelas, $lab, $sesi);
+            if (!$cek_kapasitas['status']) {
+                $response['warnings'][] = $cek_kapasitas['msg'];
+            }
+        }
+    }
+
+    echo json_encode($response);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $aksi = $_POST['aksi'];
     
@@ -87,10 +173,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $jenis = escape($_POST['jenis']);
         $asisten1 = escape($_POST['kode_asisten_1']) ?: null;
         $asisten2 = escape($_POST['kode_asisten_2']) ?: null;
+        $sesi = (int)($_POST['sesi'] ?? 0); // Default 0 (Semua Sesi)
         
         $konflik_lab = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab);
         $konflik_asisten1 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten1);
         $konflik_asisten2 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten2);
+        $cek_kapasitas = cekKapasitasLabJadwal($conn, $kelas, $lab, $sesi);
         
         if ($konflik_lab) {
             set_alert('danger', 'Konflik jadwal! Lab <strong>' . htmlspecialchars($konflik_lab['nama_lab']) . '</strong> sudah digunakan oleh kelas <strong>' . htmlspecialchars($konflik_lab['nama_kelas']) . '</strong> pada waktu yang sama.');
@@ -100,10 +188,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             set_alert('danger', 'Konflik jadwal! Asisten 2 (<strong>' . htmlspecialchars($asisten2) . '</strong>) sudah mengajar kelas <strong>' . htmlspecialchars($konflik_asisten2['nama_kelas']) . '</strong> pada waktu yang sama.');
         } elseif ($asisten1 && $asisten1 === $asisten2) {
             set_alert('danger', 'Asisten 1 dan Asisten 2 tidak boleh orang yang sama.');
+        } elseif (!$cek_kapasitas['status']) {
+            set_alert('danger', $cek_kapasitas['msg']);
         } else {
-            $stmt_ins = mysqli_prepare($conn, "INSERT INTO jadwal (pertemuan_ke, tanggal, jam_mulai, jam_selesai, kode_lab, kode_kelas, kode_mk, materi, jenis, kode_asisten_1, kode_asisten_2) 
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            mysqli_stmt_bind_param($stmt_ins, "isssssssss", $pertemuan, $tanggal, $jam_mulai, $jam_selesai, $lab, $kelas, $mk, $materi, $jenis, $asisten1, $asisten2);
+            $stmt_ins = mysqli_prepare($conn, "INSERT INTO jadwal (pertemuan_ke, tanggal, jam_mulai, jam_selesai, kode_lab, kode_kelas, kode_mk, materi, jenis, kode_asisten_1, kode_asisten_2, sesi) 
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            mysqli_stmt_bind_param($stmt_ins, "issssssssssi", $pertemuan, $tanggal, $jam_mulai, $jam_selesai, $lab, $kelas, $mk, $materi, $jenis, $asisten1, $asisten2, $sesi);
             mysqli_stmt_execute($stmt_ins);
             set_alert('success', 'Jadwal berhasil ditambahkan!');
         }
@@ -120,10 +210,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $jenis = escape($_POST['jenis']);
         $asisten1 = escape($_POST['kode_asisten_1']) ?: null;
         $asisten2 = escape($_POST['kode_asisten_2']) ?: null;
+        $sesi = (int)($_POST['sesi'] ?? 0);
         
         $konflik_lab = cekKonflikLab($conn, $tanggal, $jam_mulai, $jam_selesai, $lab, $id);
         $konflik_asisten1 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten1, $id);
         $konflik_asisten2 = cekKonflikAsisten($conn, $tanggal, $jam_mulai, $jam_selesai, $asisten2, $id);
+        $cek_kapasitas = cekKapasitasLabJadwal($conn, $kelas, $lab, $sesi);
         
         if ($konflik_lab) {
             set_alert('danger', 'Konflik jadwal! Lab <strong>' . htmlspecialchars($konflik_lab['nama_lab']) . '</strong> sudah digunakan oleh kelas <strong>' . htmlspecialchars($konflik_lab['nama_kelas']) . '</strong> pada waktu yang sama.');
@@ -133,11 +225,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             set_alert('danger', 'Konflik jadwal! Asisten 2 (<strong>' . htmlspecialchars($asisten2) . '</strong>) sudah mengajar kelas <strong>' . htmlspecialchars($konflik_asisten2['nama_kelas']) . '</strong> pada waktu yang sama.');
         } elseif ($asisten1 && $asisten1 === $asisten2) {
             set_alert('danger', 'Asisten 1 dan Asisten 2 tidak boleh orang yang sama.');
+        } elseif (!$cek_kapasitas['status']) {
+            set_alert('danger', $cek_kapasitas['msg']);
         } else {
             $stmt_upd = mysqli_prepare($conn, "UPDATE jadwal SET pertemuan_ke=?, tanggal=?, jam_mulai=?, 
-                                 jam_selesai=?, kode_lab=?, kode_kelas=?, kode_mk=?, 
-                                 materi=?, jenis=?, kode_asisten_1=?, kode_asisten_2=? WHERE id=?");
-            mysqli_stmt_bind_param($stmt_upd, "issssssssssi", $pertemuan, $tanggal, $jam_mulai, $jam_selesai, $lab, $kelas, $mk, $materi, $jenis, $asisten1, $asisten2, $id);
+                                 jam_selesai=?, kode_lab=?, kode_kelas=?, kode_mk=?, materi=?, jenis=?, 
+                                 kode_asisten_1=?, kode_asisten_2=?, sesi=? WHERE id=?");
+            mysqli_stmt_bind_param($stmt_upd, "issssssssssii", $pertemuan, $tanggal, $jam_mulai, $jam_selesai, $lab, $kelas, $mk, $materi, $jenis, $asisten1, $asisten2, $sesi, $id);
             mysqli_stmt_execute($stmt_upd);
             set_alert('success', 'Jadwal berhasil diupdate!');
         }
@@ -227,29 +321,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 // Konfigurasi Sesi
                 $configs = [];
                 if ($split_sesi) {
-                    // [MODIFIED] Cek sesi mana yang diaktifkan
-                    $enable_s1 = isset($_POST['enable_sesi_1']);
-                    $enable_s2 = isset($_POST['enable_sesi_2']);
-
-                    if (!$enable_s1 && !$enable_s2) {
-                        throw new Exception('Harap pilih minimal satu sesi (Sesi 1 atau Sesi 2) jika menggunakan mode Split Sesi.');
+                    // [MODIFIED] Support sampai 4 sesi secara dinamis
+                    $has_enabled_session = false;
+                    
+                    for ($s = 1; $s <= 4; $s++) {
+                        if (isset($_POST["enable_sesi_$s"])) {
+                            $has_enabled_session = true;
+                            $configs[] = [
+                                'sesi' => $s,
+                                'hari' => (int)$_POST["hari_$s"],
+                                'jam_mulai' => $_POST["jam_mulai_$s"],
+                                'jam_selesai' => $_POST["jam_selesai_$s"]
+                            ];
+                        }
                     }
 
-                    if ($enable_s1) {
-                        $configs[] = [
-                            'sesi' => 1,
-                            'hari' => (int)$_POST['hari_1'],
-                            'jam_mulai' => $_POST['jam_mulai_1'],
-                            'jam_selesai' => $_POST['jam_selesai_1']
-                        ];
-                    }
-                    if ($enable_s2) {
-                        $configs[] = [
-                            'sesi' => 2,
-                            'hari' => (int)$_POST['hari_2'],
-                            'jam_mulai' => $_POST['jam_mulai_2'],
-                            'jam_selesai' => $_POST['jam_selesai_2']
-                        ];
+                    if (!$has_enabled_session) {
+                        throw new Exception('Harap pilih minimal satu sesi jika menggunakan mode Split Sesi.');
                     }
                 } else {
                     $configs[] = [
@@ -347,6 +435,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                             $konflik_list[] = "$p_label - Asisten bentrok pada jam ini.";
                                             break; 
                                         }
+                                } else {
+                                    // Cek Kapasitas
+                                    $cek_kap = cekKapasitasLabJadwal($conn, $kelas, $lab_coba, $sesi_num);
+                                    if (!$cek_kap['status']) {
+                                        // Lab ini tidak cukup, lanjut loop ke lab berikutnya (rotasi)
+                                    }
                                     }
                                 }
                             }
@@ -493,14 +587,17 @@ if (isset($_GET['ajax_search'])) {
             
             <div class="table-responsive mb-3 d-none d-lg-block">
                 <table class="table table-hover table-sm table-bordered align-middle">
-                    <thead class="table-light"><tr><th class="select-checkbox-col"><i class="fas fa-check-square"></i></th><th>Kelas</th><th>Tanggal</th><th>Waktu</th><th>Lab</th><th>Mata Kuliah</th><th>Materi</th><th>Asisten</th><th style="width: 150px;">Aksi</th></tr></thead>
+                    <thead class="table-light"><tr><th class="select-checkbox-col"><i class="fas fa-check-square"></i></th><th>Kelas/Sesi</th><th>Tanggal</th><th>Waktu</th><th>Lab</th><th>Mata Kuliah</th><th>Materi</th><th>Asisten</th><th style="width: 150px;">Aksi</th></tr></thead>
                     <tbody>
                         <?php foreach ($jadwal_list as $j): ?>
                             <tr id="row-<?= $j['id'] ?>">
                                 <td class="select-checkbox-col">
                                     <input type="checkbox" class="form-check-input item-checkbox m-0" value="<?= $j['id'] ?>" onchange="toggleSelection(<?= $j['id'] ?>)">
                                 </td>
-                                <td><span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span></td>
+                                <td>
+                                    <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span>
+                                    <?php if($j['sesi'] != 0): ?><span class="badge bg-info text-dark ms-1">Sesi <?= $j['sesi'] ?></span><?php endif; ?>
+                                </td>
                                 <td><?= format_tanggal($j['tanggal']) ?></td>
                                 <td><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></td>
                                 <td><?= htmlspecialchars($j['nama_lab'] ?: '-') ?></td>
@@ -528,7 +625,11 @@ if (isset($_GET['ajax_search'])) {
                         </div>
                         <div class="card-body p-3">
                         <div class="d-flex align-items-center gap-2 mb-2">
-                            <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span><small class="text-muted"><?= format_tanggal($j['tanggal']) ?></small>
+                            <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span>
+                            <?php if($j['sesi'] != 0): ?>
+                                <span class="badge bg-info text-dark">Sesi <?= $j['sesi'] ?></span>
+                            <?php endif; ?>
+                            <small class="text-muted ms-auto"><?= format_tanggal($j['tanggal']) ?></small>
                         </div>
                         <h6 class="mb-1"><?= htmlspecialchars($j['nama_mk']) ?></h6>
                         <div class="small text-muted mb-2"><?= htmlspecialchars($j['materi']) ?></div>
@@ -568,7 +669,7 @@ while ($row = mysqli_fetch_assoc($jadwal)) {
 
     $calendar_events[] = [
         'id' => $row['id'],
-        'title' => $row['nama_mk'] . ' (' . $row['nama_kelas'] . ')',
+        'title' => $row['nama_mk'] . ' (' . $row['nama_kelas'] . ($row['sesi']!=0 ? ' S'.$row['sesi'] : '') . ')',
         'start' => $row['tanggal'] . 'T' . $row['jam_mulai'],
         'end' => $row['tanggal'] . 'T' . $row['jam_selesai'],
         'backgroundColor' => $color,
@@ -591,9 +692,16 @@ $asisten_list = mysqli_query($conn, "SELECT a.*, mk.nama_mk as mata_kuliah_diamp
                                       ORDER BY a.nama");
 
 $mhs_per_kelas = [];
-$result_mhs = mysqli_query($conn, "SELECT kode_kelas, COUNT(*) as jumlah FROM mahasiswa GROUP BY kode_kelas");
+$result_mhs = mysqli_query($conn, "SELECT kode_kelas, sesi FROM mahasiswa WHERE status='aktif'");
 while ($row = mysqli_fetch_assoc($result_mhs)) {
-    $mhs_per_kelas[$row['kode_kelas']] = (int)$row['jumlah'];
+    $k = $row['kode_kelas'];
+    $s = (int)$row['sesi'];
+    
+    if (!isset($mhs_per_kelas[$k])) $mhs_per_kelas[$k] = [0 => 0];
+    
+    $mhs_per_kelas[$k][0]++; // Total
+    if (!isset($mhs_per_kelas[$k][$s])) $mhs_per_kelas[$k][$s] = 0;
+    $mhs_per_kelas[$k][$s]++; // Per Sesi
 }
 
 // Buat array lab untuk JavaScript (filter berdasarkan mata kuliah) (SUDAH DIPERBAIKI)
@@ -618,6 +726,190 @@ if ($lab_list_query) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+/* Welcome Banner Modern */
+.welcome-banner-jadwal {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-jadwal::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-jadwal 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-jadwal {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1.05);
+        opacity: 0.6;
+    }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-jadwal h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+.welcome-banner-jadwal .btn-banner-primary {
+    background: white;
+    color: var(--primary-color);
+    border-color: white;
+}
+
+.welcome-banner-jadwal .btn-banner-primary:hover {
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--primary-color);
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-jadwal {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+    .welcome-banner-jadwal {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-jadwal h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-jadwal .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-jadwal .btn-banner {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Responsive untuk tablet dan mobile besar (577px - 750px) */
+@media (min-width: 577px) and (max-width: 750px) {
+    .welcome-banner-jadwal {
+        padding: 30px;
+    }
+    
+    .welcome-banner-jadwal > div {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 15px !important;
+    }
+    
+    .welcome-banner-jadwal > div > div:first-child {
+        width: 100% !important;
+    }
+    
+    .welcome-banner-jadwal h1 {
+        font-size: 26px;
+    }
+    
+    .welcome-banner-jadwal .btn.btn-banner {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+        display: flex !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 16px 28px !important;
+        font-size: 16px;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        box-sizing: border-box !important;
+    }
+    
+    .welcome-banner-jadwal .btn.btn-banner i {
+        margin-right: 10px;
+        font-size: 16px;
+    }
+}
+
 /* Custom responsive styles for Jadwal page */
 @media (max-width: 767.98px) {
     .card.mb-2 .card-body .d-flex.justify-content-between { flex-wrap: wrap; gap: 0.75rem; }
@@ -907,8 +1199,28 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
                 
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Kelola Jadwal</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-jadwal mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Jadwal</h1>
+                                    <p class="banner-subtitle mb-0">Manajemen jadwal praktikum, rolling, dan kalender kegiatan</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-calendar-check me-1"></i>Jadwal Praktikum
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4">
+                    <div></div>
                     <div class="d-flex flex-column flex-md-row gap-2">
                         <!-- [BARU] Tombol Switch View -->
                         <div class="btn-group w-100 w-md-auto" role="group">
@@ -989,14 +1301,17 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
                                 
                                 <div class="table-responsive mb-3 d-none d-lg-block">
                                     <table class="table table-hover table-sm table-bordered align-middle">
-                                        <thead class="table-light"><tr><th class="select-checkbox-col"><i class="fas fa-check-square"></i></th><th>Kelas</th><th>Tanggal</th><th>Waktu</th><th>Lab</th><th>Mata Kuliah</th><th>Materi</th><th>Asisten</th><th style="width: 150px;">Aksi</th></tr></thead>
+                                        <thead class="table-light"><tr><th class="select-checkbox-col"><i class="fas fa-check-square"></i></th><th>Kelas/Sesi</th><th>Tanggal</th><th>Waktu</th><th>Lab</th><th>Mata Kuliah</th><th>Materi</th><th>Asisten</th><th style="width: 150px;">Aksi</th></tr></thead>
                                         <tbody>
                                             <?php foreach ($jadwal_list as $j): ?>
                                                 <tr id="row-<?= $j['id'] ?>">
                                                     <td class="select-checkbox-col">
                                                         <input type="checkbox" class="form-check-input item-checkbox m-0" value="<?= $j['id'] ?>" onchange="toggleSelection(<?= $j['id'] ?>)">
                                                     </td>
-                                                    <td><span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span></td>
+                                                    <td>
+                                                        <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span>
+                                                        <?php if($j['sesi'] != 0): ?><span class="badge bg-info text-dark ms-1">Sesi <?= $j['sesi'] ?></span><?php endif; ?>
+                                                    </td>
                                                     <td><?= format_tanggal($j['tanggal']) ?></td>
                                                     <td><?= format_waktu($j['jam_mulai']) ?> - <?= format_waktu($j['jam_selesai']) ?></td>
                                                     <td><?= htmlspecialchars($j['nama_lab'] ?: '-') ?></td>
@@ -1024,7 +1339,9 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
                                             </div>
                                             <div class="card-body p-3">
                                             <div class="d-flex align-items-center gap-2 mb-2">
-                                                <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span><small class="text-muted"><?= format_tanggal($j['tanggal']) ?></small>
+                                                <span class="badge bg-primary"><?= htmlspecialchars($j['nama_kelas']) ?></span>
+                                                <?php if($j['sesi'] != 0): ?><span class="badge bg-info text-dark">Sesi <?= $j['sesi'] ?></span><?php endif; ?>
+                                                <small class="text-muted ms-auto"><?= format_tanggal($j['tanggal']) ?></small>
                                             </div>
                                             <h6 class="mb-1"><?= htmlspecialchars($j['nama_mk']) ?></h6>
                                             <div class="small text-muted mb-2"><?= htmlspecialchars($j['materi']) ?></div>
@@ -1072,14 +1389,16 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
 <div class="modal fade" id="modalTambah" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
 <form method="POST"><input type="hidden" name="aksi" value="tambah"><div class="modal-header"><h5 class="modal-title">Tambah Jadwal</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body"><div class="row">
+    <div class="col-12"><div id="live_alert_tambah"></div></div>
     <div class="col-md-6 mb-3"><label class="form-label">Pertemuan Ke</label><select name="pertemuan_ke" class="form-select" required><?php for($i=1;$i<=10;$i++):?><option value="<?=$i?>"><?=$i?></option><?php endfor;?></select></div>
     <div class="col-md-6 mb-3"><label class="form-label">Jenis</label><select name="jenis" class="form-select" required><option value="materi">Materi</option><option value="inhall">Inhall</option><option value="praresponsi">Praresponsi</option><option value="responsi">Responsi</option></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Tanggal</label><input type="date" name="tanggal" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai" class="form-control" required></div>
-    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_tambah')"><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="tambah_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_tambah', 'tambah_sesi')"><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Mata Kuliah</label><select name="kode_mk" id="tambah_mk" class="form-select" required onchange="filterLabTambah()"><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list,0);while($m=mysqli_fetch_assoc($mk_list)):?><option value="<?=$m['kode_mk']?>"><?=htmlspecialchars($m['nama_mk'])?></option><?php endwhile;?></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Lab</label><select name="kode_lab" id="tambah_lab" class="form-select"><option value="">-- Pilih MK dulu --</option></select><small class="text-muted">Otomatis filter lab sesuai MK</small></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Sesi</label><select name="sesi" id="tambah_sesi" class="form-select" onchange="checkAsisten2Warning(document.getElementById('tambah_kelas'), 'warning_asisten2_tambah', 'tambah_sesi')"><option value="0">Semua Sesi</option><option value="1">Sesi 1</option><option value="2">Sesi 2</option><option value="3">Sesi 3</option><option value="4">Sesi 4</option></select></div>
     <div class="col-md-12 mb-3"><label class="form-label">Materi</label><input type="text" name="materi" class="form-control" required></div>
     <div class="col-md-6 mb-3"><label class="form-label">Asisten 1</label><select name="kode_asisten_1" class="form-select"><option value="">-- Pilih --</option><?php mysqli_data_seek($asisten_list,0);while($a=mysqli_fetch_assoc($asisten_list)):?><option value="<?=$a['kode_asisten']?>"><?=htmlspecialchars($a['nama'])?><?= $a['mata_kuliah_diampu'] ? ' (Ahli: ' . htmlspecialchars($a['mata_kuliah_diampu']) . ')' : '' ?></option><?php endwhile;?></select></div>
     <div class="col-md-6 mb-3"><label class="form-label">Asisten 2 (Opsional)</label><select name="kode_asisten_2" class="form-select"><option value="">-- Tidak Ada --</option><?php mysqli_data_seek($asisten_list,0);while($a=mysqli_fetch_assoc($asisten_list)):?><option value="<?=$a['kode_asisten']?>"><?=htmlspecialchars($a['nama'])?><?= $a['mata_kuliah_diampu'] ? ' (Ahli: ' . htmlspecialchars($a['mata_kuliah_diampu']) . ')' : '' ?></option><?php endwhile;?></select></div>
@@ -1091,14 +1410,16 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
 <div class="modal fade" id="modalEdit" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content">
 <form method="POST"><input type="hidden" name="aksi" value="edit"><input type="hidden" name="id" id="edit_id"><div class="modal-header"><h5 class="modal-title">Edit Jadwal</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
 <div class="modal-body"><div class="row">
+    <div class="col-12"><div id="live_alert_edit"></div></div>
     <div class="col-md-6 mb-3"><label class="form-label">Pertemuan Ke</label><select name="pertemuan_ke" id="edit_pertemuan" class="form-select" required><?php for($i=1;$i<=10;$i++):?><option value="<?=$i?>"><?=$i?></option><?php endfor;?></select></div>
     <div class="col-md-6 mb-3"><label class="form-label">Jenis</label><select name="jenis" id="edit_jenis" class="form-select" required><option value="materi">Materi</option><option value="inhall">Inhall</option><option value="praresponsi">Praresponsi</option><option value="responsi">Responsi</option></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Tanggal</label><input type="date" name="tanggal" id="edit_tanggal" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai" id="edit_jam_mulai" class="form-control" required></div>
     <div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai" id="edit_jam_selesai" class="form-control" required></div>
-    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="edit_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_edit')"><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Kelas</label><select name="kode_kelas" id="edit_kelas" class="form-select" required onchange="checkAsisten2Warning(this, 'warning_asisten2_edit', 'edit_sesi')"><?php mysqli_data_seek($kelas_list,0);while($k=mysqli_fetch_assoc($kelas_list)):?><option value="<?=$k['kode_kelas']?>"><?=htmlspecialchars($k['nama_kelas'])?></option><?php endwhile;?></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Mata Kuliah</label><select name="kode_mk" id="edit_mk" class="form-select" required onchange="filterLabEdit()"><?php mysqli_data_seek($mk_list,0);while($m=mysqli_fetch_assoc($mk_list)):?><option value="<?=$m['kode_mk']?>"><?=htmlspecialchars($m['nama_mk'])?></option><?php endwhile;?></select></div>
     <div class="col-md-4 mb-3"><label class="form-label">Lab</label><select name="kode_lab" id="edit_lab" class="form-select"><option value="">-- Pilih Lab --</option></select><small class="text-muted">Otomatis filter lab sesuai MK</small></div>
+    <div class="col-md-4 mb-3"><label class="form-label">Sesi</label><select name="sesi" id="edit_sesi" class="form-select" onchange="checkAsisten2Warning(document.getElementById('edit_kelas'), 'warning_asisten2_edit', 'edit_sesi')"><option value="0">Semua Sesi</option><option value="1">Sesi 1</option><option value="2">Sesi 2</option><option value="3">Sesi 3</option><option value="4">Sesi 4</option></select></div>
     <div class="col-md-12 mb-3"><label class="form-label">Materi</label><input type="text" name="materi" id="edit_materi" class="form-control" required></div>
     <div class="col-md-6 mb-3"><label class="form-label">Asisten 1</label><select name="kode_asisten_1" id="edit_asisten1" class="form-select"><option value="">-- Pilih --</option><?php mysqli_data_seek($asisten_list,0);while($a=mysqli_fetch_assoc($asisten_list)):?><option value="<?=$a['kode_asisten']?>"><?=htmlspecialchars($a['nama'])?><?= $a['mata_kuliah_diampu'] ? ' (Ahli: ' . htmlspecialchars($a['mata_kuliah_diampu']) . ')' : '' ?></option><?php endwhile;?></select></div>
     <div class="col-md-6 mb-3"><label class="form-label">Asisten 2 (Opsional)</label><select name="kode_asisten_2" id="edit_asisten2" class="form-select"><option value="">-- Tidak Ada --</option><?php mysqli_data_seek($asisten_list,0);while($a=mysqli_fetch_assoc($asisten_list)):?><option value="<?=$a['kode_asisten']?>"><?=htmlspecialchars($a['nama'])?><?= $a['mata_kuliah_diampu'] ? ' (Ahli: ' . htmlspecialchars($a['mata_kuliah_diampu']) . ')' : '' ?></option><?php endwhile;?></select></div>
@@ -1148,7 +1469,7 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
     <div class="mb-3"><label class="form-label">Mulai Tanggal <span class="text-danger">*</span></label><input type="date" name="tanggal_mulai" class="form-control" required value="<?= date('Y-m-d') ?>"></div>
     
     <div class="form-check mb-3">
-        <input class="form-check-input" type="checkbox" id="split_sesi" name="split_sesi" onchange="toggleSplitSesi()">
+        <input class="form-check-input" type="checkbox" id="split_sesi" name="split_sesi" onchange="toggleSplitSesi(); checkAsisten2Warning(document.querySelector('#modalGenerate select[name=\'kode_kelas\']'), 'warning_asisten2_generate');">
         <label class="form-check-label" for="split_sesi">Bagi menjadi 2 Sesi (Sesi 1 & Sesi 2)</label>
     </div>
 
@@ -1157,25 +1478,23 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
     </div>
 
     <div id="split_sesi_inputs" style="display:none;">
+        <?php for ($s = 1; $s <= 4; $s++): ?>
         <div class="card mb-3 border-primary">
             <div class="card-header bg-primary text-white py-2">
                 <div class="form-check mb-0">
-                    <input class="form-check-input" type="checkbox" name="enable_sesi_1" id="enable_sesi_1" checked onchange="toggleSesiInputs()">
-                    <label class="form-check-label fw-bold" for="enable_sesi_1">Generate Sesi 1</label>
+                    <input class="form-check-input" type="checkbox" name="enable_sesi_<?= $s ?>" id="enable_sesi_<?= $s ?>" <?= $s <= 2 ? 'checked' : '' ?> onchange="toggleSesiInputs()">
+                    <label class="form-check-label fw-bold" for="enable_sesi_<?= $s ?>">Generate Sesi <?= $s ?></label>
                 </div>
             </div>
-            <div class="card-body p-3" id="sesi_1_container"><div class="row"><div class="col-md-4 mb-3"><label class="form-label">Hari</label><select name="hari_1" class="form-select"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div><div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai_1" class="form-control" value="08:00"></div><div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai_1" class="form-control" value="10:00"></div></div></div>
-        </div>
-
-        <div class="card border-primary">
-            <div class="card-header bg-primary text-white py-2">
-                <div class="form-check mb-0">
-                    <input class="form-check-input" type="checkbox" name="enable_sesi_2" id="enable_sesi_2" checked onchange="toggleSesiInputs()">
-                    <label class="form-check-label fw-bold" for="enable_sesi_2">Generate Sesi 2</label>
+            <div class="card-body p-3" id="sesi_<?= $s ?>_container">
+                <div class="row">
+                    <div class="col-md-4 mb-3"><label class="form-label">Hari</label><select name="hari_<?= $s ?>" class="form-select"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div>
+                    <div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai_<?= $s ?>" class="form-control" value="<?= sprintf("%02d", 8 + ($s-1)*2) ?>:00"></div>
+                    <div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai_<?= $s ?>" class="form-control" value="<?= sprintf("%02d", 10 + ($s-1)*2) ?>:00"></div>
                 </div>
             </div>
-            <div class="card-body p-3" id="sesi_2_container"><div class="row"><div class="col-md-4 mb-3"><label class="form-label">Hari</label><select name="hari_2" class="form-select"><option value="1">Senin</option><option value="2">Selasa</option><option value="3">Rabu</option><option value="4">Kamis</option><option value="5">Jumat</option><option value="6">Sabtu</option></select></div><div class="col-md-4 mb-3"><label class="form-label">Jam Mulai</label><input type="time" name="jam_mulai_2" class="form-control" value="10:00"></div><div class="col-md-4 mb-3"><label class="form-label">Jam Selesai</label><input type="time" name="jam_selesai_2" class="form-control" value="12:00"></div></div></div>
         </div>
+        <?php endfor; ?>
     </div>
 
 </div>
@@ -1208,18 +1527,17 @@ function toggleSplitSesi() {
 }
 
 function toggleSesiInputs() {
-    const s1 = document.getElementById('enable_sesi_1').checked;
-    const s2 = document.getElementById('enable_sesi_2').checked;
-    
-    const inputs1 = document.querySelectorAll('#sesi_1_container select, #sesi_1_container input');
-    const inputs2 = document.querySelectorAll('#sesi_2_container select, #sesi_2_container input');
-    
-    inputs1.forEach(el => { el.disabled = !s1; el.required = s1; });
-    inputs2.forEach(el => { el.disabled = !s2; el.required = s2; });
-    
-    // Visual feedback
-    document.getElementById('sesi_1_container').style.opacity = s1 ? '1' : '0.5';
-    document.getElementById('sesi_2_container').style.opacity = s2 ? '1' : '0.5';
+    for (let s = 1; s <= 4; s++) {
+        const checkbox = document.getElementById(`enable_sesi_${s}`);
+        const container = document.getElementById(`sesi_${s}_container`);
+        
+        if (checkbox && container) {
+            const isChecked = checkbox.checked;
+            const inputs = container.querySelectorAll('select, input');
+            inputs.forEach(el => { el.disabled = !isChecked; el.required = isChecked; });
+            container.style.opacity = isChecked ? '1' : '0.5';
+        }
+    }
 }
 
 function filterLab(mkSelectId, labSelectId, selectedLabValue = '') {
@@ -1264,9 +1582,10 @@ function editJadwal(j) {
     document.getElementById('edit_mk').value = j.kode_mk;
     filterLabEdit(j.kode_lab || '');
     document.getElementById('edit_materi').value = j.materi;
+    document.getElementById('edit_sesi').value = j.sesi || 0;
     document.getElementById('edit_asisten1').value = j.kode_asisten_1 || '';
     document.getElementById('edit_asisten2').value = j.kode_asisten_2 || '';
-    checkAsisten2Warning(document.getElementById('edit_kelas'), 'warning_asisten2_edit');
+    checkAsisten2Warning(document.getElementById('edit_kelas'), 'warning_asisten2_edit', 'edit_sesi');
     new bootstrap.Modal(document.getElementById('modalEdit')).show();
 }
 
@@ -1284,13 +1603,44 @@ function hapusPertemuan(pertemuanKe) {
     modal.show();
 }
 
-function checkAsisten2Warning(kelasSelect, warningElementId) {
+function checkAsisten2Warning(kelasSelect, warningElementId, sesiSelectId = null) {
     const kodeKelas = kelasSelect.value;
     const warningEl = document.getElementById(warningElementId);
-    const jumlahMhs = mahasiswaPerKelas[kodeKelas] || 0;
+    
+    if (!kodeKelas || !mahasiswaPerKelas[kodeKelas]) {
+        warningEl.style.display = 'none';
+        return;
+    }
+
+    let jumlahMhs = 0;
+    let sesiLabel = '';
+
+    if (warningElementId === 'warning_asisten2_generate') {
+        const isSplit = document.getElementById('split_sesi').checked;
+        if (isSplit) {
+            // Ambil jumlah maksimal dari sesi yang ada (selain 0)
+            let maxSesi = 0;
+            for (let s in mahasiswaPerKelas[kodeKelas]) {
+                if (s != 0 && mahasiswaPerKelas[kodeKelas][s] > maxSesi) maxSesi = mahasiswaPerKelas[kodeKelas][s];
+            }
+            jumlahMhs = maxSesi;
+            sesiLabel = 'per sesi';
+        } else {
+            jumlahMhs = mahasiswaPerKelas[kodeKelas][0] || 0;
+            sesiLabel = 'total';
+        }
+    } else {
+        let sesi = 0;
+        if (sesiSelectId) {
+            const sesiEl = document.getElementById(sesiSelectId);
+            if (sesiEl) sesi = parseInt(sesiEl.value) || 0;
+        }
+        jumlahMhs = mahasiswaPerKelas[kodeKelas][sesi] || 0;
+        sesiLabel = (sesi === 0) ? 'total' : `Sesi ${sesi}`;
+    }
     
     if (jumlahMhs > BATAS_ASISTEN2) {
-        warningEl.innerHTML = `<div class="alert alert-warning py-2 mb-0"><i class="fas fa-exclamation-triangle me-2"></i><strong>Perhatian!</strong> Kelas ini memiliki <strong>${jumlahMhs} mahasiswa</strong>. Disarankan menambah <strong>Asisten 2</strong>.</div>`;
+        warningEl.innerHTML = `<div class="alert alert-warning py-2 mb-0"><i class="fas fa-exclamation-triangle me-2"></i><strong>Perhatian!</strong> Kelas ini memiliki <strong>${jumlahMhs} mahasiswa (${sesiLabel})</strong>. Disarankan menambah <strong>Asisten 2</strong>.</div>`;
         warningEl.style.display = 'block';
     } else {
         warningEl.style.display = 'none';
@@ -1303,10 +1653,27 @@ function validateAsisten2(formElement) {
     
     if (kelasSelect && asisten2Select) {
         const kodeKelas = kelasSelect.value;
-        const jumlahMhs = mahasiswaPerKelas[kodeKelas] || 0;
+        let jumlahMhs = 0;
+        
+        // Determine count based on context
+        if (formElement.querySelector('#split_sesi')) { // Generate form
+             const isSplit = document.getElementById('split_sesi').checked;
+             if (isSplit) {
+                 for (let s in mahasiswaPerKelas[kodeKelas]) {
+                    if (s != 0 && mahasiswaPerKelas[kodeKelas][s] > jumlahMhs) jumlahMhs = mahasiswaPerKelas[kodeKelas][s];
+                 }
+             } else {
+                 jumlahMhs = mahasiswaPerKelas[kodeKelas] ? mahasiswaPerKelas[kodeKelas][0] : 0;
+             }
+        } else { // Add/Edit form
+            const sesiSelect = formElement.querySelector('select[name="sesi"]');
+            let sesi = 0;
+            if (sesiSelect) sesi = parseInt(sesiSelect.value) || 0;
+            jumlahMhs = (mahasiswaPerKelas[kodeKelas] && mahasiswaPerKelas[kodeKelas][sesi]) ? mahasiswaPerKelas[kodeKelas][sesi] : 0;
+        }
         
         if (jumlahMhs > BATAS_ASISTEN2 && asisten2Select.value === "") {
-            return confirm(`PERINGATAN: Kelas ini memiliki ${jumlahMhs} mahasiswa.\n\nAnda belum memilih Asisten 2. Disarankan untuk menambahkan asisten pendamping agar praktikum berjalan efektif.\n\nApakah Anda yakin ingin tetap menyimpan tanpa Asisten 2?`);
+            return confirm(`PERINGATAN: Kelas ini memiliki ${jumlahMhs} mahasiswa (pada sesi terpilih).\n\nAnda belum memilih Asisten 2. Disarankan untuk menambahkan asisten pendamping agar praktikum berjalan efektif.\n\nApakah Anda yakin ingin tetap menyimpan tanpa Asisten 2?`);
         }
     }
     return true;
@@ -1316,7 +1683,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const tambahKelas = document.querySelector('#modalTambah select[name="kode_kelas"]');
     if (tambahKelas) {
         tambahKelas.addEventListener('change', function() {
-            checkAsisten2Warning(this, 'warning_asisten2_tambah');
+            checkAsisten2Warning(this, 'warning_asisten2_tambah', 'tambah_sesi');
         });
     }
     

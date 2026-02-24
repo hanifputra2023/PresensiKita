@@ -59,7 +59,7 @@ if (empty($header_foto) || !file_exists($header_foto)) {
     <title><?= APP_NAME ?></title>
     
     <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.php">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0066cc">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -68,9 +68,9 @@ if (empty($header_foto) || !file_exists($header_foto)) {
     <meta name="application-name" content="Sistem Presensi Kampus">
     
     <!-- Favicon & Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="includes/icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="includes/icon-512.png">
-    <link rel="apple-touch-icon" href="includes/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/img/52452554464_81be58f500_m.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/img/512x512-logo-barcelona-logo-png-0.png">
+    <link rel="apple-touch-icon" href="assets/img/52452554464_81be58f500_m.png">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -140,7 +140,6 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             background-color: var(--bg-body);
             color: var(--text-main);
             overflow-x: hidden;
-            transition: background-color 0.3s, color 0.3s;
         }
         .modal-header{
             background-color: var(--primary-color);
@@ -152,7 +151,6 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             background: var(--sidebar-bg);
             display: flex;
             flex-direction: column;
-            transition: background 0.3s;
         }
         
         /* Sidebar Brand Sticky */
@@ -172,7 +170,6 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             width: calc(100% + 2rem);
             
             box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-            transition: background 0.3s;
         }
         
         .sidebar-brand:hover {
@@ -1020,7 +1017,7 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             .sidebar-brand img,
             .sidebar-toggle-btn,
             .sidebar .d-flex.align-items-center {
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                transition: width 0.3s, margin 0.3s, padding 0.3s, flex 0.3s, max-width 0.3s;
             }
 
             /* Collapsed State: Sidebar Container */

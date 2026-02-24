@@ -1,6 +1,9 @@
 <?php
 require_once 'includes/fungsi.php';
 
+// [BARU] Cek Mode Pemeliharaan
+require_once 'includes/maintenance_check.php';
+
 // Routing sistem dinamis
 $page = isset($_GET['page']) ? $_GET['page'] : 'login';
 
@@ -261,6 +264,10 @@ switch ($page) {
     case 'admin_bantuan':
         cek_role(['admin']);
         include 'pages/admin/bantuan.php';
+        break;
+    case 'admin_setting':
+        cek_role(['admin']);
+        include 'pages/admin/setting.php';
         break;
     case 'admin_profil':
         cek_role(['admin']);

@@ -61,6 +61,153 @@ if (!$jadwal_aktif) {
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* ===== WELCOME BANNER SCANNER ===== */
+.welcome-banner-scanner {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-scanner::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-scanner 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-scanner {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-scanner h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-scanner .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-scanner .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-scanner .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-scanner {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Nav Tabs Theme Support */
+.nav-tabs {
+    border-bottom-color: var(--border-color);
+}
+
+.nav-tabs .nav-link {
+    color: var(--text-main);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: var(--border-color);
+    background-color: var(--bg-card);
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--bg-card);
+    color: var(--primary-color, #0066cc);
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-card);
+}
+
+[data-theme="dark"] .nav-tabs {
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link:hover {
+    color: var(--text-main);
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    background-color: var(--bg-card);
+    color: var(--primary-color, #3a8fd9);
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-card);
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+    .welcome-banner-scanner {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-scanner h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-scanner .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -69,7 +216,25 @@ if (!$jadwal_aktif) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-qrcode me-2"></i>Scan QR Code Presensi</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-scanner mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-qrcode"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Scan QR Code Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Lakukan presensi kehadiran praktikum dengan mudah</p>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-camera me-1"></i>Presensi Digital
+                        </span>
+                    </div>
+                </div>
                 
                 <?php if ($jadwal_aktif && $jadwal_aktif['presensi_status'] == 'hadir'): ?>
                     <!-- Sudah presensi -->

@@ -437,9 +437,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         body {
             display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
+            min-height: 100dvh;
             background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url("uploads/logo/Kampus-I-Balapan-1.png");
             background-size: cover;
             background-position: center;
@@ -555,6 +554,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         /* ======================== */
 
         .login-container {
+            margin: auto;
             position: relative;
             width: 100%;
             max-width: 460px;

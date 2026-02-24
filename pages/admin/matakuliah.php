@@ -150,57 +150,306 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Card Selection Styles */
-    .matakuliah-card { transition: all 0.2s; border: 1px solid var(--border-color); }
-    .matakuliah-card.selected { border-color: var(--primary-color); background-color: rgba(0, 102, 204, 0.05); box-shadow: 0 0 0 1px var(--primary-color); }
-    [data-theme="dark"] .matakuliah-card.selected { background-color: rgba(0, 102, 204, 0.15); }
-    .card-select-overlay { position: absolute; top: 10px; left: 10px; z-index: 5; display: none; opacity: 0; transition: opacity 0.3s; }
-    .select-mode .card-select-overlay { display: block; opacity: 1; }
-    .matakuliah-card .card-body { transition: padding-top 0.3s; }
-    .select-mode .matakuliah-card .card-body { padding-top: 2.5rem; }
-    .item-checkbox { width: 22px; height: 22px; cursor: pointer; border: 2px solid var(--text-muted); border-radius: 50%; }
-    .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
-
-    /* Bulk Action Bar */
-    #bulkActionBar { position: fixed; bottom: -100px; left: 0; right: 0; background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 15px 30px; z-index: 1000; transition: bottom 0.3s ease-in-out; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
-    body { padding-bottom: 80px; }
+    /* Welcome Banner Modern */
+    .welcome-banner-matkul {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
     
-    /* Slider Confirm */
-    .slider-container { position: relative; width: 100%; height: 55px; background: #f0f2f5; border-radius: 30px; user-select: none; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
-    .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
-    .slider-handle { position: absolute; top: 5px; left: 5px; width: 45px; height: 45px; background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
-    @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+    .welcome-banner-matkul::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-matkul 4s ease-in-out infinite;
     }
-
+    
+    @keyframes pulse-glow-matkul {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    .welcome-banner-matkul h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-matkul .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-matkul .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-matkul .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-matkul .btn-banner {
+        position: relative;
+        z-index: 2;
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    .welcome-banner-matkul .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
+    
+    .welcome-banner-matkul .btn-banner-primary {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+    
+    .welcome-banner-matkul .btn-banner-primary:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: white;
+    }
+    
+    .welcome-banner-matkul .btn-banner i {
+        margin-right: 8px;
+    }
+    
+    /* Filter Bar Modern */
+    .filter-bar-matkul {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px 28px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        margin-bottom: 24px;
+        animation: fadeInUp 0.5s ease 0.1s both;
+    }
+    
+    .filter-bar-matkul .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+    }
+    
+    .filter-bar-matkul .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .filter-bar-matkul .filter-group-search {
+        flex: 2;
+        min-width: 280px;
+    }
+    
+    .filter-bar-matkul .filter-group-action {
+        flex: 0 0 auto;
+        min-width: 120px;
+    }
+    
+    .filter-bar-matkul .form-label-modern {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted, #666);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 10px;
+    }
+    
+    .filter-bar-matkul .form-label-modern i {
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+    
+    .filter-bar-matkul .search-input-wrapper {
+        position: relative;
+    }
+    
+    .filter-bar-matkul .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted, #999);
+        font-size: 15px;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+    
+    .filter-bar-matkul .search-input-wrapper:focus-within .search-icon {
+        color: var(--primary-color);
+    }
+    
+    .filter-bar-matkul .form-control-modern {
+        width: 100%;
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 14px 16px 14px 46px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+        color: var(--text-color);
+    }
+    
+    .filter-bar-matkul .form-control-modern::placeholder {
+        color: var(--text-muted, #999);
+        font-weight: 400;
+    }
+    
+    .filter-bar-matkul .form-control-modern:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .filter-bar-matkul .form-control-modern:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+        outline: none;
+    }
+    
+    .filter-bar-matkul .btn-filter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: 2px solid var(--primary-color);
+        background: transparent;
+        color: var(--primary-color);
+        white-space: nowrap;
+        height: 52px;
+    }
+    
+    .filter-bar-matkul .btn-filter:hover {
+        background: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+    }
+    
+    .filter-bar-matkul .btn-filter.active {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .filter-bar-matkul .select-all-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: rgba(0, 102, 204, 0.08);
+        border-radius: 12px;
+        height: 52px;
+    }
+    
+    .filter-bar-matkul .select-all-wrapper label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-color);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    
+    /* Mata Kuliah Card Modern */
     .matakuliah-card {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        background: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        position: relative;
+        height: 100%;
+        animation: fadeInUp 0.5s ease both;
     }
+    
     .matakuliah-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 0.5rem 1.75rem rgba(58,59,69,.2) !important;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        border-color: var(--primary-color);
     }
+    
+    .matakuliah-card.selected {
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.05) 0%, rgba(0, 76, 153, 0.08) 100%);
+        border: 2px solid var(--primary-color);
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.2);
+    }
+    
     .matakuliah-card .card-title {
         font-weight: 600;
         color: var(--text-main);
+        margin-bottom: 12px;
     }
+    
     .matakuliah-card .badge.bg-info {
         background-color: var(--info-color) !important;
     }
+    
     .matakuliah-card .card-body p i {
         width: 20px;
         text-align: center;
         color: var(--text-muted);
     }
+    
     .matakuliah-card .action-buttons {
         display: flex;
         gap: 0.5rem;
@@ -208,32 +457,481 @@ if (isset($_GET['ajax_search'])) {
         border-top: 1px solid var(--border-color);
         padding-top: 1rem;
     }
+    
     .matakuliah-card .action-buttons .btn {
         flex-grow: 1;
+        border-radius: 8px;
+        font-weight: 600;
     }
+    
+    /* Card Selection Styles */
+    .card-select-overlay {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 5;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+    
+    .select-mode .card-select-overlay {
+        display: block;
+        opacity: 1;
+    }
+    
+    .matakuliah-card .card-body {
+        transition: padding-top 0.3s;
+    }
+    
+    .select-mode .matakuliah-card .card-body {
+        padding-top: 2.5rem;
+    }
+    
+    .item-checkbox {
+        width: 22px;
+        height: 22px;
+        cursor: pointer;
+        border: 2px solid var(--text-muted);
+        border-radius: 8px;
+    }
+    
+    .item-checkbox:checked {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+    }
+    
+    /* Modal Modern Styling */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+    
     .modal-header {
         background: var(--banner-gradient);
-        color: #fff;
+        color: white;
+        border-radius: 20px 20px 0 0;
+        padding: 24px 30px;
+        border: none;
     }
-    /* Bulk Action Bar */
-    #bulkActionBar { position: fixed; bottom: -100px; left: 0; right: 0; background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 15px 30px; z-index: 1000; transition: bottom 0.3s ease-in-out; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
-    body { padding-bottom: 80px; }
     
-    /* Slider Confirm */
-    .slider-container { position: relative; width: 100%; height: 55px; background: #f0f2f5; border-radius: 30px; user-select: none; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
-    .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
-    .slider-handle { position: absolute; top: 5px; left: 5px; width: 45px; height: 45px; background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
+    .modal-header .modal-title {
+        font-weight: 700;
+        font-size: 1.3rem;
+    }
+    
+    .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: 0.8;
+    }
+    
+    .modal-header .btn-close:hover {
+        opacity: 1;
+    }
+    
+    .modal-body {
+        padding: 30px;
+    }
+    
+    .modal-body .form-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    
+    .modal-body .form-control,
+    .modal-body .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 12px 16px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-body .form-control:focus,
+    .modal-body .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    }
+    
+    .modal-footer {
+        padding: 20px 30px;
+        border-top: 2px solid var(--border-color);
+    }
+    
+    .modal-footer .btn {
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 15px;
+    }
+    
+    /* Slider Confirm Modern */
+    .slider-container {
+        position: relative;
+        width: 100%;
+        height: 60px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 30px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        user-select: none;
+    }
+    
+    .slider-container.unlocked {
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    }
+    
+    .slider-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: 700;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        pointer-events: none;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        transition: opacity 0.3s;
+    }
+    
+    .slider-container.unlocked .slider-text {
+        opacity: 0;
+    }
+    
+    .slider-handle {
+        position: absolute;
+        left: 5px;
+        top: 5px;
+        width: 50px;
+        height: 50px;
+        background: white;
+        border-radius: 50%;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #dc3545;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+    
+    .slider-handle:active {
+        cursor: grabbing;
+        transform: scale(1.1);
+    }
+    
+    .slider-container.unlocked .slider-handle {
+        color: #28a745;
+        width: calc(100% - 10px);
+        border-radius: 30px;
+    }
+    
+    .slider-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        width: 0;
+        z-index: 0;
+        transition: width 0.1s;
+    }
+    
+    /* Bulk Action Bar */
+    .bulk-action-bar,
+    #bulkActionBar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(20px);
+        border-top: 2px solid var(--primary-color);
+        padding: 20px 30px;
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.1);
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        z-index: 1040;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .bulk-action-bar.show,
+    #bulkActionBar.show {
+        transform: translateY(0);
+    }
+    
+    .bulk-action-bar .selected-count,
+    #bulkActionBar .selected-count {
+        font-weight: 700;
+        font-size: 18px;
+        color: var(--primary-color);
+    }
+    
+    body {
+        padding-bottom: 80px;
+    }
+    
+    /* Animations */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Staggered animations for cards */
+    .matakuliah-card:nth-child(1) { animation-delay: 0.1s; }
+    .matakuliah-card:nth-child(2) { animation-delay: 0.15s; }
+    .matakuliah-card:nth-child(3) { animation-delay: 0.2s; }
+    .matakuliah-card:nth-child(4) { animation-delay: 0.25s; }
+    .matakuliah-card:nth-child(5) { animation-delay: 0.3s; }
+    .matakuliah-card:nth-child(6) { animation-delay: 0.35s; }
+    .matakuliah-card:nth-child(7) { animation-delay: 0.4s; }
+    .matakuliah-card:nth-child(8) { animation-delay: 0.45s; }
+    .matakuliah-card:nth-child(n+9) { animation-delay: 0.5s; }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-matkul {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    [data-theme="dark"] .filter-bar-matkul {
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .filter-bar-matkul .form-label-modern {
+        color: #aaa;
+    }
+    
+    [data-theme="dark"] .filter-bar-matkul .form-control-modern {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    [data-theme="dark"] .filter-bar-matkul .form-control-modern:hover,
+    [data-theme="dark"] .filter-bar-matkul .form-control-modern:focus {
+        border-color: var(--primary-color);
+    }
+    
+    [data-theme="dark"] .filter-bar-matkul .select-all-wrapper {
+        background: rgba(0, 102, 204, 0.15);
+    }
+    
+    [data-theme="dark"] .matakuliah-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .matakuliah-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    }
+    
+    [data-theme="dark"] .matakuliah-card.selected {
+        background: rgba(0, 102, 204, 0.15);
+    }
+    
+    [data-theme="dark"] .bulk-action-bar,
+    [data-theme="dark"] #bulkActionBar {
+        background: rgba(30, 30, 30, 0.98);
+        border-top-color: var(--primary-color);
+        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Responsive Design */
     @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+        .welcome-banner-matkul {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-matkul h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-matkul .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-matkul .btn-banner {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .filter-bar-matkul {
+            padding: 16px;
+            border-radius: 12px;
+        }
+        
+        .filter-bar-matkul .filter-row {
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .filter-bar-matkul .filter-group,
+        .filter-bar-matkul .filter-group-search,
+        .filter-bar-matkul .filter-group-action {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-matkul .form-label-modern {
+            font-size: 0.7rem;
+            margin-bottom: 6px;
+        }
+        
+        .filter-bar-matkul .form-control-modern {
+            padding: 12px 14px 12px 42px;
+            font-size: 14px;
+        }
+        
+        .filter-bar-matkul .btn-filter {
+            width: 100%;
+            padding: 12px 16px;
+            height: 48px;
+        }
+        
+        .filter-bar-matkul .action-buttons-mobile {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .filter-bar-matkul .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-matkul .select-all-wrapper {
+            width: 100%;
+            justify-content: center;
+            padding: 12px 14px;
+            height: 48px;
+        }
+        
+        .bulk-action-bar,
+        #bulkActionBar {
+            flex-direction: column;
+            gap: 10px;
+            padding: 15px;
+        }
+        
+        .bulk-action-bar > div,
+        #bulkActionBar > div {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .bulk-action-bar button,
+        #bulkActionBar button {
+            flex: 1;
+        }
+    }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-matkul {
+            padding: 30px;
+        }
+        
+        .welcome-banner-matkul > div {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 15px !important;
+        }
+        
+        .welcome-banner-matkul > div > div:first-child {
+            width: 100% !important;
+        }
+        
+        .welcome-banner-matkul h1 {
+            font-size: 26px;
+        }
+        
+        .welcome-banner-matkul .btn.btn-banner {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 16px 28px !important;
+            font-size: 16px;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+        
+        .welcome-banner-matkul .btn.btn-banner i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        /* Filter Bar Tablet */
+        .filter-bar-matkul {
+            padding: 20px;
+        }
+        
+        .filter-bar-matkul .filter-row {
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        
+        .filter-bar-matkul .filter-group-search {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-matkul .filter-group-action {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-matkul .form-label-modern {
+            display: flex !important;
+        }
+        
+        .filter-bar-matkul .btn-filter {
+            width: 100%;
+            padding: 14px 20px;
+            height: 52px;
+            font-size: 15px;
+        }
+        
+        .filter-bar-matkul .action-buttons-mobile {
+            width: 100%;
+        }
+        
+        .filter-bar-matkul .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-matkul .select-all-wrapper {
+            flex: 1;
+            justify-content: center;
+            height: 52px;
+            padding: 14px 16px;
+        }
     }
 </style>
 
@@ -245,34 +943,67 @@ if (isset($_GET['ajax_search'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-book me-2"></i>Kelola Mata Kuliah</h4>
-                    <button class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah Mata Kuliah
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-matkul mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-book"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Mata Kuliah</h1>
+                                    <p class="banner-subtitle mb-0">Manajemen mata kuliah dan kurikulum</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-graduation-cap me-1"></i>Manajemen Mata Kuliah
+                            </span>
+                        </div>
+                        <button class="btn btn-banner btn-banner-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus me-2"></i>Tambah Mata Kuliah
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
-                            <input type="hidden" name="page" value="admin_matakuliah">
-                            <div class="col-12 col-md">
-                                <label for="searchInput" class="form-label small">Cari Mata Kuliah/Kode</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
-                            </div>
-                            <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
-                                </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                <!-- Filter Bar -->
+                <div class="filter-bar-matkul">
+                    <form method="GET" onsubmit="return false;">
+                        <input type="hidden" name="page" value="admin_matakuliah">
+                        <div class="filter-row">
+                            <!-- Search Input -->
+                            <div class="filter-group filter-group-search">
+                                <label for="searchInput" class="form-label-modern">
+                                    <i class="fas fa-search"></i>
+                                    Cari Mata Kuliah
+                                </label>
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" name="search" id="searchInput" class="form-control-modern" value="<?= htmlspecialchars($search) ?>" placeholder="Ketik nama atau kode mata kuliah...">
                                 </div>
                             </div>
-                        </form>
-                    </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="filter-group filter-group-action">
+                                <label class="form-label-modern d-none d-md-flex">
+                                    <i class="fas fa-cog"></i>
+                                    Aksi
+                                </label>
+                                <div class="d-flex gap-2 action-buttons-mobile">
+                                    <button type="button" class="btn-filter" id="btnSelectMode" onclick="toggleSelectMode()">
+                                        <i class="fas fa-check-square"></i>
+                                        <span>Pilih</span>
+                                    </button>
+                                    <div class="select-all-wrapper d-none" id="selectAllContainer">
+                                        <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="width: 20px; height: 20px; cursor: pointer; border-radius: 6px;">
+                                        <label class="m-0" for="selectAll">Semua</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </div>
 
                 <div id="matkulContainer">

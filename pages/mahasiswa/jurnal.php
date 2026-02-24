@@ -46,10 +46,116 @@ $result = mysqli_query($conn, $query);
 <?php include 'includes/header.php'; ?>
 
 <style>
+    .content-wrapper{
+        padding: 24px;
+    
+        animation: fadeIn 0.4s ease-out;
+    }
     @media (max-width: 768px) {
         textarea.form-control {
             font-size: 16px !important; /* Mencegah zoom otomatis di iOS */
             min-height: 120px;
+        }
+    }
+
+    /* ===== WELCOME BANNER JURNAL ===== */
+    .welcome-banner-jurnal {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .welcome-banner-jurnal::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-jurnal 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow-jurnal {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.05); opacity: 0.6; }
+    }
+
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .welcome-banner-jurnal h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-jurnal .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-jurnal .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-jurnal .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-jurnal {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .welcome-banner-jurnal {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-jurnal h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-jurnal .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
         }
     }
 </style>
@@ -60,14 +166,33 @@ $result = mysqli_query($conn, $query);
             <?php include 'includes/sidebar.php'; ?>
         </div>
         <div class="col-md-9 col-lg-10">
-            <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-book-open me-2"></i>Jurnal Praktikum</h4>
+            <div class="content-wrapper">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-jurnal mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Jurnal Praktikum</h1>
+                                    <p class="banner-subtitle mb-0">Catat kegiatan dan hasil praktikum Anda di sini.</p>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-pen-fancy me-1"></i>Catatan Harian Praktikum
+                        </span>
+                    </div>
+                </div>
+
                 <?= show_alert() ?>
                 
-                <div class="row">
+                <div class="row justify-content-center">
                     <?php if (mysqli_num_rows($result) > 0): ?>
                         <?php while($row = mysqli_fetch_assoc($result)): ?>
-                        <div class="col-md-6 mb-4">
+                        <div class="col-12 mb-4">
                             <div class="card h-100 border-<?= $row['jurnal_id'] ? 'success' : 'warning' ?>">
                                 <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                                     <small class="text-muted"><i class="fas fa-calendar me-1"></i><?= format_tanggal($row['tanggal']) ?></small>

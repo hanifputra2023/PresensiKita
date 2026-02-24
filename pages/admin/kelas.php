@@ -171,10 +171,353 @@ if (isset($_GET['ajax_search'])) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-kelas {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner-kelas::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-kelas 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-kelas {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .welcome-banner-kelas h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-kelas .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-kelas .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-kelas .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-kelas .btn-banner {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-kelas .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    .welcome-banner-kelas .btn-banner-primary {
+        background: white;
+        color: var(--primary-color);
+        border-color: white;
+    }
+    
+    .welcome-banner-kelas .btn-banner-primary:hover {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--primary-color);
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-kelas {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .welcome-banner-kelas {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-kelas h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-kelas .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-kelas .btn-banner {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-kelas {
+            padding: 30px;
+        }
+        
+        .welcome-banner-kelas > div {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 15px !important;
+        }
+        
+        .welcome-banner-kelas > div > div:first-child {
+            width: 100% !important;
+        }
+        
+        .welcome-banner-kelas h1 {
+            font-size: 26px;
+        }
+        
+        .welcome-banner-kelas .btn.btn-banner {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 16px 28px !important;
+            font-size: 16px;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+        
+        .welcome-banner-kelas .btn.btn-banner i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+    }
+    
+    /* Filter Bar Modern */
+    .filter-bar-kelas {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px 28px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        margin-bottom: 24px;
+        animation: fadeInUp 0.5s ease 0.1s both;
+    }
+    
+    .filter-bar-kelas .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+    }
+    
+    .filter-bar-kelas .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .filter-bar-kelas .filter-group-search {
+        flex: 2;
+        min-width: 280px;
+    }
+    
+    .filter-bar-kelas .filter-group-action {
+        flex: 0 0 auto;
+        min-width: 120px;
+    }
+    
+    .filter-bar-kelas .form-label-modern {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted, #666);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 10px;
+    }
+    
+    .filter-bar-kelas .form-label-modern i {
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+    
+    .filter-bar-kelas .search-input-wrapper {
+        position: relative;
+    }
+    
+    .filter-bar-kelas .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted, #999);
+        font-size: 15px;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+    
+    .filter-bar-kelas .search-input-wrapper:focus-within .search-icon {
+        color: var(--primary-color);
+    }
+    
+    .filter-bar-kelas .form-control-modern {
+        width: 100%;
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 14px 16px 14px 46px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+        color: var(--text-color);
+    }
+    
+    .filter-bar-kelas .form-control-modern::placeholder {
+        color: var(--text-muted, #999);
+        font-weight: 400;
+    }
+    
+    .filter-bar-kelas .form-control-modern:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .filter-bar-kelas .form-control-modern:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+        outline: none;
+    }
+    
+    .filter-bar-kelas select.form-control-modern {
+        padding-left: 16px;
+        padding-right: 40px;
+        cursor: pointer;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 16px center;
+        background-size: 14px;
+    }
+    
+    .filter-bar-kelas select.form-control-modern::-ms-expand {
+        display: none;
+    }
+    
+    .filter-bar-kelas .btn-filter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: 2px solid var(--primary-color);
+        background: transparent;
+        color: var(--primary-color);
+        white-space: nowrap;
+        height: 52px;
+    }
+    
+    .filter-bar-kelas .btn-filter:hover {
+        background: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+    }
+    
+    .filter-bar-kelas .btn-filter.active {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .filter-bar-kelas .select-all-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: rgba(0, 102, 204, 0.08);
+        border-radius: 12px;
+        height: 52px;
+    }
+    
+    .filter-bar-kelas .select-all-wrapper label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-color);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
     /* [FIX] Beri ruang lebih di atas konten card agar tidak tertimpa checkbox */
     .class-card .card-body {
         padding-top: 1.5rem;
         transition: padding-top 0.3s ease;
+        
     }
     
     /* Padding tambahan saat mode select aktif */
@@ -192,24 +535,61 @@ if (isset($_GET['ajax_search'])) {
     }
     .class-card .action-buttons .btn {
         flex-grow: 1; /* Membuat tombol berbagi lebar yang sama */
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .class-card .action-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
 
     /* Card Styling */
     .class-card { 
-        transition: all 0.2s; 
+        transition: all 0.3s ease; 
         border: 1px solid var(--border-color);
         background-color: var(--bg-card);
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    .class-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .class-card .card-title {
+        color: var(--text-main);
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    
+    .class-card .badge {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .class-card .text-muted {
+        font-size: 0.9rem;
+    }
+    
+    .class-card .text-muted i {
+        color: var(--primary-color);
+        width: 20px;
     }
     
     /* Style untuk Checkbox Selection */
     .class-card.selected { 
         border-color: var(--primary-color); 
-        background-color: rgba(0, 102, 204, 0.05); 
-        box-shadow: 0 0 0 1px var(--primary-color);
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(0, 102, 204, 0.02) 100%);
+        box-shadow: 0 0 0 2px var(--primary-color), 0 4px 16px rgba(0, 102, 204, 0.2);
     }
     
     [data-theme="dark"] .class-card.selected {
-        background-color: rgba(0, 102, 204, 0.15);
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.2) 0%, rgba(0, 102, 204, 0.1) 100%);
     }
 
     .card-select-overlay { 
@@ -263,14 +643,15 @@ if (isset($_GET['ajax_search'])) {
         left: 0; 
         right: 0;
         background: var(--bg-card);
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
-        padding: 15px 30px; 
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
+        padding: 20px 30px; 
         z-index: 1000;
         transition: bottom 0.3s ease-in-out;
         display: flex; 
         justify-content: space-between; 
         align-items: center;
-        border-top: 1px solid var(--border-color);
+        border-top: 2px solid var(--primary-color);
+        backdrop-filter: blur(10px);
     }
     
     #bulkActionBar.show { 
@@ -278,55 +659,98 @@ if (isset($_GET['ajax_search'])) {
     }
     
     [data-theme="dark"] #bulkActionBar {
-        box-shadow: 0 -5px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.4);
+    }
+    
+    #bulkActionBar .badge {
+        font-size: 1.2rem;
+        padding: 8px 16px;
+        border-radius: 10px;
+    }
+    
+    #bulkActionBar .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+        transition: all 0.3s ease;
+    }
+    
+    #bulkActionBar .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     }
 
     /* Penyesuaian agar konten tidak tertutup bar */
     body { padding-bottom: 80px; } 
-
-    /* SLIDER CONFIRM STYLE */
-    .slider-container {
-        position: relative; width: 100%; height: 55px;
-        background: #f0f2f5; border-radius: 30px;
-        user-select: none; overflow: hidden;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+    
+    /* Modal Modern Styling */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
-    [data-theme="dark"] .slider-container {
-        background: var(--bg-input);
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+    
+    .modal-header {
+        background: var(--banner-gradient);
+        color: white;
+        border-radius: 20px 20px 0 0;
+        padding: 24px 30px;
+        border: none;
     }
-
-    .slider-text {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 600; color: #888; font-size: 14px;
-        text-transform: uppercase; letter-spacing: 1px;
-        z-index: 1; pointer-events: none;
-        transition: opacity 0.3s;
+    
+    .modal-header .modal-title {
+        font-weight: 700;
+        font-size: 1.3rem;
     }
-    [data-theme="dark"] .slider-text {
-        color: var(--text-muted);
+    
+    .modal-header .btn-close {
+        filter: brightness(0) invert(1);
+        opacity: 0.8;
     }
-
-    .slider-handle {
-        position: absolute; top: 5px; left: 5px;
-        width: 45px; height: 45px;
-        background: #dc3545; /* Merah Danger */
-        border-radius: 50%; cursor: pointer; z-index: 2;
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 18px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        transition: transform 0.1s;
+    
+    .modal-header .btn-close:hover {
+        opacity: 1;
     }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress {
-        position: absolute; top: 0; left: 0; height: 100%;
-        background: rgba(220, 53, 69, 0.2); /* Merah transparan */
-        width: 0; z-index: 0;
+    
+    .modal-body {
+        padding: 30px;
     }
-    /* Ketika sukses di-slide */
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
+    
+    .modal-body .form-label {
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+    
+    .modal-body .form-control,
+    .modal-body .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 12px 16px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-body .form-control:focus,
+    .modal-body .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    }
+    
+    .modal-footer {
+        padding: 20px 30px;
+        border-top: 2px solid var(--border-color);
+    }
+    
+    .modal-footer .btn {
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 15px;
+    }
     
     /* Responsive adjustments */
     @media (max-width: 576px) {
@@ -343,7 +767,368 @@ if (isset($_GET['ajax_search'])) {
         #bulkActionBar button {
             flex: 1;
         }
+        
+        .welcome-banner-kelas {
+            padding: 24px;
+        }
+        
+        .welcome-content-kelas {
+            flex-direction: column !important;
+            align-items: flex-start !important;
+        }
+        
+        .welcome-content-kelas h1 {
+            font-size: 24px;
+        }
+        
+        .btn-add-kelas {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        /* Filter Bar Mobile */
+        .filter-bar-kelas {
+            padding: 16px;
+            border-radius: 12px;
+        }
+        
+        .filter-bar-kelas .filter-row {
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .filter-bar-kelas .filter-group,
+        .filter-bar-kelas .filter-group-search,
+        .filter-bar-kelas .filter-group-action {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-kelas .form-label-modern {
+            font-size: 0.7rem;
+            margin-bottom: 6px;
+        }
+        
+        .filter-bar-kelas .form-control-modern {
+            padding: 12px 14px 12px 42px;
+            font-size: 14px;
+        }
+        
+        .filter-bar-kelas select.form-control-modern {
+            padding-left: 14px;
+        }
+        
+        .filter-bar-kelas .btn-filter {
+            width: 100%;
+            padding: 12px 16px;
+            height: 48px;
+        }
+        
+        .filter-bar-kelas .action-buttons-mobile {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .filter-bar-kelas .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-kelas .select-all-wrapper {
+            width: 100%;
+            justify-content: center;
+            padding: 12px 14px;
+            height: 48px;
+        }
     }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-kelas {
+            padding: 30px;
+        }
+        
+        .welcome-content-kelas {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 15px !important;
+        }
+        
+        .welcome-content-kelas > div:first-child {
+            width: 100% !important;
+        }
+        
+        .welcome-content-kelas h1 {
+            font-size: 26px;
+        }
+        
+        .welcome-content-kelas .btn.btn-add-kelas {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 16px 28px !important;
+            font-size: 16px;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+        
+        .welcome-content-kelas .btn.btn-add-kelas i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        /* Filter Bar Tablet */
+        .filter-bar-kelas {
+            padding: 20px;
+        }
+        
+        .filter-bar-kelas .filter-row {
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        
+        .filter-bar-kelas .filter-group-search {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-kelas .filter-group {
+            flex: 1 1 calc(50% - 7px);
+            min-width: calc(50% - 7px);
+        }
+        
+        .filter-bar-kelas .filter-group-action {
+            flex: 1 1 calc(50% - 7px);
+            min-width: calc(50% - 7px);
+        }
+        
+        .filter-bar-kelas .form-label-modern {
+            display: flex !important;
+        }
+        
+        .filter-bar-kelas .btn-filter {
+            width: 100%;
+            padding: 14px 20px;
+            height: 52px;
+            font-size: 15px;
+        }
+        
+        .filter-bar-kelas .action-buttons-mobile {
+            width: 100%;
+        }
+        
+        .filter-bar-kelas .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-kelas .select-all-wrapper {
+            flex: 1;
+            justify-content: center;
+            height: 52px;
+            padding: 14px 16px;
+        }
+    }
+
+    
+    /* Responsive untuk tablet besar (768px - 991px) */
+    @media (min-width: 768px) and (max-width: 991px) {
+        .welcome-banner-kelas {
+            padding: 35px;
+        }
+        
+        .welcome-content-kelas h1 {
+            font-size: 28px;
+        }
+        
+        .btn-add-kelas {
+            padding: 12px 24px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
+        
+        /* Filter Bar Tablet Large */
+        .filter-bar-kelas {
+            padding: 22px;
+        }
+        
+        .filter-bar-kelas .filter-row {
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+        
+        .filter-bar-kelas .filter-group-search {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-kelas .filter-group {
+            flex: 1 1 auto;
+            min-width: 180px;
+        }
+        
+        .filter-bar-kelas .filter-group-action {
+            flex: 0 0 auto;
+            min-width: auto;
+        }
+    }
+
+    
+    /* Dark mode adjustments */
+    [data-theme="dark"] .filter-bar-kelas {
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .filter-bar-kelas .form-label-modern {
+        color: #aaa;
+    }
+    
+    [data-theme="dark"] .filter-bar-kelas .form-control-modern {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    [data-theme="dark"] .filter-bar-kelas .form-control-modern:hover,
+    [data-theme="dark"] .filter-bar-kelas .form-control-modern:focus {
+        border-color: var(--primary-color);
+    }
+    
+    [data-theme="dark"] .filter-bar-kelas select.form-control-modern {
+        background: rgba(255, 255, 255, 0.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 16px center;
+        background-size: 14px;
+    }
+    
+    [data-theme="dark"] .filter-bar-kelas .select-all-wrapper {
+        background: rgba(0, 102, 204, 0.15);
+    }
+    
+    [data-theme="dark"] .class-card {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
+    [data-theme="dark"] .class-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.2);
+    }
+    
+    /* Smooth transitions for all interactive elements */
+    * {
+        transition-property: background-color, border-color, box-shadow, transform;
+        transition-duration: 0.3s;
+        transition-timing-function: ease;
+    }
+    
+    /* Page fade-in animation */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .class-card {
+        animation: fadeInUp 0.5s ease forwards;
+    }
+    
+    .class-card:nth-child(1) { animation-delay: 0.1s; }
+    .class-card:nth-child(2) { animation-delay: 0.15s; }
+    .class-card:nth-child(3) { animation-delay: 0.2s; }
+    .class-card:nth-child(4) { animation-delay: 0.25s; }
+    .class-card:nth-child(5) { animation-delay: 0.3s; }
+    .class-card:nth-child(6) { animation-delay: 0.35s; }
+    .class-card:nth-child(7) { animation-delay: 0.4s; }
+    .class-card:nth-child(8) { animation-delay: 0.45s; }
+    .class-card:nth-child(9) { animation-delay: 0.5s; }
+
+    /* Slider Confirm Modern */
+    .slider-container {
+        position: relative;
+        width: 100%;
+        height: 60px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 30px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        user-select: none;
+    }
+    
+    .slider-container.unlocked {
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    }
+    
+    .slider-text {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-weight: 700;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        pointer-events: none;
+        z-index: 1;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        transition: opacity 0.3s;
+    }
+    
+    .slider-container.unlocked .slider-text {
+        opacity: 0;
+    }
+    
+    .slider-handle {
+        position: absolute;
+        left: 5px;
+        top: 5px;
+        width: 50px;
+        height: 50px;
+        background: white;
+        border-radius: 50%;
+        cursor: grab;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        color: #dc3545;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        transition: all 0.3s ease;
+        z-index: 2;
+    }
+    
+    .slider-handle:active {
+        cursor: grabbing;
+        transform: scale(1.1);
+    }
+    
+    .slider-container.unlocked .slider-handle {
+        color: #28a745;
+        width: calc(100% - 10px);
+        border-radius: 30px;
+    }
+    
+    .slider-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.2);
+        width: 0;
+        z-index: 0;
+        transition: width 0.1s;
+    }
+    
+    
 </style>
 
 <div class="container-fluid">
@@ -354,43 +1139,80 @@ if (isset($_GET['ajax_search'])) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="page-header d-flex justify-content-between align-items-center">
-                    <h4 class="mb-0"><i class="fas fa-chalkboard-teacher me-2"></i>Kelola Kelas</h4>
-                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-kelas mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Kelas</h1>
+                                    <p class="banner-subtitle mb-0">Atur dan kelola semua data kelas dengan mudah dan efisien</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-users-cog me-1"></i>Manajemen Kelas
+                            </span>
+                        </div>
+                        <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus me-2"></i>Tambah Kelas
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
-                            <input type="hidden" name="page" value="admin_kelas">
-                            <div class="col-12 col-md-5">
-                                <label for="searchInput" class="form-label small">Cari Nama/Kode Kelas</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
+                <div class="filter-bar-kelas">
+                    <form method="GET" onsubmit="return false;">
+                        <input type="hidden" name="page" value="admin_kelas">
+                        <div class="filter-row">
+                            <!-- Search Input -->
+                            <div class="filter-group filter-group-search">
+                                <label for="searchInput" class="form-label-modern">
+                                    <i class="fas fa-search"></i>
+                                    Cari Kelas
+                                </label>
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" name="search" id="searchInput" class="form-control-modern" value="<?= htmlspecialchars($search) ?>" placeholder="Ketik nama atau kode kelas...">
+                                </div>
                             </div>
-                            <div class="col-12 col-md-5">
-                                <label for="prodiFilter" class="form-label small">Filter Program Studi</label>
-                                <select name="prodi" id="prodiFilter" class="form-select">
+                            
+                            <!-- Filter Prodi -->
+                            <div class="filter-group">
+                                <label for="prodiFilter" class="form-label-modern">
+                                    <i class="fas fa-filter"></i>
+                                    Program Studi
+                                </label>
+                                <select name="prodi" id="prodiFilter" class="form-control-modern">
                                     <option value="">Semua Prodi</option>
                                     <?php mysqli_data_seek($prodi_list, 0); while ($p = mysqli_fetch_assoc($prodi_list)): ?>
                                         <option value="<?= htmlspecialchars($p['program_studi']) ?>" <?= $filter_prodi == $p['program_studi'] ? 'selected' : '' ?>><?= htmlspecialchars($p['program_studi']) ?></option>
                                     <?php endwhile; ?>
                                 </select>
                             </div>
-                            <div class="col-12 col-md-2 d-flex flex-column flex-md-row align-items-stretch align-items-md-end justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
-                                </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                            
+                            <!-- Action Buttons -->
+                            <div class="filter-group filter-group-action">
+                                <label class="form-label-modern d-none d-md-flex">
+                                    <i class="fas fa-cog"></i>
+                                    Aksi
+                                </label>
+                                <div class="d-flex gap-2 action-buttons-mobile">
+                                    <button type="button" class="btn-filter" id="btnSelectMode" onclick="toggleSelectMode()">
+                                        <i class="fas fa-check-square"></i>
+                                        <span>Pilih</span>
+                                    </button>
+                                    <div class="select-all-wrapper d-none" id="selectAllContainer">
+                                        <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="width: 20px; height: 20px; cursor: pointer; border-radius: 6px;">
+                                        <label class="m-0" for="selectAll">Semua</label>
+                                    </div>
                                 </div>
                             </div>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
 
                 <div id="kelasContainer">
@@ -457,7 +1279,7 @@ if (isset($_GET['ajax_search'])) {
     </div>
 </div>
 
-<!-- [FIX] Modal Tambah -->
+<!-- Modal Tambah -->
 <div class="modal fade" id="modalTambah" tabindex="-1" aria-labelledby="modalTambahLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -494,21 +1316,39 @@ if (isset($_GET['ajax_search'])) {
     </div>
 </div>
 
-<!-- [FIX] Modal Edit -->
+<!-- Modal Edit -->
 <div class="modal fade" id="modalEdit" tabindex="-1" aria-labelledby="modalEditLabel">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <form method="POST">
                 <input type="hidden" name="aksi" value="edit">
                 <input type="hidden" name="kode_kelas" id="edit_kode">
-                <div class="modal-header"><h5 class="modal-title" id="modalEditLabel">Edit Kelas</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-                <div class="modal-body">
-                    <div class="mb-3"><label class="form-label">Kode Kelas</label><input type="text" id="edit_kode_display" class="form-control" disabled></div>
-                    <div class="mb-3"><label class="form-label">Nama Kelas</label><input type="text" name="nama_kelas" id="edit_nama" class="form-control" required></div>
-                    <div class="mb-3"><label class="form-label">Program Studi</label><input type="text" name="program_studi" id="edit_prodi" class="form-control" required></div>
-                    <div class="mb-3"><label class="form-label">Tahun Ajaran</label><input type="text" name="tahun_ajaran" id="edit_tahun" class="form-control" required></div>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalEditLabel">Edit Kelas</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button><button type="submit" class="btn btn-primary">Update</button></div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Kode Kelas</label>
+                        <input type="text" id="edit_kode_display" class="form-control" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nama Kelas</label>
+                        <input type="text" name="nama_kelas" id="edit_nama" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Program Studi</label>
+                        <input type="text" name="program_studi" id="edit_prodi" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tahun Ajaran</label>
+                        <input type="text" name="tahun_ajaran" id="edit_tahun" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
             </form>
         </div>
     </div>
@@ -561,14 +1401,14 @@ function toggleSelectMode() {
     
     if (isSelectMode) {
         container.classList.add('select-mode');
-        btn.classList.replace('btn-outline-secondary', 'btn-secondary');
-        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
+        btn.classList.replace('btn-outline-primary', 'btn-primary');
+        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal Pilih';
         selectAllContainer.classList.remove('d-none');
         selectAllContainer.classList.add('d-flex');
     } else {
         container.classList.remove('select-mode');
-        btn.classList.replace('btn-secondary', 'btn-outline-secondary');
-        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Pilih';
+        btn.classList.replace('btn-primary', 'btn-outline-primary');
+        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Mode Pilih';
         selectAllContainer.classList.add('d-none');
         selectAllContainer.classList.remove('d-flex');
         

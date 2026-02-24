@@ -367,7 +367,7 @@ function auto_set_alpha_jadwal_lewat() {
     // Juga handle jadwal yang belum ada record sama sekali (fallback)
     // Untuk jadwal yang tidak pernah di-init (misal jadwal lama)
     // TIDAK termasuk inhall
-    $jadwal_lewat = mysqli_query($conn, "SELECT j.id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi
+    $jadwal_lewat = mysqli_query($conn, "SELECT j.id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi, j.kode_mk, j.pertemuan_ke
                                           FROM jadwal j 
                                           WHERE j.jenis != 'inhall'
                                           AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
@@ -379,6 +379,8 @@ function auto_set_alpha_jadwal_lewat() {
         $kode_kelas = $jadwal['kode_kelas'];
         $sesi_jadwal = $jadwal['sesi'];
         $tanggal_jadwal = $jadwal['tanggal'];
+        $kode_mk = $jadwal['kode_mk'];
+        $pertemuan_ke = $jadwal['pertemuan_ke'];
         $jam_selesai = $jadwal['jam_selesai'];
         $tanggal_jam_selesai = $tanggal_jadwal . ' ' . $jam_selesai;
         
@@ -391,9 +393,11 @@ function auto_set_alpha_jadwal_lewat() {
                                            AND (m.sesi = ? OR ? = 0)
                                            AND m.tanggal_daftar < ?
                                            AND m.nim NOT IN (
-                                               SELECT nim FROM presensi_mahasiswa WHERE jadwal_id = ?
+                                               SELECT pm.nim FROM presensi_mahasiswa pm
+                                               JOIN jadwal j2 ON pm.jadwal_id = j2.id
+                                               WHERE j2.kode_mk = ? AND j2.pertemuan_ke = ? AND j2.kode_kelas = ?
                                            )");
-        mysqli_stmt_bind_param($stmt_mhs_belum, "siisi", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $jadwal_id);
+        mysqli_stmt_bind_param($stmt_mhs_belum, "siissis", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $kode_mk, $pertemuan_ke, $kode_kelas);
         mysqli_stmt_execute($stmt_mhs_belum);
         $mhs_belum = mysqli_stmt_get_result($stmt_mhs_belum);
         
@@ -430,6 +434,8 @@ function set_alpha_jadwal($jadwal_id) {
     $kode_kelas = $jadwal['kode_kelas'];
     $sesi_jadwal = $jadwal['sesi'];
     $tanggal_jadwal = $jadwal['tanggal'];
+    $kode_mk = $jadwal['kode_mk']; // Perlu diambil di query atas (tambahkan jika belum ada)
+    // Note: Query di set_alpha_jadwal perlu disesuaikan untuk ambil kode_mk & pertemuan_ke jika belum
     $jam_mulai = $jadwal['jam_mulai'];
     $total = 0;
     
@@ -607,7 +613,7 @@ function auto_set_alpha() {
     
     // Fallback: Insert alpha untuk mahasiswa yang tidak punya record sama sekali
     // Hanya untuk jadwal MATERI dan UJIKOM, BUKAN INHALL
-    $query_jadwal = "SELECT j.id as jadwal_id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi
+    $query_jadwal = "SELECT j.id as jadwal_id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi, j.kode_mk, j.pertemuan_ke
                      FROM jadwal j
                      WHERE j.jenis != 'inhall'
                      AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
@@ -620,6 +626,8 @@ function auto_set_alpha() {
         $jadwal_id = $jadwal['jadwal_id'];
         $kode_kelas = $jadwal['kode_kelas'];
         $sesi_jadwal = $jadwal['sesi'];
+        $kode_mk = $jadwal['kode_mk'];
+        $pertemuan_ke = $jadwal['pertemuan_ke'];
         $tanggal_jadwal = $jadwal['tanggal'];
         $jam_selesai = $jadwal['jam_selesai'];
         $tanggal_jam_selesai = $tanggal_jadwal . ' ' . $jam_selesai;
@@ -632,9 +640,11 @@ function auto_set_alpha() {
                       AND (m.sesi = ? OR ? = 0)
                       AND m.tanggal_daftar < ?
                       AND m.nim NOT IN (
-                          SELECT p.nim FROM presensi_mahasiswa p WHERE p.jadwal_id = ?
+                          SELECT pm.nim FROM presensi_mahasiswa pm
+                          JOIN jadwal j2 ON pm.jadwal_id = j2.id
+                          WHERE j2.kode_mk = ? AND j2.pertemuan_ke = ? AND j2.kode_kelas = ?
                       )");
-        mysqli_stmt_bind_param($stmt_mhs, "siisi", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $jadwal_id);
+        mysqli_stmt_bind_param($stmt_mhs, "siissis", $kode_kelas, $sesi_jadwal, $sesi_jadwal, $tanggal_jam_selesai, $kode_mk, $pertemuan_ke, $kode_kelas);
         mysqli_stmt_execute($stmt_mhs);
         $mhs_belum = mysqli_stmt_get_result($stmt_mhs);
         
@@ -780,30 +790,60 @@ function get_mahasiswa_badges($nim) {
  * Di sistem real, ini bisa dihubungkan ke API WhatsApp (Fonnte/Twilio) atau PHPMailer
  */
 function kirim_notifikasi($target, $pesan, $tipe = 'wa') {
-    // Konfigurasi API WhatsApp (Contoh menggunakan Fonnte)
-    // Silakan daftar di https://fonnte.com untuk dapat token gratis
-    $token = "r3xT7ppTj28hxKamgjJE"; 
+    global $conn;
+    
+    // Ambil Token dari Database
+    $q_token = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'wa_token'");
+    $row_token = mysqli_fetch_assoc($q_token);
+    $token = $row_token['setting_value'] ?? ""; 
+
+    // PILIH PROVIDER: 'fonnte' atau 'starsender'
+    // Anda bisa mengubah ini manual atau buat setting baru di database
+    $provider = 'fonnte'; 
 
     if ($tipe == 'wa') {
         $curl = curl_init();
 
-        curl_setopt_array($curl, array(
-          CURLOPT_URL => 'https://api.fonnte.com/send',
-          CURLOPT_RETURNTRANSFER => true,
-          CURLOPT_ENCODING => '',
-          CURLOPT_MAXREDIRS => 10,
-          CURLOPT_TIMEOUT => 0,
-          CURLOPT_FOLLOWLOCATION => true,
-          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-          CURLOPT_CUSTOMREQUEST => 'POST',
-          CURLOPT_POSTFIELDS => array(
-            'target' => $target,
-            'message' => $pesan,
-          ),
-          CURLOPT_HTTPHEADER => array(
-            "Authorization: $token"
-          ),
-        ));
+        if ($provider == 'fonnte') {
+            // Dokumentasi: https://docs.fonnte.com/
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => 'https://api.fonnte.com/send',
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS => array(
+                'target' => $target,
+                'message' => $pesan,
+              ),
+              CURLOPT_HTTPHEADER => array(
+                "Authorization: $token"
+              ),
+            ));
+        } elseif ($provider == 'starsender') {
+            // Dokumentasi: https://starsender.online/api-documentation
+            curl_setopt_array($curl, array(
+              CURLOPT_URL => 'https://starsender.online/api/sendText',
+              CURLOPT_RETURNTRANSFER => true,
+              CURLOPT_ENCODING => '',
+              CURLOPT_MAXREDIRS => 10,
+              CURLOPT_TIMEOUT => 0,
+              CURLOPT_FOLLOWLOCATION => true,
+              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+              CURLOPT_CUSTOMREQUEST => 'POST',
+              CURLOPT_POSTFIELDS => json_encode(array(
+                'message' => $pesan,
+                'tujuan' => $target
+              )),
+              CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json',
+                'apikey: ' . $token
+              ),
+            ));
+        }
 
         $response = curl_exec($curl);
         curl_close($curl);
@@ -836,5 +876,94 @@ function get_mahasiswa_level($points) {
     if ($points < 300) return ['name' => 'Practitioner', 'icon' => 'user-graduate', 'color' => 'primary', 'min' => 150, 'max' => 300];
     if ($points < 500) return ['name' => 'Expert', 'icon' => 'star', 'color' => 'warning', 'min' => 300, 'max' => 500];
     return ['name' => 'Master', 'icon' => 'crown', 'color' => 'danger', 'min' => 500, 'max' => 1000];
+}
+
+/**
+ * Validasi Kuota Pendaftaran Mahasiswa
+ * Membandingkan jumlah mahasiswa di kelas/sesi dengan kapasitas lab
+ * 
+ * @param string $kode_kelas Kode Kelas
+ * @param int $sesi Sesi yang dipilih
+ * @param string|null $kode_lab (Opsional) Kode Lab jika diketahui
+ * @return array Status validasi dan pesan
+ */
+function cek_kuota_pendaftaran($kode_kelas, $sesi, $kode_lab = null) {
+    global $conn;
+
+    // 1. Hitung jumlah mahasiswa yang sudah ada di Kelas dan Sesi tersebut
+    // Query SQL: Menghitung total mahasiswa aktif di kelas & sesi spesifik
+    $stmt_count = mysqli_prepare($conn, "SELECT COUNT(*) as total FROM mahasiswa WHERE kode_kelas = ? AND sesi = ? AND status = 'aktif'");
+    mysqli_stmt_bind_param($stmt_count, "si", $kode_kelas, $sesi);
+    mysqli_stmt_execute($stmt_count);
+    $res_count = mysqli_stmt_get_result($stmt_count);
+    $row_count = mysqli_fetch_assoc($res_count);
+    $total_mahasiswa = $row_count['total'];
+
+    // 2. Ambil Kapasitas Laboratorium
+    $kapasitas_lab = 0;
+    $nama_lab = 'Belum Ditentukan';
+
+    if ($kode_lab) {
+        // Jika kode_lab spesifik dipilih (misal saat pembuatan jadwal atau admin memilih lab manual)
+        $stmt_lab = mysqli_prepare($conn, "SELECT kapasitas, nama_lab FROM lab WHERE kode_lab = ?");
+        mysqli_stmt_bind_param($stmt_lab, "s", $kode_lab);
+        mysqli_stmt_execute($stmt_lab);
+        $res_lab = mysqli_stmt_get_result($stmt_lab);
+        if ($row_lab = mysqli_fetch_assoc($res_lab)) {
+            $kapasitas_lab = $row_lab['kapasitas'];
+            $nama_lab = $row_lab['nama_lab'];
+        }
+    } else {
+        // Jika kode_lab tidak diberikan, cari otomatis dari jadwal yang sudah ada untuk kelas & sesi ini
+        // Query SQL: Mengambil kapasitas lab dari tabel jadwal join ke tabel lab
+        // Mengambil limit 1 (jika ada multiple jadwal, asumsi kapasitas lab serupa/kita ambil salah satu)
+        $stmt_jadwal = mysqli_prepare($conn, "SELECT l.kapasitas, l.nama_lab 
+                                              FROM jadwal j 
+                                              JOIN lab l ON j.kode_lab = l.kode_lab 
+                                              WHERE j.kode_kelas = ? AND (j.sesi = ? OR j.sesi = 0)
+                                              ORDER BY l.kapasitas ASC LIMIT 1");
+        mysqli_stmt_bind_param($stmt_jadwal, "si", $kode_kelas, $sesi);
+        mysqli_stmt_execute($stmt_jadwal);
+        $res_jadwal = mysqli_stmt_get_result($stmt_jadwal);
+        if ($row_jadwal = mysqli_fetch_assoc($res_jadwal)) {
+            $kapasitas_lab = $row_jadwal['kapasitas'];
+            $nama_lab = $row_jadwal['nama_lab'];
+        }
+    }
+
+    // Jika tidak ada info lab/jadwal, kita asumsikan lolos (atau bisa return warning tergantung kebijakan)
+    if ($kapasitas_lab == 0) {
+        return [
+            'allowed' => true,
+            'message' => "Info kapasitas lab tidak ditemukan (Jadwal belum ada). Pendaftaran diizinkan sementara.",
+            'sisa_kuota' => 999,
+            'total_isi' => $total_mahasiswa,
+            'kapasitas' => 0
+        ];
+    }
+
+    // 3. Bandingkan Jumlah Mahasiswa vs Kapasitas
+    $sisa_kuota = $kapasitas_lab - $total_mahasiswa;
+
+    if ($sisa_kuota > 0) {
+        // Kapasitas masih ada
+        return [
+            'allowed' => true,
+            'message' => "Pendaftaran diizinkan. Sisa kuota: $sisa_kuota kursi (Lab: $nama_lab).",
+            'sisa_kuota' => $sisa_kuota,
+            'total_isi' => $total_mahasiswa,
+            'kapasitas' => $kapasitas_lab
+        ];
+    } else {
+        // Kapasitas penuh
+        $next_sesi = $sesi + 1;
+        return [
+            'allowed' => false,
+            'message' => "Sesi ini sudah penuh ($total_mahasiswa/$kapasitas_lab). Disarankan memilih Sesi $next_sesi atau membuat jadwal baru di jam yang berbeda.",
+            'sisa_kuota' => 0,
+            'total_isi' => $total_mahasiswa,
+            'kapasitas' => $kapasitas_lab
+        ];
+    }
 }
 ?>

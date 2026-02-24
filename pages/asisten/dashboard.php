@@ -186,7 +186,7 @@ $jumlah_pengumuman = count($pengumuman_list);
 /* ===== ASISTEN DASHBOARD STYLE ===== */
 .dashboard-content {
     padding: 24px;
-    max-width: 1600px;
+    animation: fadeIn 0.4s ease-out;
 }
 
 /* Announcement Style */
@@ -946,6 +946,10 @@ $jumlah_pengumuman = count($pengumuman_list);
 .quick-btn:hover i {
     color: white;
 }
+.quick-btn.install-pwa::before { background: linear-gradient(135deg, #20c997, #28a745); }
+.quick-btn.install-pwa i { color: #20c997; }
+.quick-btn.install-pwa:hover { box-shadow: 0 8px 20px rgba(32, 201, 151, 0.25); }
+
 .quick-btn span {
     font-size: 0.85rem;
     font-weight: 500;
@@ -1068,6 +1072,7 @@ $jumlah_pengumuman = count($pengumuman_list);
 [data-theme="dark"] .quick-btn:hover {
     background: var(--primary-color);
 }
+[data-theme="dark"] .quick-btn.install-pwa i { color: #20c997; }
 
 /* Responsive */
 @media (max-width: 1200px) {
@@ -2130,6 +2135,10 @@ $jumlah_pengumuman = count($pengumuman_list);
                                 <a href="index.php?page=logout" class="quick-btn">
                                     <i class="fas fa-sign-out-alt"></i>
                                     <span>Logout</span>
+                                </a>
+                                <a href="javascript:void(0)" class="quick-btn install-pwa" id="pwa-install-btn" style="display: none;" onclick="installPWA()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Install App</span>
                                 </a>
                             </div>
                         </div>

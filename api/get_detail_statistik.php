@@ -52,7 +52,18 @@ $query = "SELECT DISTINCT
           FROM mahasiswa m
           LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
           LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
-              AND (j.sesi = 0 OR j.sesi = m.sesi)
+              AND (
+                  EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                  OR 
+                  ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                      SELECT 1 FROM presensi_mahasiswa pm_other 
+                      JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                      WHERE pm_other.nim = m.nim 
+                      AND j_other.kode_mk = j.kode_mk 
+                      AND j_other.pertemuan_ke = j.pertemuan_ke 
+                      AND j_other.id != j.id
+                  ))
+              )
               AND j.tanggal BETWEEN '$start_date' AND '$end_date'
               AND j.tanggal <= CURDATE()
               AND j.jenis != 'inhall'

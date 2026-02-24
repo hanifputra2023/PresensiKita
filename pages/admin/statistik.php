@@ -132,67 +132,15 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     max-width: 1600px;
 }
 
-/* Header Banner */
-.page-header-banner {
-    background: linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff);
-    border-radius: 20px;
-    padding: 24px 28px;
-    color: white;
-    margin-bottom: 24px;
-    position: relative;
-    overflow: hidden;
-}
-.page-header-banner::before {
-    content: '';
-    position: absolute;
-    top: -50px;
-    right: -50px;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
-}
-.page-header-banner::after {
-    content: '';
-    position: absolute;
-    bottom: -80px;
-    left: 20%;
-    width: 150px;
-    height: 150px;
-    background: radial-gradient(circle, rgba(54, 185, 204, 0.2) 0%, transparent 70%);
-}
-.page-header-banner .header-content {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
-}
-.page-header-banner h4 {
-    margin: 0;
-    font-weight: 700;
-    font-size: 1.5rem;
-}
-.page-header-banner .subtitle {
-    margin: 4px 0 0 0;
-    opacity: 0.85;
-    font-size: 0.9rem;
-}
-.btn-print {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.3);
-    color: #fff;
-    padding: 10px 20px;
-    border-radius: 12px;
-    font-weight: 500;
-    backdrop-filter: blur(10px);
+/* Welcome Banner Modern */
+.welcome-banner-statistik .btn-banner {
     transition: all 0.3s ease;
 }
-.btn-print:hover {
-    background: rgba(255,255,255,0.3);
-    color: #fff;
+.welcome-banner-statistik .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
     transform: translateY(-2px);
+    color: white;
 }
 
 /* Filter Card */
@@ -484,12 +432,12 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     .statistik-content {
         padding: 16px;
     }
-    .page-header-banner {
-        padding: 20px;
-        border-radius: 16px;
+    .welcome-banner-statistik {
+        padding: 24px !important;
+        border-radius: 16px !important;
     }
-    .page-header-banner h4 {
-        font-size: 1.25rem;
+    .welcome-banner-statistik h1 {
+        font-size: 24px !important;
     }
     .summary-card {
         padding: 16px;
@@ -514,12 +462,18 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 }
 
 @media (max-width: 768px) {
-    .page-header-banner .header-content {
-        flex-direction: column;
-        text-align: center;
+    .welcome-banner-statistik .d-flex.flex-column.flex-md-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
     }
-    .btn-print {
+    .welcome-banner-statistik .banner-buttons {
+        margin-top: 15px;
         width: 100%;
+    }
+    .welcome-banner-statistik .banner-icon {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 22px !important;
     }
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -561,16 +515,23 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     .statistik-content {
         padding: 12px;
     }
-    .page-header-banner {
-        padding: 16px;
-        border-radius: 14px;
-        margin-bottom: 16px;
+    .welcome-banner-statistik {
+        padding: 20px !important;
+        border-radius: 14px !important;
     }
-    .page-header-banner h4 {
-        font-size: 1.1rem;
+    .welcome-banner-statistik h1 {
+        font-size: 20px !important;
     }
-    .page-header-banner .subtitle {
-        font-size: 0.8rem;
+    .welcome-banner-statistik .banner-subtitle {
+        font-size: 13px !important;
+    }
+    .welcome-banner-statistik .banner-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    .welcome-banner-statistik .btn-banner {
+        width: 100%;
+        justify-content: center;
     }
     .filter-card {
         padding: 14px;
@@ -617,16 +578,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 
 
 
-[data-theme="dark"] .page-header-banner {
-    background: var(--banner-gradient);
-}
-[data-theme="dark"] .page-header-banner .btn-print {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.2);
-    color: #fff;
-}
-[data-theme="dark"] .page-header-banner .btn-print:hover {
-    background: rgba(255,255,255,0.2);
+[data-theme="dark"] .welcome-banner-statistik {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="dark"] .filter-card,
@@ -736,19 +689,29 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
         <div class="col-md-9 col-lg-10">
             <div class="statistik-content">
                 
-                <!-- Header Banner -->
-                <div class="page-header-banner no-print">
-                    <div class="header-content">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-statistik mb-4 no-print" style="background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff)); border-radius: 24px; padding: 40px; color: white; box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3); position: relative; overflow: hidden;">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                         <div>
-                            <h4><i class="fas fa-chart-pie me-2"></i>Statistik Presensi</h4>
-                            <p class="subtitle">Analisis data kehadiran per kelas, mata kuliah, dan lab</p>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon" style="width: 60px; height: 60px; background: rgba(255, 255, 255, 0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; backdrop-filter: blur(10px); border: 2px solid rgba(255, 255, 255, 0.3);">
+                                    <i class="fas fa-chart-pie"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1" style="font-size: 32px; font-weight: 700; margin: 0;">Statistik Presensi</h1>
+                                    <p class="banner-subtitle mb-0" style="font-size: 16px; opacity: 0.95;">Analisis data kehadiran per kelas, mata kuliah, dan lab</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge" style="display: inline-block; padding: 8px 20px; background: rgba(255, 255, 255, 0.2); border-radius: 20px; font-size: 13px; font-weight: 600; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px;"></i>STATISTIK & ANALISIS
+                            </span>
                         </div>
-                        <div class="d-flex gap-2 flex-wrap">
-<a href="pages/admin/export_statistik.php?view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" target="_blank" class="btn btn-success">
-    <i class="fas fa-file-excel me-2"></i>Export Excel
-</a>
-                            <button class="btn btn-danger" onclick="exportPDF()">
-                                <i class="fas fa-file-pdf me-2"></i>Export PDF
+                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
+                            <a href="pages/admin/export_statistik.php?view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" target="_blank" class="btn btn-banner" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-file-excel me-1"></i>Excel
+                            </a>
+                            <button class="btn btn-banner" onclick="exportPDF()" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
                             </button>
                         </div>
                     </div>

@@ -51,6 +51,18 @@ $base_where = "
       $where_kelas
       $where_mk
       $where_lab
+      AND (
+          p.id IS NOT NULL
+          OR 
+          ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+              SELECT 1 FROM presensi_mahasiswa pm_other 
+              JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+              WHERE pm_other.nim = m.nim 
+              AND j_other.kode_mk = j.kode_mk 
+              AND j_other.pertemuan_ke = j.pertemuan_ke 
+              AND j_other.id != j.id
+          ))
+      )
 ";
 
 // For alpha, we must only look at past schedules OR already saved as alpha. For other statuses, we can see the record anytime.

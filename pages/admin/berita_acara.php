@@ -40,6 +40,61 @@ $result = mysqli_query($conn, $query);
     .content-wrapper { margin-left: 0 !important; width: 100% !important; padding: 0 !important; }
     .card { border: none !important; shadow: none !important; }
 }
+
+/* Responsive Welcome Banner */
+@media (max-width: 768px) {
+    .welcome-banner-bap {
+        padding: 24px !important;
+        border-radius: 16px !important;
+    }
+    
+    .welcome-banner-bap h1 {
+        font-size: 24px !important;
+    }
+    
+    .welcome-banner-bap .banner-icon {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 22px !important;
+    }
+}
+
+@media (min-width: 577px) and (max-width: 799px) {
+    .welcome-banner-bap .d-flex.flex-column.flex-md-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .welcome-banner-bap .banner-buttons {
+        margin-top: 15px;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .welcome-banner-bap .btn-cetak {
+        width: 100%;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-banner-bap .banner-buttons {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .welcome-banner-bap .btn-cetak {
+        width: 100%;
+        padding: 12px 20px;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
 </style>
 
 <div class="container-fluid">
@@ -49,11 +104,29 @@ $result = mysqli_query($conn, $query);
         </div>
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-                    <h4 class="mb-0"><i class="fas fa-file-signature me-2"></i>Rekap Berita Acara Praktikum</h4>
-                    <button onclick="window.print()" class="btn btn-secondary">
-                        <i class="fas fa-print me-1"></i> Cetak
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-bap mb-4 no-print" style="background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff)); border-radius: 24px; padding: 40px; color: white; box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3); position: relative; overflow: hidden;">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon" style="width: 60px; height: 60px; background: rgba(255, 255, 255, 0.2); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; backdrop-filter: blur(10px); border: 2px solid rgba(255, 255, 255, 0.3);">
+                                    <i class="fas fa-file-signature"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1" style="font-size: 32px; font-weight: 700; margin: 0;">Berita Acara Praktikum</h1>
+                                    <p class="banner-subtitle mb-0" style="font-size: 16px; opacity: 0.95;">Rekap laporan kegiatan praktikum</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge" style="display: inline-block; padding: 8px 20px; background: rgba(255, 255, 255, 0.2); border-radius: 20px; font-size: 13px; font-weight: 600; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); text-transform: uppercase; letter-spacing: 0.5px;">
+                                <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px;"></i>BERITA ACARA
+                            </span>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
+                            <button onclick="window.print()" class="btn btn-cetak" style="background: rgba(255, 255, 255, 0.2); color: white; border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
+                                <i class="fas fa-print me-1"></i>Cetak
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="card mb-4 no-print">

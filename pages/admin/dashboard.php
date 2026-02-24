@@ -116,7 +116,7 @@ $jumlah_pengumuman = count($pengumuman_list);
 /* ===== RICH DASHBOARD STYLE ===== */
 .dashboard-content {
     padding: 24px;
-    max-width: 1600px;
+    
     animation: fadeIn 0.4s ease-out;
 }
 
@@ -519,6 +519,12 @@ $jumlah_pengumuman = count($pengumuman_list);
     box-shadow: var(--card-shadow);
     border: 1px solid var(--border-color);
     overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.card-box:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 25px var(--card-shadow);
 }
 .card-box .card-header {
     padding: 18px 22px;

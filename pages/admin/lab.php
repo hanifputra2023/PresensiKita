@@ -216,16 +216,377 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
 <?php include 'includes/header.php'; ?>
 
 <style>
+    /* Welcome Banner Modern */
+    .welcome-banner-lab {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner-lab::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-lab 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-lab {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .welcome-banner-lab h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-lab .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-lab .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-lab .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-lab .btn-banner {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        padding: 10px 24px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-lab .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        color: white;
+    }
+    
+    .welcome-banner-lab .btn-banner-primary {
+        background: white;
+        color: var(--primary-color);
+        border-color: white;
+    }
+    
+    .welcome-banner-lab .btn-banner-primary:hover {
+        background: rgba(255, 255, 255, 0.95);
+        color: var(--primary-color);
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-lab {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .welcome-banner-lab {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-lab h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-lab .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-lab .btn-banner {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-lab {
+            padding: 30px;
+        }
+        
+        .welcome-banner-lab > div {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 15px !important;
+        }
+        
+        .welcome-banner-lab > div > div:first-child {
+            width: 100% !important;
+        }
+        
+        .welcome-banner-lab h1 {
+            font-size: 26px;
+        }
+        
+        .welcome-banner-lab .btn.btn-banner {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 16px 28px !important;
+            font-size: 16px;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+        
+        .welcome-banner-lab .btn.btn-banner i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+    }
+    
+    /* Filter Bar Modern */
+    .filter-bar-lab {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 24px 28px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        margin-bottom: 24px;
+        animation: fadeInUp 0.5s ease 0.1s both;
+    }
+    
+    .filter-bar-lab .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+    }
+    
+    .filter-bar-lab .filter-group {
+        flex: 1;
+        min-width: 200px;
+    }
+    
+    .filter-bar-lab .filter-group-search {
+        flex: 2;
+        min-width: 280px;
+    }
+    
+    .filter-bar-lab .filter-group-action {
+        flex: 0 0 auto;
+        min-width: 120px;
+    }
+    
+    .filter-bar-lab .form-label-modern {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted, #666);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 10px;
+    }
+    
+    .filter-bar-lab .form-label-modern i {
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+    
+    .filter-bar-lab .search-input-wrapper {
+        position: relative;
+    }
+    
+    .filter-bar-lab .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted, #999);
+        font-size: 15px;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+    
+    .filter-bar-lab .search-input-wrapper:focus-within .search-icon {
+        color: var(--primary-color);
+    }
+    
+    .filter-bar-lab .form-control-modern {
+        width: 100%;
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 14px 16px 14px 46px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+        color: var(--text-color);
+    }
+    
+    .filter-bar-lab .form-control-modern::placeholder {
+        color: var(--text-muted, #999);
+        font-weight: 400;
+    }
+    
+    .filter-bar-lab .form-control-modern:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .filter-bar-lab .form-control-modern:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+        outline: none;
+    }
+    
+    .filter-bar-lab .btn-filter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: 2px solid var(--primary-color);
+        background: transparent;
+        color: var(--primary-color);
+        white-space: nowrap;
+        height: 52px;
+    }
+    
+    .filter-bar-lab .btn-filter:hover {
+        background: var(--primary-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+    }
+    
+    .filter-bar-lab .btn-filter.active {
+        background: var(--primary-color);
+        color: white;
+    }
+    
+    .filter-bar-lab .select-all-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: rgba(0, 102, 204, 0.08);
+        border-radius: 12px;
+        height: 52px;
+    }
+    
+    .filter-bar-lab .select-all-wrapper label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-color);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
     /* Card Styling & Selection */
-    .lab-card { transition: all 0.2s; border: 1px solid var(--border-color); background-color: var(--bg-card); }
-    .lab-card .card-title { font-weight: 600; color: var(--text-main); }
+    .lab-card { 
+        transition: all 0.3s ease; 
+        border: 1px solid var(--border-color); 
+        background-color: var(--bg-card);
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    .lab-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.12);
+        transform: translateY(-2px);
+    }
+    
+    .lab-card .card-title { 
+        font-weight: 700; 
+        color: var(--text-main);
+        font-size: 1.1rem;
+    }
+    
+    .lab-card .badge {
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+    }
+    
+    .lab-card .text-muted {
+        font-size: 0.9rem;
+    }
+    
+    .lab-card .text-muted i {
+        color: var(--primary-color);
+        width: 20px;
+    }
     
     .lab-card.selected { 
         border-color: var(--primary-color); 
-        background-color: rgba(0, 102, 204, 0.05); 
-        box-shadow: 0 0 0 1px var(--primary-color);
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.08) 0%, rgba(0, 102, 204, 0.02) 100%);
+        box-shadow: 0 0 0 2px var(--primary-color), 0 4px 16px rgba(0, 102, 204, 0.2);
     }
-    [data-theme="dark"] .lab-card.selected { background-color: rgba(0, 102, 204, 0.15); }
+    [data-theme="dark"] .lab-card.selected { 
+        background: linear-gradient(135deg, rgba(0, 102, 204, 0.2) 0%, rgba(0, 102, 204, 0.1) 100%);
+    }
 
     .card-select-overlay { 
         position: absolute; top: 15px; left: 15px; z-index: 5; 
@@ -251,64 +612,443 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
     .select-mode .lab-card .card-body { padding-top: 3.5rem; }
 
     .lab-card .action-buttons {
-        display: flex; gap: 0.5rem; margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 1rem;
+        display: flex; 
+        gap: 0.5rem; 
+        margin-top: auto; 
+        border-top: 1px solid var(--border-color); 
+        padding-top: 1rem;
     }
-    .lab-card .action-buttons .btn { flex-grow: 1; }
+    .lab-card .action-buttons .btn { 
+        flex-grow: 1;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    
+    .lab-card .action-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
 
     /* Sticky Bottom Bar untuk Bulk Action */
     #bulkActionBar {
-        position: fixed; bottom: -100px; left: 0; right: 0;
-        background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
-        padding: 15px 30px; z-index: 1000;
+        position: fixed; 
+        bottom: -100px; 
+        left: 0; 
+        right: 0;
+        background: var(--bg-card); 
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.15);
+        padding: 20px 30px; 
+        z-index: 1000;
         transition: bottom 0.3s ease-in-out;
-        display: flex; justify-content: space-between; align-items: center;
-        border-top: 1px solid var(--border-color);
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        border-top: 2px solid var(--primary-color);
+        backdrop-filter: blur(10px);
     }
-    #bulkActionBar.show { bottom: 0; }
-    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
+    #bulkActionBar.show { 
+        bottom: 0; 
+    }
+    [data-theme="dark"] #bulkActionBar { 
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.4); 
+    }
+    
+    #bulkActionBar .badge {
+        font-size: 1.2rem;
+        padding: 8px 16px;
+        border-radius: 10px;
+    }
+    
+    #bulkActionBar .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+        transition: all 0.3s ease;
+    }
+    
+    #bulkActionBar .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
     
     /* Penyesuaian agar konten tidak tertutup bar */
     body { padding-bottom: 80px; } 
+    
+    /* Modal Modern Styling */
+    .modal-content {
+        border-radius: 20px;
+        border: none;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .modal-header {
+        background: var(--banner-gradient);
+        color: white;
+        border-radius: 20px 20px 0 0;
+        padding: 24px 30px;
+        border: none;
+    }
+    
+    .modal-title {
+        font-weight: 700;
+        font-size: 1.3rem;
+        color: white;
+    }
+    
+    .modal-body {
+        padding: 24px;
+    }
+    
+    .modal-body .form-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 8px;
+    }
+    
+    .modal-body .form-control,
+    .modal-body .form-select {
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 10px 14px;
+        transition: all 0.3s ease;
+    }
+    
+    .modal-body .form-control:focus,
+    .modal-body .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+    }
+    
+    .modal-footer {
+        border-top: 2px solid var(--border-color);
+        padding: 16px 24px;
+    }
+    
+    .modal-footer .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+    }
 
     /* SLIDER CONFIRM STYLE */
     .slider-container {
-        position: relative; width: 100%; height: 55px;
-        background: #f0f2f5; border-radius: 30px;
-        user-select: none; overflow: hidden;
-        box-shadow: inset 0 2px 5px rgba(0,0,0,0.1);
+        position: relative; 
+        width: 100%; 
+        height: 60px;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 30px;
+        user-select: none; 
+        overflow: hidden;
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.1);
+        border: 2px solid var(--border-color);
     }
-    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
+    [data-theme="dark"] .slider-container { 
+        background: linear-gradient(135deg, var(--bg-input) 0%, rgba(255, 255, 255, 0.05) 100%);
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.3); 
+    }
 
     .slider-text {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; align-items: center; justify-content: center;
-        font-weight: 600; color: #888; font-size: 14px;
-        text-transform: uppercase; letter-spacing: 1px;
-        z-index: 1; pointer-events: none; transition: opacity 0.3s;
+        position: absolute; 
+        top: 0; 
+        left: 0; 
+        width: 100%; 
+        height: 100%;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        font-weight: 700; 
+        color: #888; 
+        font-size: 14px;
+        text-transform: uppercase; 
+        letter-spacing: 1.5px;
+        z-index: 1; 
+        pointer-events: none; 
+        transition: opacity 0.3s;
     }
-    [data-theme="dark"] .slider-text { color: var(--text-muted); }
+    [data-theme="dark"] .slider-text { 
+        color: var(--text-muted); 
+    }
 
     .slider-handle {
-        position: absolute; top: 5px; left: 5px;
-        width: 45px; height: 45px;
-        background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2;
-        display: flex; align-items: center; justify-content: center;
-        color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        position: absolute; 
+        top: 6px; 
+        left: 6px;
+        width: 48px; 
+        height: 48px;
+        background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        border-radius: 50%; 
+        cursor: pointer; 
+        z-index: 2;
+        display: flex; 
+        align-items: center; 
+        justify-content: center;
+        color: white; 
+        font-size: 20px; 
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
         transition: transform 0.1s;
     }
-    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
-    .slider-progress {
-        position: absolute; top: 0; left: 0; height: 100%;
-        background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0;
+    .slider-handle:active { 
+        cursor: grabbing; 
+        transform: scale(0.95); 
     }
-    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
-    .slider-container.unlocked .slider-text { opacity: 0; }
+    .slider-progress {
+        position: absolute; 
+        top: 0; 
+        left: 0; 
+        height: 100%;
+        background: linear-gradient(90deg, rgba(220, 53, 69, 0.3) 0%, rgba(220, 53, 69, 0.1) 100%);
+        width: 0; 
+        z-index: 0;
+        transition: width 0.1s ease;
+    }
+    .slider-container.unlocked .slider-handle { 
+        width: calc(100% - 12px); 
+        border-radius: 30px; 
+        background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    }
+    .slider-container.unlocked .slider-progress {
+        background: linear-gradient(90deg, rgba(40, 167, 69, 0.3) 0%, rgba(40, 167, 69, 0.1) 100%);
+    }
+    .slider-container.unlocked .slider-text { 
+        opacity: 0; 
+    }
 
     @media (max-width: 576px) {
-        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
-        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; }
-        #bulkActionBar button { flex: 1; }
+        #bulkActionBar { 
+            flex-direction: column; 
+            gap: 10px; 
+            padding: 15px; 
+        }
+        #bulkActionBar > div { 
+            width: 100%; 
+            display: flex; 
+            justify-content: space-between; 
+        }
+        #bulkActionBar button { 
+            flex: 1; 
+        }
+        
+        .welcome-banner-lab {
+            padding: 24px;
+        }
+        
+        .welcome-content-lab h1 {
+            font-size: 24px;
+        }
+        
+        .btn-add-lab {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        /* Filter Bar Mobile */
+        .filter-bar-lab {
+            padding: 16px;
+            border-radius: 12px;
+        }
+        
+        .filter-bar-lab .filter-row {
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .filter-bar-lab .filter-group,
+        .filter-bar-lab .filter-group-search,
+        .filter-bar-lab .filter-group-action {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-lab .form-label-modern {
+            font-size: 0.7rem;
+            margin-bottom: 6px;
+        }
+        
+        .filter-bar-lab .form-control-modern {
+            padding: 12px 14px 12px 42px;
+            font-size: 14px;
+        }
+        
+        .filter-bar-lab .btn-filter {
+            width: 100%;
+            padding: 12px 16px;
+            height: 48px;
+        }
+        
+        .filter-bar-lab .action-buttons-mobile {
+            display: flex;
+            gap: 10px;
+            width: 100%;
+        }
+        
+        .filter-bar-lab .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-lab .select-all-wrapper {
+            width: 100%;
+            justify-content: center;
+            padding: 12px 14px;
+            height: 48px;
+        }
     }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-lab {
+            padding: 30px;
+        }
+        
+        .welcome-content-lab {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 15px !important;
+        }
+        
+        .welcome-content-lab > div:first-child {
+            width: 100% !important;
+        }
+        
+        .welcome-content-lab h1 {
+            font-size: 26px;
+        }
+        
+        .welcome-content-lab .btn.btn-add-lab {
+            width: 100% !important;
+            max-width: 100% !important;
+            flex: 0 0 100% !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            padding: 16px 28px !important;
+            font-size: 16px;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            box-sizing: border-box !important;
+        }
+        
+        .welcome-content-lab .btn.btn-add-lab i {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        /* Filter Bar Tablet */
+        .filter-bar-lab {
+            padding: 20px;
+        }
+        
+        .filter-bar-lab .filter-row {
+            flex-wrap: wrap;
+            gap: 14px;
+        }
+        
+        .filter-bar-lab .filter-group-search {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-lab .filter-group-action {
+            flex: 1 1 100%;
+            min-width: 100%;
+        }
+        
+        .filter-bar-lab .form-label-modern {
+            display: flex !important;
+        }
+        
+        .filter-bar-lab .btn-filter {
+            width: 100%;
+            padding: 14px 20px;
+            height: 52px;
+            font-size: 15px;
+        }
+        
+        .filter-bar-lab .action-buttons-mobile {
+            width: 100%;
+        }
+        
+        .filter-bar-lab .action-buttons-mobile .btn-filter {
+            flex: 1;
+        }
+        
+        .filter-bar-lab .select-all-wrapper {
+            flex: 1;
+            justify-content: center;
+            height: 52px;
+            padding: 14px 16px;
+        }
+    }
+    
+    /* Dark mode adjustments */
+    [data-theme="dark"] .filter-bar-lab {
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    [data-theme="dark"] .filter-bar-lab .form-label-modern {
+        color: #aaa;
+    }
+    
+    [data-theme="dark"] .filter-bar-lab .form-control-modern {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    
+    [data-theme="dark"] .filter-bar-lab .form-control-modern:hover,
+    [data-theme="dark"] .filter-bar-lab .form-control-modern:focus {
+        border-color: var(--primary-color);
+    }
+    
+    [data-theme="dark"] .filter-bar-lab .select-all-wrapper {
+        background: rgba(0, 102, 204, 0.15);
+    }
+    
+    [data-theme="dark"] .lab-card {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    
+    [data-theme="dark"] .lab-card:hover {
+        box-shadow: 0 4px 16px rgba(0, 102, 204, 0.2);
+    }
+    
+    /* Smooth transitions for all interactive elements */
+    * {
+        transition-property: background-color, border-color, box-shadow, transform;
+        transition-duration: 0.3s;
+        transition-timing-function: ease;
+    }
+    
+    /* Page fade-in animation */
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .lab-card {
+        animation: fadeInUp 0.5s ease forwards;
+    }
+    
+    .lab-card:nth-child(1) { animation-delay: 0.1s; }
+    .lab-card:nth-child(2) { animation-delay: 0.15s; }
+    .lab-card:nth-child(3) { animation-delay: 0.2s; }
+    .lab-card:nth-child(4) { animation-delay: 0.25s; }
+    .lab-card:nth-child(5) { animation-delay: 0.3s; }
+    .lab-card:nth-child(6) { animation-delay: 0.35s; }
+    .lab-card:nth-child(7) { animation-delay: 0.4s; }
+    .lab-card:nth-child(8) { animation-delay: 0.45s; }
+    .lab-card:nth-child(9) { animation-delay: 0.5s; }
 </style>
 
 <div class="container-fluid">
@@ -320,34 +1060,66 @@ $mk_list = mysqli_query($conn, "SELECT * FROM mata_kuliah ORDER BY nama_mk");
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
                 
-                <div class="page-header d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-flask me-2"></i>Kelola Laboratorium</h4>
-                    <button class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                        <i class="fas fa-plus me-1"></i>Tambah Lab
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-lab mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-flask"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Kelola Laboratorium</h1>
+                                    <p class="banner-subtitle mb-0">Atur dan kelola data laboratorium dengan sistem koordinat dan kapasitas yang akurat</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-microscope me-1"></i>Manajemen Laboratorium
+                            </span>
+                        </div>
+                        <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus me-2"></i>Tambah Lab
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>
                 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form method="GET" class="row g-3 align-items-end" onsubmit="return false;">
-                            <input type="hidden" name="page" value="admin_lab">
-                            <div class="col-12 col-md">
-                                <label for="searchInput" class="form-label small">Cari Nama/Kode Lab</label>
-                                <input type="text" name="search" id="searchInput" class="form-control" placeholder="Ketik untuk mencari..." value="<?= htmlspecialchars($search) ?>">
-                            </div>
-                            <div class="col-12 col-md-auto d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2">
-                                <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
-                                    <i class="fas fa-check-square me-1"></i> Pilih
-                                </button>
-                                <div class="d-none d-flex align-items-center justify-content-center justify-content-md-start mb-0" id="selectAllContainer">
-                                    <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()">
-                                    <label class="form-check-label fw-bold ms-2 small" for="selectAll" style="cursor:pointer">Semua</label>
+                <div class="filter-bar-lab">
+                    <form method="GET" onsubmit="return false;">
+                        <input type="hidden" name="page" value="admin_lab">
+                        <div class="filter-row">
+                            <!-- Search Input -->
+                            <div class="filter-group filter-group-search">
+                                <label for="searchInput" class="form-label-modern">
+                                    <i class="fas fa-search"></i>
+                                    Cari Laboratorium
+                                </label>
+                                <div class="search-input-wrapper">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" name="search" id="searchInput" class="form-control-modern" value="<?= htmlspecialchars($search) ?>" placeholder="Ketik nama atau kode lab...">
                                 </div>
                             </div>
-                        </form>
-                    </div>
+                            
+                            <!-- Action Buttons -->
+                            <div class="filter-group filter-group-action">
+                                <label class="form-label-modern d-none d-md-flex">
+                                    <i class="fas fa-cog"></i>
+                                    Aksi
+                                </label>
+                                <div class="d-flex gap-2 action-buttons-mobile">
+                                    <button type="button" class="btn-filter" id="btnSelectMode" onclick="toggleSelectMode()">
+                                        <i class="fas fa-check-square"></i>
+                                        <span>Pilih</span>
+                                    </button>
+                                    <div class="select-all-wrapper d-none" id="selectAllContainer">
+                                        <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="width: 20px; height: 20px; cursor: pointer; border-radius: 6px;">
+                                        <label class="m-0" for="selectAll">Semua</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
                 </div>
 
                 <div id="labContainer">
@@ -590,14 +1362,14 @@ function toggleSelectMode() {
     
     if (isSelectMode) {
         container.classList.add('select-mode');
-        btn.classList.replace('btn-outline-secondary', 'btn-secondary');
-        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
+        btn.classList.replace('btn-outline-primary', 'btn-primary');
+        btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal Pilih';
         selectAllContainer.classList.remove('d-none');
         selectAllContainer.classList.add('d-flex');
     } else {
         container.classList.remove('select-mode');
-        btn.classList.replace('btn-secondary', 'btn-outline-secondary');
-        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Pilih';
+        btn.classList.replace('btn-primary', 'btn-outline-primary');
+        btn.innerHTML = '<i class="fas fa-check-square me-1"></i> Mode Pilih';
         selectAllContainer.classList.add('d-none');
         selectAllContainer.classList.remove('d-flex');
         

@@ -29,8 +29,30 @@ $list_bulan_query = mysqli_query($conn, "SELECT DISTINCT DATE_FORMAT(tanggal, '%
 $filter_mk = isset($_GET['mk']) ? mysqli_real_escape_string($conn, $_GET['mk']) : '';
 $filter_bulan = isset($_GET['bulan']) ? mysqli_real_escape_string($conn, $_GET['bulan']) : '';
 
+// [FIX] Logika Tukar Sesi / Shift
+// Menampilkan jadwal jika:
+// 1. Mahasiswa punya record presensi di jadwal tersebut (meskipun sesi lama/beda)
+// 2. ATAU (Jadwal sesuai sesi saat ini DAN Mahasiswa TIDAK punya record di jadwal lain untuk pertemuan yang sama)
+$session_swap_logic = "
+    AND (
+        p.id IS NOT NULL
+        OR 
+        (
+            (j.sesi = 0 OR j.sesi = '$sesi')
+            AND NOT EXISTS (
+                SELECT 1 FROM presensi_mahasiswa pm2 
+                JOIN jadwal j2 ON pm2.jadwal_id = j2.id 
+                WHERE pm2.nim = '$nim' 
+                AND j2.kode_mk = j.kode_mk 
+                AND j2.pertemuan_ke = j.pertemuan_ke
+                AND j2.id != j.id
+            )
+        )
+    )
+";
+
 $where_clause = "WHERE j.kode_kelas = '$kelas'
-                 AND (j.sesi = 0 OR j.sesi = '$sesi')
+                 $session_swap_logic
                  AND (
                      j.jenis != 'inhall'
                      OR EXISTS (
@@ -50,7 +72,13 @@ if (!empty($filter_bulan)) $where_clause .= " AND DATE_FORMAT(j.tanggal, '%Y-%m'
 // Inhall hanya ditampilkan jika mahasiswa terdaftar di penggantian_inhall
 $jadwal = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as presensi_status,
                                 a1.nama as asisten1_nama, a2.nama as asisten2_nama,
-                                (SELECT COUNT(*) FROM materi_perkuliahan mp WHERE mp.id_jadwal = j.id) as jumlah_materi
+                                (SELECT COUNT(*) FROM materi_perkuliahan mp WHERE mp.id_jadwal = j.id) as jumlah_materi,
+                                (SELECT p2.status FROM presensi_mahasiswa p2 
+                                 JOIN jadwal j2 ON p2.jadwal_id = j2.id 
+                                 WHERE p2.nim = '$nim' 
+                                 AND j2.kode_mk = j.kode_mk 
+                                 AND j2.pertemuan_ke = j.pertemuan_ke 
+                                 AND j2.id != j.id LIMIT 1) as status_other_session
                                 FROM jadwal j 
                                 LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                 LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
@@ -166,6 +194,137 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
 <?php include 'includes/header.php'; ?>
 
 <style>
+/* ===== WELCOME BANNER JADWAL ===== */
+.welcome-banner-jadwal {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-jadwal::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-jadwal 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-jadwal {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-jadwal h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-jadwal .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.welcome-banner-jadwal .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    color: white;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-jadwal {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+    .welcome-banner-jadwal {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-jadwal h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-jadwal .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-jadwal .banner-buttons {
+        flex-direction: column;
+        width: 100%;
+        gap: 10px;
+    }
+    
+    .welcome-banner-jadwal .btn-banner {
+        width: 100%;
+        text-align: center;
+    }
+}
+
 /* Fix Hover Table di Dark Mode - Override Bootstrap table-hover */
 [data-theme="dark"] .table-hover > tbody > tr:hover {
     --bs-table-hover-bg: rgba(255, 255, 255, 0.08);
@@ -246,19 +405,35 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Jadwal Praktikum - <?= $mahasiswa['nama_kelas'] ?></h4>
-                    <div class="d-grid d-md-flex gap-2 justify-content-md-end">
-                        <a href="index.php?page=mahasiswa_jadwal&export=excel&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-success">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-jadwal mb-4">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Jadwal Praktikum</h1>
+                                    <p class="banner-subtitle mb-0">Kelas <?= $mahasiswa['nama_kelas'] ?></p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-clock me-1"></i>Semester Aktif
+                            </span>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
+                            <a href="index.php?page=mahasiswa_jadwal&export=excel&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-banner">
                             <i class="fas fa-file-excel me-1"></i>Excel
                         </a>
-                        <a href="index.php?page=mahasiswa_jadwal&export=ics&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-info text-white">
+                            <a href="index.php?page=mahasiswa_jadwal&export=ics&mk=<?= $filter_mk ?>&bulan=<?= $filter_bulan ?>" class="btn btn-banner">
                             <i class="fas fa-calendar-plus me-1"></i>Kalender
                         </a>
-                        <button onclick="exportPDF()" class="btn btn-danger">
+                            <button onclick="exportPDF()" class="btn btn-banner">
                             <i class="fas fa-file-pdf me-1"></i>PDF
                         </button>
                     </div>
+                </div>
                 </div>
                 
                 <!-- Filter Card -->
@@ -358,10 +533,17 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                         // Cek apakah jadwal sebelum tanggal daftar mahasiswa
                                         $jadwal_sebelum_daftar = strtotime($j['tanggal']) < strtotime($tanggal_daftar);
                                         
+                                        // [MODIFIKASI] Cek kehadiran di sesi lain
+                                        $status_display = $j['presensi_status'];
+                                        if (empty($status_display) && !empty($j['status_other_session'])) {
+                                            $status_display = $j['status_other_session'];
+                                        }
+                                        
                                         // Tentukan class row
                                         $row_class = '';
                                         if ($is_ended && !$jadwal_sebelum_daftar) {
-                                            $row_class = 'text-muted';
+                                            // Jika sudah hadir di sesi lain, jangan dimute
+                                            $row_class = ($status_display) ? '' : 'text-muted';
                                         } elseif ($sedang_aktif) {
                                             $row_class = 'table-success';
                                         } elseif ($belum_waktunya) {
@@ -407,13 +589,14 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                                 </span>
                                             </td>
                                             <td>
-                                                <?php if ($j['presensi_status'] && $j['presensi_status'] != 'belum'): ?>
-                                                    <span class="badge bg-<?= $j['presensi_status'] == 'hadir' ? 'success' : ($j['presensi_status'] == 'izin' ? 'warning' : ($j['presensi_status'] == 'sakit' ? 'info' : 'danger')) ?>">
-                                                        <?= ucfirst($j['presensi_status']) ?>
+                                                <?php if ($status_display && $status_display != 'belum'): ?>
+                                                    <span class="badge bg-<?= $status_display == 'hadir' ? 'success' : ($status_display == 'izin' ? 'warning' : ($status_display == 'sakit' ? 'info' : 'danger')) ?>">
+                                                        <?= ucfirst($status_display) ?>
+                                                        <?= !empty($j['status_other_session']) && empty($j['presensi_status']) ? '*' : '' ?>
                                                     </span>
                                                 <?php elseif ($jadwal_sebelum_daftar): ?>
                                                     <span class="badge bg-secondary" title="Jadwal sebelum tanggal pendaftaran">-</span>
-                                                <?php elseif ($is_ended): ?>
+                                                <?php elseif ($is_ended && empty($status_display)): ?>
                                                     <span class="badge bg-danger">Alpha</span>
                                                 <?php elseif ($sedang_aktif): ?>
                                                     <a href="index.php?page=mahasiswa_scanner" class="btn btn-sm btn-success">
@@ -467,10 +650,16 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                 // Cek apakah jadwal sebelum tanggal daftar mahasiswa
                                 $jadwal_sebelum_daftar = strtotime($j['tanggal']) < strtotime($tanggal_daftar);
                                 
+                                // [MODIFIKASI] Cek kehadiran di sesi lain
+                                $status_display = $j['presensi_status'];
+                                if (empty($status_display) && !empty($j['status_other_session'])) {
+                                    $status_display = $j['status_other_session'];
+                                }
+                                
                                 // Tentukan border dan style
                                 $border_class = '';
                                 $card_style = '';
-                                if ($is_ended && !$jadwal_sebelum_daftar) {
+                                if ($is_ended && !$jadwal_sebelum_daftar && empty($status_display)) {
                                     $card_style = 'opacity: 0.6;';
                                 } elseif ($sedang_aktif) {
                                     $border_class = 'border-success';
@@ -536,13 +725,14 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                         </div>
                                         <div class="d-flex justify-content-between align-items-center">
                                             <span class="small text-muted">Status:</span>
-                                            <?php if ($j['presensi_status'] && $j['presensi_status'] != 'belum'): ?>
-                                                <span class="badge bg-<?= $j['presensi_status'] == 'hadir' ? 'success' : ($j['presensi_status'] == 'izin' ? 'warning' : ($j['presensi_status'] == 'sakit' ? 'info' : 'danger')) ?>">
-                                                    <?= ucfirst($j['presensi_status']) ?>
+                                            <?php if ($status_display && $status_display != 'belum'): ?>
+                                                <span class="badge bg-<?= $status_display == 'hadir' ? 'success' : ($status_display == 'izin' ? 'warning' : ($status_display == 'sakit' ? 'info' : 'danger')) ?>">
+                                                    <?= ucfirst($status_display) ?>
+                                                    <?= !empty($j['status_other_session']) && empty($j['presensi_status']) ? '*' : '' ?>
                                                 </span>
                                             <?php elseif ($jadwal_sebelum_daftar): ?>
                                                 <span class="badge bg-secondary" title="Jadwal sebelum tanggal pendaftaran">-</span>
-                                            <?php elseif ($is_ended): ?>
+                                            <?php elseif ($is_ended && empty($status_display)): ?>
                                                 <span class="badge bg-danger">Alpha</span>
                                             <?php elseif ($sedang_aktif): ?>
                                                 <a href="index.php?page=mahasiswa_scanner" class="btn btn-sm btn-success">

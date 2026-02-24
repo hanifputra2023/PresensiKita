@@ -87,6 +87,140 @@ $riwayat = mysqli_stmt_get_result($stmt_riwayat);
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+    /* ===== WELCOME BANNER RIWAYAT ===== */
+    .welcome-banner-riwayat {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .welcome-banner-riwayat::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-riwayat 4s ease-in-out infinite;
+    }
+
+    @keyframes pulse-glow-riwayat {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50% { transform: scale(1.05); opacity: 0.6; }
+    }
+
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .welcome-banner-riwayat h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-riwayat .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-riwayat .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+
+    .welcome-banner-riwayat .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-riwayat .btn-banner {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        padding: 10px 20px;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        text-decoration: none;
+    }
+
+    .welcome-banner-riwayat .btn-banner:hover {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-2px);
+        color: white;
+    }
+
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-riwayat {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .welcome-banner-riwayat {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-riwayat h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-riwayat .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-riwayat .btn-banner {
+            width: 100%;
+            text-align: center;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .welcome-banner-riwayat .d-flex.gap-2 {
+            flex-direction: column;
+            width: 100%;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -95,13 +229,31 @@ $riwayat = mysqli_stmt_get_result($stmt_riwayat);
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-history me-2"></i>Riwayat Presensi</h4>
-                    <div class="btn-group">
-                        <a href="index.php?page=mahasiswa_riwayat&export=excel" class="btn btn-success btn-sm">
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-riwayat mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-history"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Riwayat Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Rekap kehadiran praktikum Anda</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-list-alt me-1"></i>Log Kehadiran
+                            </span>
+                        </div>
+                        <div class="d-flex gap-2 align-items-center flex-wrap">
+                            <a href="index.php?page=mahasiswa_riwayat&export=excel" class="btn btn-banner">
                             <i class="fas fa-file-excel me-1"></i>Excel
                         </a>
-                        <button onclick="exportPDF()" class="btn btn-danger btn-sm"><i class="fas fa-file-pdf me-1"></i>PDF</button>
+                            <button onclick="exportPDF()" class="btn btn-banner">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </button>
+                        </div>
                     </div>
                 </div>
                 

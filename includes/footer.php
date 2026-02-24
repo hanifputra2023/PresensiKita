@@ -7,6 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <!-- Html5QrcodeScanner -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="pwa-register.js"></script>
+
 
     <script>
         // Global Theme Toggle Logic
@@ -67,19 +69,5 @@
         }
     </script>
     
-    <!-- PWA Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.php')
-                    .then(function(registration) {
-                        console.log('PWA ServiceWorker registered with scope:', registration.scope);
-                    })
-                    .catch(function(err) {
-                        console.log('PWA ServiceWorker registration failed:', err);
-                    });
-            });
-        }
-    </script>
 </body>
 </html>

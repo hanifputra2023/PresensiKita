@@ -76,6 +76,139 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+    /* Welcome Banner Modern */
+    .welcome-banner-broadcast {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner-broadcast::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-broadcast 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-broadcast {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes pulse-badge-broadcast {
+        0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.4);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 8px rgba(255, 255, 255, 0);
+        }
+    }
+    
+    .welcome-banner-broadcast h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-broadcast .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-broadcast .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-broadcast .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+        animation: pulse-badge-broadcast 2s ease-in-out infinite;
+    }
+    
+    .welcome-banner-broadcast .banner-badge i {
+        font-size: 8px;
+        margin-right: 6px;
+        animation: pulse 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-broadcast {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .welcome-banner-broadcast {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-broadcast h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-broadcast .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -84,7 +217,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4"><i class="fab fa-whatsapp me-2 text-success"></i>Broadcast WhatsApp Gateway</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-broadcast mb-4">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <div class="banner-icon">
+                            <i class="fab fa-whatsapp"></i>
+                        </div>
+                        <div>
+                            <h1 class="mb-1">Broadcast WhatsApp</h1>
+                            <p class="banner-subtitle mb-0">Kirim pesan massal ke mahasiswa dan asisten melalui WhatsApp Gateway</p>
+                        </div>
+                    </div>
+                    <span class="banner-badge">
+                        <i class="fas fa-circle"></i>WHATSAPP GATEWAY
+                    </span>
+                </div>
                 
                 <?= show_alert() ?>
                 
@@ -107,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                             <div class="mb-3" id="divKelas" style="display: none;">
                                 <label class="form-label fw-bold">Pilih Kelas</label>
-                                <select name="filter_kelas" class="form-select">
+                                <select name="filter_kelas" id="filterKelas" class="form-select" onchange="updateKelasTemplate()">
                                     <option value="">-- Pilih Kelas --</option>
                                     <?php while ($k = mysqli_fetch_assoc($kelas_list)): ?>
                                         <option value="<?= $k['kode_kelas'] ?>"><?= $k['nama_kelas'] ?></option>
@@ -117,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Isi Pesan</label>
-                                <textarea name="pesan" class="form-control" rows="6" required placeholder="Tulis pesan Anda di sini... Gunakan {nama} untuk menyebut nama penerima secara otomatis."></textarea>
+                                <textarea name="pesan" id="pesanInput" class="form-control" rows="6" required placeholder="Tulis pesan Anda di sini... Gunakan {nama} untuk menyebut nama penerima secara otomatis."></textarea>
                                 <div class="form-text">
                                     Tips: Gunakan *teks* untuk tebal, _teks_ untuk miring. <br>
                                     Contoh: "Halo {nama}, jangan lupa besok ada praktikum!"
@@ -141,10 +288,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </div>
 
 <script>
+const templates = {
+    'semua_mahasiswa': "Halo {nama},\n\nAda pengumuman penting untuk seluruh mahasiswa. Harap cek dashboard sistem presensi untuk informasi terbaru.\n\nTerima kasih.",
+    'kelas_tertentu': "Halo {nama},\n\nAda informasi khusus untuk kelas Anda. Mohon cek jadwal dan materi terbaru di sistem.\n\nTerima kasih.",
+    'semua_asisten': "Halo Asisten {nama},\n\nMohon cek jadwal asistensi terbaru dan pastikan berita acara diisi tepat waktu.\n\nSemangat bertugas!",
+    'alpha_hari_ini': "Halo {nama},\n\nAnda tercatat *ALPHA* (Tidak Hadir) pada jadwal praktikum hari ini. Mohon segera hubungi asisten atau admin jika ada kesalahan, atau ikuti prosedur Inhall jika berhalangan.\n\nTerima kasih."
+};
+
 function toggleKelas() {
     var type = document.getElementById('targetType').value;
     var div = document.getElementById('divKelas');
+    var pesanInput = document.getElementById('pesanInput');
+    
     div.style.display = (type == 'kelas_tertentu') ? 'block' : 'none';
+    
+    if (templates[type]) {
+        pesanInput.value = templates[type];
+    }
+}
+
+function updateKelasTemplate() {
+    var type = document.getElementById('targetType').value;
+    var kelasSelect = document.getElementById('filterKelas');
+    var namaKelas = kelasSelect.options[kelasSelect.selectedIndex].text;
+    var pesanInput = document.getElementById('pesanInput');
+
+    if (type === 'kelas_tertentu' && namaKelas && namaKelas !== '-- Pilih Kelas --') {
+         pesanInput.value = "Halo {nama},\n\nAda informasi khusus untuk kelas " + namaKelas + ". Mohon cek jadwal dan materi terbaru di sistem.\n\nTerima kasih.";
+    }
 }
 </script>
 

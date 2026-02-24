@@ -54,8 +54,9 @@ $stmt_stat = mysqli_prepare($conn, "SELECT
     JOIN mahasiswa m ON m.nim = ?
     WHERE j.kode_kelas = ?
     AND j.jenis != 'inhall'
+    AND (j.sesi = 0 OR j.sesi = ?)
     AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)");
-mysqli_stmt_bind_param($stmt_stat, "sss", $nim, $nim, $kode_kelas);
+mysqli_stmt_bind_param($stmt_stat, "sssi", $nim, $nim, $kode_kelas, $sesi_mhs);
 mysqli_stmt_execute($stmt_stat);
 $stat_result = mysqli_stmt_get_result($stmt_stat);
 $stat_data = mysqli_fetch_assoc($stat_result);
