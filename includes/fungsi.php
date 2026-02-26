@@ -106,7 +106,7 @@ function generate_qr_code() {
 function validasi_waktu($jam_mulai, $jam_selesai) {
     $sekarang = time();
     $mulai = strtotime($jam_mulai) - (TOLERANSI_SEBELUM * 60);
-    $akhir = strtotime($jam_selesai) + (TOLERANSI_SESUDAH * 60);
+    $akhir = strtotime($jam_mulai) + (BATAS_TELAT * 60);
     
     return ($sekarang >= $mulai && $sekarang <= $akhir);
 }
@@ -358,7 +358,8 @@ function auto_set_alpha_jadwal_lewat() {
                   pm.verified_by_system = 1
               WHERE pm.status = 'belum'
               AND j.jenis != 'inhall'
-              AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
+              
+              AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME()))
               AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)";
     
     mysqli_query($conn, $query);
@@ -370,7 +371,7 @@ function auto_set_alpha_jadwal_lewat() {
     $jadwal_lewat = mysqli_query($conn, "SELECT j.id, j.kode_kelas, j.tanggal, j.jam_selesai, j.sesi, j.kode_mk, j.pertemuan_ke
                                           FROM jadwal j 
                                           WHERE j.jenis != 'inhall'
-                                          AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))
+                                          AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME()))
                                           AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                                           AND j.tanggal <= CURDATE()");
     
@@ -606,7 +607,8 @@ function auto_set_alpha() {
               WHERE pm.status = 'belum'
               AND j.jenis != 'inhall'
               AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-              AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))";
+              
+              AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME()))";
     
     mysqli_query($conn, $query);
     $updated = mysqli_affected_rows($conn);
@@ -618,7 +620,8 @@ function auto_set_alpha() {
                      WHERE j.jenis != 'inhall'
                      AND j.tanggal >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
                      AND j.tanggal <= CURDATE()
-                     AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME()))";
+                     
+                     AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME()))";
     
     $jadwal_selesai = mysqli_query($conn, $query_jadwal);
     

@@ -27,7 +27,7 @@ $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 if ($status == 'alpha') {
     // Alpha: Status tersimpan sebagai alpha ATAU jadwal sudah lewat dan tidak ada status hadir/izin/sakit
     $status_condition = "j.id IS NOT NULL 
-                         AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
+                         AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW()  
                          AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
                          AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
 } elseif ($status == 'belum') {
@@ -93,7 +93,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         // Tentukan status: jika kosong dan jadwal sudah lewat = alpha, jika belum lewat = belum
         $status_final = $row['status'];
         if (empty($status_final)) {
-            $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+            $jadwal_end = date('Y-m-d H:i:s', strtotime($row['tanggal'] . ' ' . $row['jam_mulai']) + (BATAS_TELAT * 60)); // Batas telat
             $waktu_selesai = strtotime($jadwal_end);
             
             if ($row['tanggal_daftar'] > $jadwal_end) {

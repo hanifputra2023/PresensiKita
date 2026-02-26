@@ -38,15 +38,15 @@ $stmt_stat = mysqli_prepare($conn, "SELECT
     SUM(CASE WHEN pm.status = 'sakit' THEN 1 ELSE 0 END) as total_sakit,
     SUM(CASE 
         WHEN pm.status = 'alpha' THEN 1
-        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() THEN 1 
         ELSE 0 
     END) as total_alpha,
     SUM(CASE 
-        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() THEN 1 
+        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) >= NOW() THEN 1 
         ELSE 0 
     END) as total_belum,
     SUM(CASE 
-        WHEN CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() OR pm.status IN ('hadir', 'izin', 'sakit', 'alpha') THEN 1 
+        WHEN CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() OR pm.status IN ('hadir', 'izin', 'sakit', 'alpha') THEN 1 
         ELSE 0 
     END) as total_completed
     FROM jadwal j

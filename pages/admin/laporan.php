@@ -50,7 +50,7 @@ if (isset($_GET['ajax_detail'])) {
         // Karena query sudah difilter dengan benar, tidak perlu grouping manual yang rumit
         while ($d = mysqli_fetch_assoc($detail_query)) {
             $status = $d['status'];
-            $jadwal_end_time = $d['tanggal'] . ' ' . $d['jam_selesai'];
+            $jadwal_end_time = date('Y-m-d H:i:s', strtotime($d['tanggal'] . ' ' . $d['jam_mulai']) + (30 * 60)); // Batas telat 30 menit
             $is_past = strtotime($jadwal_end_time) < time();
             $is_registered = $tanggal_daftar < $jadwal_end_time;
 
@@ -359,8 +359,20 @@ if (isset($_GET['export_rekap_nilai'])) {
         // Total Jumlah Presensi (Hadir)
         echo '<td>' . $stats['hadir'] . '</td>';
 
+        // Logika Status Akademik (Tambahan agar muncul di Excel Rekap Nilai)
+        $total_absen = $stats['izin'] + $stats['sakit'] + $stats['alpha'];
+        $total_valid = $stats['izin'] + $stats['sakit'];
+        $total_alpha = $stats['alpha'];
+        
+        $status_ket = 'AMAN';
+        if ($total_absen > 3) $status_ket = 'GUGUR';
+        elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
+        elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
+        elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+
         // Ket Tambahan
         $ket = [];
+        $ket[] = "<strong>$status_ket</strong>"; // Tampilkan status paling depan
         if ($stats['sakit'] > 0) $ket[] = "Sakit: " . $stats['sakit'];
         if ($stats['izin'] > 0) $ket[] = "Izin: " . $stats['izin'];
         if ($is_inhall == 'Inhall') $ket[] = "Total Inhall: 1";
@@ -551,8 +563,8 @@ if (isset($_GET['export'])) {
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum,
                                COUNT(DISTINCT CASE WHEN j.jenis != 'inhall' AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN j.id END) as total_pertemuan,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'terdaftar' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_for_inhall_exp) as perlu_inhall,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_for_inhall_exp) as sudah_inhall
@@ -639,7 +651,7 @@ if (isset($_GET['export'])) {
     }
 
     // Header CSV (menggunakan semicolon)
-    $header = ["No", "NIM", "Nama", "Kelas", "Sesi", "Daftar Mata Kuliah", "Daftar Lab", "Hadir", "Izin", "Sakit", "Alpha", "Belum", "Perlu Inhall", "Sudah Inhall", "Total Pertemuan", "Persentase Kehadiran"];
+    $header = ["No", "NIM", "Nama", "Kelas", "Sesi", "Daftar Mata Kuliah", "Daftar Lab", "Hadir", "Izin", "Sakit", "Alpha", "Belum", "Perlu Inhall", "Sudah Inhall", "Total Pertemuan", "Persentase Kehadiran", "Status Akademik"];
     
     if ($sertakan_detail) {
         // Tambahkan kolom pertemuan dinamis ke header
@@ -660,8 +672,22 @@ if (isset($_GET['export'])) {
     while ($row = mysqli_fetch_assoc($rekap_export)) {
         $sudah_presensi = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
         $persen = $sudah_presensi > 0 ? round(($row['hadir'] / $sudah_presensi) * 100) : 0;
+
+        // Logika Status Akademik
+        $total_absen = $row['izin'] + $row['sakit'] + $row['alpha'];
+        $total_valid = $row['izin'] + $row['sakit'];
+        $total_alpha = $row['alpha'];
         
-        $line = [$no++, $row['nim'], $row['nama'], $row['nama_kelas'], $row['sesi'], $row['all_mk'] ?: '-', $row['all_lab'] ?: '-', $row['hadir'], $row['izin'], $row['sakit'], $row['alpha'], $row['belum'], $row['perlu_inhall'], $row['sudah_inhall'], $row['total_pertemuan'], $persen . '%'];
+        $status_ket = 'AMAN';
+        if ($total_absen > 3) {
+            $status_ket = 'GUGUR';
+            $row['perlu_inhall'] = 0; // Reset perlu inhall jika gugur
+        }
+        elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
+        elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
+        elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+        
+        $line = [$no++, $row['nim'], $row['nama'], $row['nama_kelas'], $row['sesi'], $row['all_mk'] ?: '-', $row['all_lab'] ?: '-', $row['hadir'], $row['izin'], $row['sakit'], $row['alpha'], $row['belum'], $row['perlu_inhall'], $row['sudah_inhall'], $row['total_pertemuan'], $persen . '%', $status_ket];
         
         if ($sertakan_detail) {
             // Isi data pertemuan per mahasiswa
@@ -1014,6 +1040,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                         <th class="text-center text-secondary">Belum</th>
                                         <th class="text-center text-purple">Inhall</th>
                                         <th class="text-center">%</th>
+                                        <th class="text-center">Status</th>
                                         <th class="text-center">Aksi</th>
                                     </tr>
                                 </thead>
@@ -1026,6 +1053,24 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                         // Persentase dihitung dari yang sudah ada status (bukan belum presensi)
                                         $sudah_presensi = $r['hadir'] + $r['izin'] + $r['sakit'] + $r['alpha'];
                                         $persen = $sudah_presensi > 0 ? round(($r['hadir'] / $sudah_presensi) * 100) : 0;
+                                        
+                                        // Logika Status
+                                        $total_absen = $r['izin'] + $r['sakit'] + $r['alpha'];
+                                        $total_valid = $r['izin'] + $r['sakit'];
+                                        $total_alpha = $r['alpha'];
+                                        
+                                        $status_badge = '<span class="badge bg-success">Aman</span>';
+                                        if ($total_absen > 3) {
+                                            $status_badge = '<span class="badge bg-danger">GUGUR</span>';
+                                            $r['perlu_inhall'] = 0; // Reset perlu inhall jika gugur
+                                        }
+                                        elseif ($total_alpha > 0) {
+                                            if ($total_absen == 3) $status_badge = '<span class="badge bg-danger">KRITIS</span>';
+                                            else $status_badge = '<span class="badge bg-warning text-dark">Peringatan</span>';
+                                        }
+                                        elseif ($total_valid == 3) $status_badge = '<span class="badge bg-warning text-dark">Wajib Inhal</span>';
+                                        elseif ($total_valid == 2) $status_badge = '<span class="badge bg-info text-dark">Boleh Inhal</span>';
+                                        
                                         $total_inhall = $r['perlu_inhall'] + $r['sudah_inhall'];
                                         ?>
                                         <tr>
@@ -1060,6 +1105,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                                     <?= $persen ?>%
                                                 </span>
                                             </td>
+                                            <td class="text-center"><?= $status_badge ?></td>
                                             <td class="text-center">
                                                 <button class="btn btn-sm btn-info text-white" 
                                                         onclick="showDetail('<?= $r['nim'] ?>', '<?= $r['nama'] ?>', '<?= $r['kode_kelas'] ?>')">
@@ -1079,7 +1125,25 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                             while ($r = mysqli_fetch_assoc($rekap)): 
                                 $sudah_presensi = $r['hadir'] + $r['izin'] + $r['sakit'] + $r['alpha'];
                                 $persen = $sudah_presensi > 0 ? round(($r['hadir'] / $sudah_presensi) * 100) : 0;
-                                $total_inhall = $r['perlu_inhall'] + $r['sudah_inhall'];
+                                    
+                                    // Logika Status Mobile
+                                    $total_absen = $r['izin'] + $r['sakit'] + $r['alpha'];
+                                    $total_valid = $r['izin'] + $r['sakit'];
+                                    $total_alpha = $r['alpha'];
+                                    
+                                    $status_text = 'Aman'; $status_cls = 'success';
+                                    if ($total_absen > 3) { 
+                                        $status_text = 'GUGUR'; $status_cls = 'danger'; 
+                                        $r['perlu_inhall'] = 0; // Reset perlu inhall
+                                    }
+                                    elseif ($total_alpha > 0) { 
+                                        if ($total_absen == 3) { $status_text = 'KRITIS'; $status_cls = 'danger'; }
+                                        else { $status_text = 'Peringatan'; $status_cls = 'warning text-dark'; }
+                                    }
+                                    elseif ($total_valid == 3) { $status_text = 'Wajib Inhal'; $status_cls = 'warning text-dark'; }
+                                    elseif ($total_valid == 2) { $status_text = 'Boleh Inhal'; $status_cls = 'info text-dark'; }
+                                    
+                                    $total_inhall = $r['perlu_inhall'] + $r['sudah_inhall'];
                             ?>
                                 <div class="card mb-2 border">
                                     <div class="card-body p-3">
@@ -1094,6 +1158,9 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                                     <i class="fas fa-book me-1"></i><?= $r['all_mk'] ?: '-' ?>
                                                 </div>
                                             </div>
+                                                <span class="badge bg-<?= $status_cls ?> me-1" style="font-size: 0.8rem;">
+                                                    <?= $status_text ?>
+                                                </span>
                                             <span class="badge <?= $persen >= 75 ? 'bg-success' : ($persen >= 50 ? 'bg-warning' : 'bg-danger') ?>" style="font-size: 0.9rem;">
                                                 <?= $persen ?>%
                                             </span>
@@ -1148,6 +1215,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                             <th class="text-center detail-col">P<?= $pm ?></th>
                                         <?php endforeach; ?>
                                         <th class="text-center">%</th>
+                                        <th class="text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1157,6 +1225,21 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                     while ($r_print = mysqli_fetch_assoc($rekap_print)): 
                                         $sudah_presensi_print = $r_print['hadir'] + $r_print['izin'] + $r_print['sakit'] + $r_print['alpha'];
                                         $persen_print = $sudah_presensi_print > 0 ? round(($r_print['hadir'] / $sudah_presensi_print) * 100) : 0;
+                                        
+                                        // Logika Status Print
+                                        $total_absen = $r_print['izin'] + $r_print['sakit'] + $r_print['alpha'];
+                                        $total_valid = $r_print['izin'] + $r_print['sakit'];
+                                        $total_alpha = $r_print['alpha'];
+                                        
+                                        $status_print = 'Aman';
+                                        if ($total_absen > 3) {
+                                            $status_print = 'GUGUR';
+                                            $r_print['perlu_inhall'] = 0;
+                                        }
+                                        elseif ($total_alpha > 0) $status_print = ($total_absen == 3) ? 'KRITIS' : 'Peringatan';
+                                        elseif ($total_valid == 3) $status_print = 'Wajib Inhal';
+                                        elseif ($total_valid == 2) $status_print = 'Boleh Inhal';
+                                        
                                         $total_inhall_print = $r_print['perlu_inhall'] + $r_print['sudah_inhall'];
                                     ?>
                                         <tr>
@@ -1181,6 +1264,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                                 <td class="text-center detail-col"><?= $print_details[$r_print['nim']][$pm] ?? '-' ?></td>
                                             <?php endforeach; ?>
                                             <td class="text-center"><?= $persen_print ?>%</td>
+                                            <td class="text-center fw-bold"><?= $status_print ?></td>
                                         </tr>
                                     <?php endwhile; ?>
                                 </tbody>

@@ -9,7 +9,6 @@ $sesi = $mahasiswa['sesi'] ?? 1;
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 $toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
-$toleransi_sesudah = TOLERANSI_SESUDAH; // menit setelah jam_selesai
 
 // OPTIMISASI: Hitung batas waktu di PHP agar query SQL bisa menggunakan index (SARGable)
 // Jadwal aktif jika: Jam Mulai <= (Sekarang + Toleransi)
@@ -74,7 +73,7 @@ $stat = mysqli_fetch_assoc(mysqli_query($conn, "
         SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
         SUM(CASE 
             WHEN p.status = 'alpha' THEN 1
-            WHEN (p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+            WHEN (p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() THEN 1 
             ELSE 0 
         END) as alpha,
         COUNT(j.id) as total
@@ -85,7 +84,7 @@ $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     $session_swap_logic
     AND j.jenis != 'inhall'
     AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-    AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW())
+    AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW())
 "));
 
 // Jadwal terdekat (5 jadwal mendatang) - termasuk jadwal HARI INI yang belum aktif
@@ -1552,7 +1551,14 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 
                 <!-- Jadwal Aktif Alert - Tampilkan SEMUA jadwal aktif hari ini -->
                 <?php if (mysqli_num_rows($jadwal_hari_ini) > 0): ?>
-                    <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): ?>
+                    <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): 
+                        // Cek keterlambatan untuk warning di dashboard
+                        $jam_mulai_ts = strtotime($jhi['tanggal'] . ' ' . $jhi['jam_mulai']);
+                        $now_ts = time();
+                        $telat_menit = ceil(($now_ts - $jam_mulai_ts) / 60);
+                        $is_late_sanction = ($telat_menit > TOLERANSI_TELAT && $telat_menit <= BATAS_TELAT); // > 15 menit
+                        $is_late_warning = ($telat_menit > 0 && $telat_menit <= TOLERANSI_TELAT); // 1-15 menit
+                    ?>
                     <div class="jadwal-aktif-alert">
                         <div class="pulse-icon">
                             <i class="fas fa-broadcast-tower"></i>
@@ -1574,11 +1580,29 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
                                 <i class="fas fa-check-circle me-2"></i>Sudah <?= ucfirst($jhi['presensi_status']) ?>
                             </div>
                         <?php else: ?>
-                            <a href="index.php?page=mahasiswa_scanner" class="btn-scan">
+                            <a href="index.php?page=mahasiswa_scanner" class="btn-scan <?= $is_late_sanction ? 'btn-danger' : ($is_late_warning ? 'btn-warning text-dark' : '') ?>">
                                 <i class="fas fa-qrcode"></i>Scan Presensi
                             </a>
+                            <?php if ($is_late_sanction): ?>
+                                <div class="ms-3 text-danger fw-bold small d-none d-md-block">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Terlambat! Sanksi Push Up.
+                                </div>
+                            <?php elseif ($is_late_warning): ?>
+                                <div class="ms-3 text-warning fw-bold small d-none d-md-block">
+                                    <i class="fas fa-exclamation-circle me-1"></i>Terlambat <?= $telat_menit ?> menit.
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
+                    <?php if ($is_late_sanction): ?>
+                        <div class="alert alert-danger d-md-none mt-n3 mb-4 small">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Anda terlambat <?= $telat_menit ?> menit. Sanksi Push Up berlaku.
+                        </div>
+                    <?php elseif ($is_late_warning): ?>
+                        <div class="alert alert-warning d-md-none mt-n3 mb-4 small">
+                            <i class="fas fa-exclamation-circle me-2"></i>Anda terlambat <?= $telat_menit ?> menit. Harap lebih tepat waktu.
+                        </div>
+                    <?php endif; ?>
                     <?php endwhile; ?>
                 <?php endif; ?>
                 

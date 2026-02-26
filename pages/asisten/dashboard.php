@@ -103,7 +103,7 @@ $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
         SUM(CASE 
             WHEN j.jenis != 'inhall' 
                  AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) 
-                 AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
+                 AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() 
                  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))
             THEN 1 
             ELSE 0 

@@ -91,7 +91,7 @@ if (isset($_GET['ajax_detail'])) {
 
         foreach ($grouped_data as $d) {
             $status = $d['status'];
-            $jadwal_end_time = $d['tanggal'] . ' ' . $d['jam_selesai'];
+            $jadwal_end_time = date('Y-m-d H:i:s', strtotime($d['tanggal'] . ' ' . $d['jam_mulai']) + (BATAS_TELAT * 60)); // Batas telat
             $is_past = strtotime($jadwal_end_time) < time();
             $is_registered = $tanggal_daftar < $jadwal_end_time;
             
@@ -186,7 +186,7 @@ if (isset($_GET['export_detail_mhs'])) {
     while ($row = mysqli_fetch_assoc($query)) {
         $status = $row['status'];
         if (!$status) {
-            $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+            $jadwal_end = date('Y-m-d H:i:s', strtotime($row['tanggal'] . ' ' . $row['jam_mulai']) + (BATAS_TELAT * 60));
             if ($row['jenis'] == 'inhall') {
                 $status = 'Tidak Ikut';
             } elseif ($tanggal_daftar > $jadwal_end) {
@@ -285,7 +285,7 @@ if (isset($_GET['export'])) {
             
             $status = $d['status'];
             if (!$status) {
-                 $jadwal_end = $d['tanggal'] . ' ' . $d['jam_selesai'];
+                 $jadwal_end = date('Y-m-d H:i:s', strtotime($d['tanggal'] . ' ' . $d['jam_mulai']) + (BATAS_TELAT * 60));
                  $is_past = strtotime($jadwal_end) < time();
                  if ($d['tanggal_daftar'] > $jadwal_end) {
                      $status = 'Belum Daftar';
@@ -325,7 +325,7 @@ if (isset($_GET['export'])) {
     
     echo '<table class="table-data" border="1"><thead><tr>
             <th>No</th><th>NIM</th><th>Nama</th><th>Kelas</th><th>Daftar MK</th><th>Daftar Lab</th>
-            <th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpha</th><th>Belum</th><th>Persentase</th>';
+            <th>Hadir</th><th>Izin</th><th>Sakit</th><th>Alpha</th><th>Belum</th><th>Persentase</th><th>Status</th>';
     
     if ($sertakan_detail) {
         foreach ($meetings as $m => $val) echo "<th>P$m</th>";
@@ -338,8 +338,8 @@ if (isset($_GET['export'])) {
                        SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                        SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                        SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
-                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum
+                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
+                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum
                        FROM mahasiswa m
                        JOIN kelas k ON m.kode_kelas = k.kode_kelas
                        LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas 
@@ -372,6 +372,17 @@ if (isset($_GET['export'])) {
         $sudah_presensi = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
         $persen = $sudah_presensi > 0 ? round(($row['hadir'] / $sudah_presensi) * 100) : 0;
         
+        // Logika Status Akademik (Sesuai Aturan Baru)
+        $total_absen = $row['izin'] + $row['sakit'] + $row['alpha'];
+        $total_valid = $row['izin'] + $row['sakit'];
+        $total_alpha = $row['alpha'];
+        
+        $status_ket = 'AMAN';
+        if ($total_absen > 3) $status_ket = 'GUGUR';
+        elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
+        elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
+        elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+
         echo "<tr>
             <td style='text-align:center'>{$no}</td>
             <td>{$row['nim']}</td>
@@ -384,7 +395,8 @@ if (isset($_GET['export'])) {
             <td style='text-align:center'>{$row['sakit']}</td>
             <td style='text-align:center'>{$row['alpha']}</td>
             <td style='text-align:center'>{$row['belum']}</td>
-            <td style='text-align:center'>{$persen}%</td>";
+            <td style='text-align:center'>{$persen}%</td>
+            <td style='text-align:center'>{$status_ket}</td>";
             
         if ($sertakan_detail) {
             foreach ($meetings as $m => $val) {
@@ -438,8 +450,8 @@ $rekap = mysqli_query($conn, "SELECT m.nim, m.nama, k.nama_kelas, m.kode_kelas,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum,
+                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
+                       SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum,
                                COUNT(DISTINCT CASE WHEN j.jenis != 'inhall' AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN j.id END) as total_pertemuan
                                FROM mahasiswa m
                                JOIN kelas k ON m.kode_kelas = k.kode_kelas
@@ -474,8 +486,8 @@ $rekap_print = mysqli_query($conn, "SELECT m.nim, m.nama, k.nama_kelas,
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum
                                FROM mahasiswa m
                                JOIN kelas k ON m.kode_kelas = k.kode_kelas
                                LEFT JOIN jadwal j ON m.kode_kelas = j.kode_kelas 
@@ -573,7 +585,7 @@ foreach ($grouped_details as $nim => $meetings_data) {
         
         $status = $data['status'];
         if (!$status) {
-            $jadwal_end = $data['tanggal'] . ' ' . $data['jam_selesai'];
+            $jadwal_end = date('Y-m-d H:i:s', strtotime($data['tanggal'] . ' ' . $data['jam_mulai']) + (BATAS_TELAT * 60));
             $is_past = strtotime($jadwal_end) < time();
             if ($data['tanggal_daftar'] > $jadwal_end) {
                 $status = 'Belum Daftar';
@@ -716,6 +728,7 @@ ksort($meetings);
                                             <th class="text-center text-danger">Alpha</th>
                                             <th class="text-center text-secondary">Belum</th>
                                             <th class="text-center">%</th>
+                                            <th class="text-center">Status</th>
                                             <th class="text-center">Aksi</th>
                                         </tr>
                                     </thead>
@@ -727,6 +740,20 @@ ksort($meetings);
                                             <?php 
                                             $sudah_presensi = $r['hadir'] + $r['izin'] + $r['sakit'] + $r['alpha'];
                                             $persen = $sudah_presensi > 0 ? round(($r['hadir'] / $sudah_presensi) * 100) : 0;
+                                            
+                                            // Logika Status
+                                            $total_absen = $r['izin'] + $r['sakit'] + $r['alpha'];
+                                            $total_valid = $r['izin'] + $r['sakit'];
+                                            $total_alpha = $r['alpha'];
+                                            
+                                            $status_badge = '<span class="badge bg-success">Aman</span>';
+                                            if ($total_absen > 3) $status_badge = '<span class="badge bg-danger">GUGUR</span>';
+                                            elseif ($total_alpha > 0) {
+                                                if ($total_absen == 3) $status_badge = '<span class="badge bg-danger">KRITIS</span>';
+                                                else $status_badge = '<span class="badge bg-warning text-dark">Peringatan</span>';
+                                            }
+                                            elseif ($total_valid == 3) $status_badge = '<span class="badge bg-warning text-dark">Wajib Inhal</span>';
+                                            elseif ($total_valid == 2) $status_badge = '<span class="badge bg-info text-dark">Boleh Inhal</span>';
                                             ?>
                                             <tr>
                                                 <td><?= $no++ ?></td>
@@ -749,6 +776,7 @@ ksort($meetings);
                                                         <?= $persen ?>%
                                                     </span>
                                                 </td>
+                                                <td class="text-center"><?= $status_badge ?></td>
                                                 <td class="text-center">
                                                     <button class="btn btn-sm btn-info text-white" 
                                                             onclick="showDetail('<?= $r['nim'] ?>', '<?= $r['nama'] ?>', '<?= $r['kode_kelas'] ?>')">
@@ -768,6 +796,20 @@ ksort($meetings);
                                 while ($r = mysqli_fetch_assoc($rekap)): 
                                     $sudah_presensi = $r['hadir'] + $r['izin'] + $r['sakit'] + $r['alpha'];
                                     $persen = $sudah_presensi > 0 ? round(($r['hadir'] / $sudah_presensi) * 100) : 0;
+                                    
+                                    // Logika Status Mobile
+                                    $total_absen = $r['izin'] + $r['sakit'] + $r['alpha'];
+                                    $total_valid = $r['izin'] + $r['sakit'];
+                                    $total_alpha = $r['alpha'];
+                                    
+                                    $status_text = 'Aman'; $status_cls = 'success';
+                                    if ($total_absen > 3) { $status_text = 'GUGUR'; $status_cls = 'danger'; }
+                                    elseif ($total_alpha > 0) { 
+                                        if ($total_absen == 3) { $status_text = 'KRITIS'; $status_cls = 'danger'; }
+                                        else { $status_text = 'Peringatan'; $status_cls = 'warning text-dark'; }
+                                    }
+                                    elseif ($total_valid == 3) { $status_text = 'Wajib Inhal'; $status_cls = 'warning text-dark'; }
+                                    elseif ($total_valid == 2) { $status_text = 'Boleh Inhal'; $status_cls = 'info text-dark'; }
                                 ?>
                                     <div class="card mb-2 border">
                                         <div class="card-body p-3">
@@ -779,6 +821,9 @@ ksort($meetings);
                                                         <span class="badge bg-primary ms-1"><?= $r['nama_kelas'] ?></span>
                                                     </div>
                                                 </div>
+                                                <span class="badge bg-<?= $status_cls ?> me-1" style="font-size: 0.8rem;">
+                                                    <?= $status_text ?>
+                                                </span>
                                                 <span class="badge <?= $persen >= 75 ? 'bg-success' : ($persen >= 50 ? 'bg-warning' : 'bg-danger') ?>" style="font-size: 0.9rem;">
                                                     <?= $persen ?>%
                                                 </span>
@@ -829,6 +874,7 @@ ksort($meetings);
                                             <th class="text-center detail-col">P<?= $pm ?></th>
                                         <?php endforeach; ?>
                                         <th class="text-center">%</th>
+                                        <th class="text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -838,6 +884,17 @@ ksort($meetings);
                                     while ($r_print = mysqli_fetch_assoc($rekap_print)): 
                                         $sudah_presensi_print = $r_print['hadir'] + $r_print['izin'] + $r_print['sakit'] + $r_print['alpha'];
                                         $persen_print = $sudah_presensi_print > 0 ? round(($r_print['hadir'] / $sudah_presensi_print) * 100) : 0;
+                                        
+                                        // Logika Status Print
+                                        $total_absen = $r_print['izin'] + $r_print['sakit'] + $r_print['alpha'];
+                                        $total_valid = $r_print['izin'] + $r_print['sakit'];
+                                        $total_alpha = $r_print['alpha'];
+                                        
+                                        $status_print = 'Aman';
+                                        if ($total_absen > 3) $status_print = 'GUGUR';
+                                        elseif ($total_alpha > 0) $status_print = ($total_absen == 3) ? 'KRITIS' : 'Peringatan';
+                                        elseif ($total_valid == 3) $status_print = 'Wajib Inhal';
+                                        elseif ($total_valid == 2) $status_print = 'Boleh Inhal';
                                     ?>
                                         <tr>
                                             <td><?= $no_print++ ?></td>
@@ -853,6 +910,7 @@ ksort($meetings);
                                                 <td class="text-center detail-col"><?= $print_details[$r_print['nim']][$pm] ?? '-' ?></td>
                                             <?php endforeach; ?>
                                             <td class="text-center"><?= $persen_print ?>%</td>
+                                            <td class="text-center fw-bold"><?= $status_print ?></td>
                                         </tr>
                                     <?php endwhile; ?>
                                 </tbody>

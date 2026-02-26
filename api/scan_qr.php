@@ -105,19 +105,18 @@ if ($is_inhall) {
 // VALIDASI 3: Cek waktu presensi (harus tepat waktu mulai, tidak ada toleransi sebelum)
 $now = time();
 $jadwal_mulai = strtotime($qr_session['tanggal'] . ' ' . $qr_session['jam_mulai']);
-$jadwal_selesai = strtotime($qr_session['tanggal'] . ' ' . $qr_session['jam_selesai']);
-$toleransi_sebelum = $jadwal_mulai - (TOLERANSI_SEBELUM * 60); // TOLERANSI_SEBELUM = 0, jadi harus tepat waktu
-$toleransi_sesudah = $jadwal_selesai + (TOLERANSI_SESUDAH * 60);
+$batas_awal = $jadwal_mulai - (TOLERANSI_SEBELUM * 60);
+$batas_akhir = $jadwal_mulai + (BATAS_TELAT * 60);
 
-if ($now < $toleransi_sebelum) {
-    $menit_tersisa = ceil(($toleransi_sebelum - $now) / 60);
-    $jam_buka = date('H:i', $jadwal_mulai);
-    echo json_encode(['success' => false, 'message' => "Presensi belum dibuka. Presensi akan dibuka tepat pukul $jam_buka (tersisa $menit_tersisa menit lagi)."]);
+if ($now < $batas_awal) {
+    $menit_tersisa = ceil(($batas_awal - $now) / 60);
+    $jam_buka = date('H:i', $batas_awal);
+    echo json_encode(['success' => false, 'message' => "Presensi belum dibuka. Presensi akan dibuka pukul $jam_buka."]);
     exit;
 }
 
-if ($now > $toleransi_sesudah) {
-    echo json_encode(['success' => false, 'message' => 'Waktu presensi sudah berakhir untuk sesi ini.']);
+if ($now > $batas_akhir) {
+    echo json_encode(['success' => false, 'message' => 'Waktu presensi sudah berakhir (Melebihi batas keterlambatan).']);
     exit;
 }
 
@@ -222,6 +221,19 @@ if ($cek_presensi) {
 if ($query) {
     $message = "Presensi berhasil dicatat untuk {$qr_session['nama_mk']} - {$qr_session['materi']} di {$qr_session['nama_lab']}";
     
+    // Cek keterlambatan
+    if ($now > $jadwal_mulai) {
+        $terlambat_menit = ceil(($now - $jadwal_mulai) / 60);
+        
+        if ($terlambat_menit <= TOLERANSI_TELAT) {
+            // Telat ringan (1-15 menit)
+            $message .= "<br><br><span class='text-warning fw-bold'>⚠️ Anda terlambat $terlambat_menit menit.</span><br><span class='text-warning'>Boleh hadir, tapi lain kali harap lebih tepat waktu.</span>";
+        } else {
+            // Telat berat (> 15 menit) - Sanksi
+            $message .= "<br><br><span class='text-danger fw-bold'>⚠️ ANDA TERLAMBAT $terlambat_menit MENIT!</span><br><span class='text-danger'>Sanksi: Push up 1 menit x 3 kali.</span>";
+        }
+    }
+
     // Jika ini adalah jadwal INHALL, update penggantian_inhall
     if ($is_inhall && isset($inhall_id)) {
         $stmt_inhall_upd = mysqli_prepare($conn, "UPDATE penggantian_inhall SET status = 'hadir', jadwal_inhall_id = ? WHERE id = ?");

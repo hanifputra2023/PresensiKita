@@ -44,6 +44,81 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                                        WHERE pi.nim = '$nim' AND pi.status = 'hadir'
                                        ORDER BY pi.tanggal_daftar DESC
                                        LIMIT 10");
+
+// Hitung total ketidakhadiran untuk menentukan status Inhal/Gugur
+// Gunakan logika dinamis agar jadwal yang sudah lewat tapi belum ada record tetap terhitung Alpha
+$q_absensi = mysqli_query($conn, "SELECT 
+                                    SUM(CASE 
+                                        WHEN pm.status = 'alpha' THEN 1
+                                        WHEN (pm.status IS NULL OR pm.status = 'belum') 
+                                             AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() 
+                                        THEN 1
+                                        ELSE 0 
+                                    END) as total_alpha,
+                                    SUM(CASE WHEN pm.status IN ('izin', 'sakit') THEN 1 ELSE 0 END) as total_valid
+                                  FROM jadwal j
+                                  LEFT JOIN presensi_mahasiswa pm ON j.id = pm.jadwal_id AND pm.nim = '$nim'
+                                  JOIN mahasiswa m ON m.nim = '$nim'
+                                  WHERE j.kode_kelas = '$kelas'
+                                  AND j.jenis != 'inhall'
+                                  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
+                                  AND (
+                                      pm.id IS NOT NULL 
+                                      OR 
+                                      ((j.sesi = 0 OR j.sesi = '$sesi') AND NOT EXISTS (
+                                          SELECT 1 FROM presensi_mahasiswa pm2 
+                                          JOIN jadwal j2 ON pm2.jadwal_id = j2.id 
+                                          WHERE pm2.nim = '$nim' 
+                                          AND j2.kode_mk = j.kode_mk 
+                                          AND j2.pertemuan_ke = j.pertemuan_ke
+                                          AND j2.id != j.id
+                                      ))
+                                  )");
+$d_absensi = mysqli_fetch_assoc($q_absensi);
+$total_alpha = $d_absensi['total_alpha'] ?? 0;
+$total_valid = $d_absensi['total_valid'] ?? 0;
+$total_absen = $total_alpha + $total_valid;
+
+$status_inhal_info = [
+    'status' => 'AMAN',
+    'class' => 'success',
+    'msg' => "Jumlah ketidakhadiran: $total_absen. Tetap pertahankan kehadiran Anda."
+];
+
+if ($total_absen > 3) {
+    $status_inhal_info = ['status' => 'GUGUR', 'class' => 'danger', 'msg' => "Anda telah tidak masuk $total_absen kali (> 3 kali). Mohon hubungi Dosen/Admin."];
+} else {
+    // Cek hak Inhal dari Valid Absen (Izin/Sakit)
+    $hak_inhal_msg = "";
+    $status_label = "AMAN";
+    $status_class = "success";
+    
+    if ($total_valid == 3) {
+        $status_label = "WAJIB INHAL";
+        $status_class = "warning";
+        $hak_inhal_msg = "Anda tidak masuk 3 kali (Izin/Sakit). Anda <strong>WAJIB</strong> mengikuti 2 kali Inhal.";
+    } elseif ($total_valid == 2) {
+        $status_label = "BOLEH INHAL";
+        $status_class = "info";
+        $hak_inhal_msg = "Anda tidak masuk 2 kali (Izin/Sakit). Anda <strong>BOLEH</strong> mengambil 1 kali Inhal (Opsional).";
+    }
+    
+    // Cek Alpha dan gabungkan pesan jika perlu
+    if ($total_alpha > 0) {
+        $alpha_msg = "Anda memiliki $total_alpha Alpha (Tanpa Keterangan). Hak Inhal hangus untuk pertemuan tersebut.";
+        
+        if ($total_absen == 3) {
+            $status_inhal_info = ['status' => 'KRITIS', 'class' => 'danger', 'msg' => "<strong>PERINGATAN KERAS:</strong> Total absen 3 kali (termasuk $total_alpha Alpha). 1 kali lagi tidak masuk, Anda GUGUR.<br>$alpha_msg" . ($hak_inhal_msg ? "<br><br>$hak_inhal_msg" : "")];
+        } else {
+            // Total absen < 3, tapi ada Alpha
+            $final_status = ($status_label == 'AMAN') ? 'PERINGATAN' : $status_label . ' (ADA ALPHA)';
+            $status_inhal_info = ['status' => $final_status, 'class' => 'warning', 'msg' => $alpha_msg . ($hak_inhal_msg ? "<br><br>$hak_inhal_msg" : "")];
+        }
+    } elseif ($hak_inhal_msg) {
+        // Tidak ada Alpha, gunakan status Inhal murni
+        $status_inhal_info = ['status' => $status_label, 'class' => $status_class, 'msg' => $hak_inhal_msg];
+    }
+}
 ?>
 <?php include 'includes/header.php'; ?>
 
@@ -190,6 +265,15 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                     </div>
                 </div>
 
+                <!-- Status Akademik / Inhal -->
+                <div class="alert alert-<?= $status_inhal_info['class'] ?> border-<?= $status_inhal_info['class'] ?> shadow-sm mb-4 d-flex align-items-center">
+                    <div class="fs-1 me-3"><i class="fas fa-info-circle"></i></div>
+                    <div>
+                        <h5 class="alert-heading fw-bold mb-1"><?= $status_inhal_info['status'] ?></h5>
+                        <p class="mb-0"><?= $status_inhal_info['msg'] ?></p>
+                    </div>
+                </div>
+
                 <div class="row g-4">
                     <div class="col-lg-6">
                         <div class="card border-0 shadow-sm h-100">
@@ -199,7 +283,15 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                                 </h6>
                             </div>
                             <div class="card-body p-0">
-                                <?php if (count($perlu_inhall_data) > 0): ?>
+                                <?php if ($total_absen > 3): ?>
+                                    <div class="text-center py-5">
+                                        <div class="mb-3">
+                                            <i class="fas fa-ban fa-3x text-danger opacity-50"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-danger">Status GUGUR</h6>
+                                        <p class="text-muted small mb-0 px-3">Anda tidak perlu mengganti pertemuan karena status akademik Anda sudah Gugur.</p>
+                                    </div>
+                                <?php elseif (count($perlu_inhall_data) > 0): ?>
                                         <?php foreach ($perlu_inhall_data as $p): ?>
                                             <div class="p-3 hover-bg-light transition-all">
                                                 <div class="d-flex flex-wrap flex-md-nowrap gap-3 align-items-center">
@@ -214,7 +306,12 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                                                             <div class="small text-muted">
                                                                 <div class="mb-1 text-truncate" title="<?= $p['materi'] ?>"><span class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 me-1">P<?= $p['pertemuan_ke'] ?></span> <?= $p['materi'] ?></div>
                                                                 <?php if ($p['alasan_izin']): ?>
-                                                                    <div class="d-flex align-items-center text-truncate" title="<?= $p['alasan_izin'] ?>"><i class="far fa-comment-dots me-2 text-center" style="width:16px"></i> <?= $p['alasan_izin'] ?></div>
+                                                                    <?php 
+                                                                    // Cek apakah alasan mengandung kata "Admin" (dari sistem otomatis)
+                                                                    $is_admin_change = strpos($p['alasan_izin'], 'Diubah oleh Admin') !== false;
+                                                                    $icon_cls = $is_admin_change ? 'fas fa-user-shield text-info' : 'far fa-comment-dots';
+                                                                    ?>
+                                                                    <div class="d-flex align-items-center text-truncate" title="<?= $p['alasan_izin'] ?>"><i class="<?= $icon_cls ?> me-2 text-center" style="width:16px"></i> <?= $p['alasan_izin'] ?></div>
                                                                 <?php endif; ?>
                                                             </div>
                                                         </div>
@@ -245,7 +342,15 @@ $riwayat_inhall = mysqli_query($conn, "SELECT pi.*, j.pertemuan_ke, j.tanggal as
                                 <h6 class="mb-0 fw-bold status-warning"><i class="fas fa-calendar-check me-2"></i>Jadwal Tersedia</h6>
                             </div>
                             <div class="card-body p-0">
-                                <?php if (mysqli_num_rows($jadwal_inhall) > 0): ?>
+                                <?php if ($total_absen > 3): ?>
+                                    <div class="text-center py-5">
+                                        <div class="mb-3">
+                                            <i class="fas fa-lock fa-3x text-secondary opacity-25"></i>
+                                        </div>
+                                        <h6 class="fw-bold text-secondary">Terkunci</h6>
+                                        <p class="text-muted small mb-0">Akses Inhall ditutup karena status Gugur.</p>
+                                    </div>
+                                <?php elseif (mysqli_num_rows($jadwal_inhall) > 0): ?>
                                         <?php while ($j = mysqli_fetch_assoc($jadwal_inhall)): ?>
                                             <div class="p-3 hover-bg-light transition-all">
                                                 <div class="d-flex flex-wrap flex-md-nowrap gap-3 align-items-center">

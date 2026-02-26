@@ -7,8 +7,9 @@ define('APP_VERSION', '1.0');
 date_default_timezone_set('Asia/Jakarta');
 
 // Toleransi waktu presensi (dalam menit)
-define('TOLERANSI_SEBELUM', 0); // Presensi baru bisa dibuka tepat pada jam mulai (tidak ada toleransi sebelum)
-define('TOLERANSI_SESUDAH', 15); // 15 menit setelah jadwal selesai
+define('TOLERANSI_SEBELUM', 5); // Presensi bisa dibuka 5 menit sebelum mulai
+define('BATAS_TELAT', 30); // Batas maksimal keterlambatan (menit) dari jam mulai
+define('TOLERANSI_TELAT', 15); // Batas toleransi keterlambatan tanpa sanksi
 
 // Durasi QR Code - sekarang mengikuti jam selesai jadwal
 // define('QR_DURASI', 2); // Tidak digunakan lagi

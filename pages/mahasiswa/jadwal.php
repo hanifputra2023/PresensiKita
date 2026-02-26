@@ -9,9 +9,6 @@ $sesi = $mahasiswa['sesi'] ?? 1;
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 $toleransi_sebelum = TOLERANSI_SEBELUM;
-$toleransi_sesudah = TOLERANSI_SESUDAH;
-
-// Ambil daftar mata kuliah untuk filter
 $list_mk = mysqli_query($conn, "SELECT DISTINCT mk.kode_mk, mk.nama_mk 
                                 FROM jadwal j
                                 JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk

@@ -24,7 +24,7 @@ if (!$jadwal_id) {
 }
 
 // Ambil info jadwal untuk expired time
-$stmt_jadwal = mysqli_prepare($conn, "SELECT tanggal, jam_mulai, jam_selesai FROM jadwal WHERE id = ?");
+$stmt_jadwal = mysqli_prepare($conn, "SELECT tanggal, jam_mulai FROM jadwal WHERE id = ?");
 mysqli_stmt_bind_param($stmt_jadwal, "i", $jadwal_id);
 mysqli_stmt_execute($stmt_jadwal);
 $jadwal_info = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal));
@@ -41,16 +41,19 @@ if ($jadwal_info['tanggal'] != $today) {
     exit;
 }
 
-// Validasi: Cek apakah jadwal sudah selesai
+// Validasi: Cek apakah sudah lewat batas keterlambatan
 $now_time = date('H:i:s');
-if ($now_time > $jadwal_info['jam_selesai']) {
-    echo json_encode(['success' => false, 'message' => 'Jadwal sudah selesai, tidak bisa generate QR Code']);
+$batas_waktu = date('H:i:s', strtotime($jadwal_info['jam_mulai']) + (BATAS_TELAT * 60));
+
+if ($now_time > $batas_waktu) {
+    echo json_encode(['success' => false, 'message' => 'Waktu presensi sudah habis (Lewat batas keterlambatan 30 menit).']);
     exit;
 }
 
 // Generate QR code baru
 $qr_code = generate_qr_code();
-$expired = $jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_selesai']; // Expired saat jadwal selesai
+$expired_time = strtotime($jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_mulai']) + (BATAS_TELAT * 60);
+$expired = date('Y-m-d H:i:s', $expired_time);
 
 $stmt_ins = mysqli_prepare($conn, "INSERT INTO qr_code_session (jadwal_id, qr_code, expired_at) VALUES (?, ?, ?)");
 mysqli_stmt_bind_param($stmt_ins, "iss", $jadwal_id, $qr_code, $expired);

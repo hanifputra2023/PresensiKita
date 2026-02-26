@@ -9,7 +9,7 @@ $sesi = $mahasiswa['sesi'] ?? 1;
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 $toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
-$toleransi_sesudah = TOLERANSI_SESUDAH; // menit setelah jam_selesai
+$batas_telat = BATAS_TELAT; // menit setelah jam_mulai (batas terlambat)
 
 // Inhall hanya ditampilkan untuk mahasiswa yang terdaftar di penggantian_inhall
 $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as presensi_status
@@ -21,7 +21,7 @@ $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, 
                                                          AND j.kode_kelas = '$kelas'
                                                          AND (j.sesi = 0 OR j.sesi = '$sesi')
                                                          AND SUBTIME(j.jam_mulai, SEC_TO_TIME($toleransi_sebelum * 60)) <= '$now_time'
-                                                         AND ADDTIME(j.jam_selesai, SEC_TO_TIME($toleransi_sesudah * 60)) >= '$now_time'
+                                                         AND ADDTIME(j.jam_mulai, SEC_TO_TIME($batas_telat * 60)) >= '$now_time'
                                                          AND (
                                                              j.jenis != 'inhall'
                                                              OR EXISTS (
@@ -34,6 +34,13 @@ $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, 
                                                              OR p.id IS NOT NULL
                                                          )
                                                          ORDER BY (CASE WHEN p.status IS NULL OR p.status = 'belum' THEN 0 ELSE 1 END), j.jam_mulai LIMIT 1"));
+
+// Hitung batas waktu scan untuk ditampilkan
+$batas_waktu_display = '';
+if ($jadwal_aktif) {
+    $jam_mulai_ts = strtotime($jadwal_aktif['jam_mulai']);
+    $batas_waktu_display = date('H:i', $jam_mulai_ts + ($batas_telat * 60));
+}
 
 // Cek jadwal berikutnya jika tidak ada yang aktif
 $jadwal_berikutnya = null;
@@ -280,6 +287,9 @@ if (!$jadwal_aktif) {
                         <strong>Jadwal Aktif:</strong> <?= $jadwal_aktif['nama_mk'] ?> - <?= $jadwal_aktif['materi'] ?> 
                         (<?= format_waktu($jadwal_aktif['jam_mulai']) ?> - <?= format_waktu($jadwal_aktif['jam_selesai']) ?>)
                         di <?= $jadwal_aktif['nama_lab'] ?>
+                        <div class="mt-2 pt-2 border-top border-info text-danger fw-bold">
+                            <i class="fas fa-stopwatch me-1"></i> Batas Waktu Scan: Pukul <?= $batas_waktu_display ?> WIB
+                        </div>
                     </div>
                     
                     <div class="row justify-content-center">

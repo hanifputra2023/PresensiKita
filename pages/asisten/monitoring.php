@@ -166,6 +166,18 @@ if (isset($_GET['ajax_refresh']) && $jadwal_id) {
             if ($p['status'] && $p['status'] != 'belum') {
                 $bg_class = $p['status'] == 'hadir' ? 'success' : ($p['status'] == 'izin' ? 'warning' : ($p['status'] == 'sakit' ? 'info' : 'danger'));
                 echo '<span class="badge badge-' . $p['status'] . ' bg-' . $bg_class . '">' . ucfirst($p['status']) . '</span>';
+                
+                // Cek keterlambatan (AJAX)
+                if ($p['status'] == 'hadir' && $p['waktu_presensi']) {
+                    $jam_mulai_ts = strtotime($jadwal_aktif['tanggal'] . ' ' . $jadwal_aktif['jam_mulai']);
+                    $presensi_ts = strtotime($p['waktu_presensi']);
+                    $telat_menit = ceil(($presensi_ts - $jam_mulai_ts) / 60);
+                    if ($telat_menit > 15) {
+                        echo '<br><span class="badge bg-danger mt-1" style="font-size:0.65rem">Telat ' . $telat_menit . 'm (Sanksi)</span>';
+                    } elseif ($telat_menit > 0) {
+                        echo '<br><span class="badge bg-warning text-dark mt-1" style="font-size:0.65rem">Telat ' . $telat_menit . 'm</span>';
+                    }
+                }
             } else {
                 echo '<span class="badge bg-secondary">Belum Presensi</span>';
             }
@@ -335,6 +347,19 @@ if (isset($_GET['ajax_refresh']) && $jadwal_id) {
                                                         <span class="badge badge-<?= $p['status'] ?> bg-<?= $p['status'] == 'hadir' ? 'success' : ($p['status'] == 'izin' ? 'warning' : ($p['status'] == 'sakit' ? 'info' : 'danger')) ?>">
                                                             <?= ucfirst($p['status']) ?>
                                                         </span>
+                                                        <?php 
+                                                        // Cek keterlambatan (Desktop)
+                                                        if ($p['status'] == 'hadir' && $p['waktu_presensi']) {
+                                                            $jam_mulai_ts = strtotime($jadwal_aktif['tanggal'] . ' ' . $jadwal_aktif['jam_mulai']);
+                                                            $presensi_ts = strtotime($p['waktu_presensi']);
+                                                            $telat_menit = ceil(($presensi_ts - $jam_mulai_ts) / 60);
+                                                            if ($telat_menit > 15) {
+                                                                echo '<br><span class="badge bg-danger mt-1" style="font-size:0.65rem">Telat ' . $telat_menit . 'm (Sanksi)</span>';
+                                                            } elseif ($telat_menit > 0) {
+                                                                echo '<br><span class="badge bg-warning text-dark mt-1" style="font-size:0.65rem">Telat ' . $telat_menit . 'm</span>';
+                                                            }
+                                                        }
+                                                        ?>
                                                     <?php else: ?>
                                                         <span class="badge bg-secondary">Belum Presensi</span>
                                                     <?php endif; ?>
@@ -364,6 +389,19 @@ if (isset($_GET['ajax_refresh']) && $jadwal_id) {
                                                         <span class="badge bg-<?= $p['status'] == 'hadir' ? 'success' : ($p['status'] == 'izin' ? 'warning' : ($p['status'] == 'sakit' ? 'info' : 'danger')) ?>">
                                                             <?= ucfirst($p['status']) ?>
                                                         </span>
+                                                        <?php 
+                                                        // Cek keterlambatan (Mobile)
+                                                        if ($p['status'] == 'hadir' && $p['waktu_presensi']) {
+                                                            $jam_mulai_ts = strtotime($jadwal_aktif['tanggal'] . ' ' . $jadwal_aktif['jam_mulai']);
+                                                            $presensi_ts = strtotime($p['waktu_presensi']);
+                                                            $telat_menit = ceil(($presensi_ts - $jam_mulai_ts) / 60);
+                                                            if ($telat_menit > 15) {
+                                                                echo '<span class="badge bg-danger ms-1">Telat ' . $telat_menit . 'm</span>';
+                                                            } elseif ($telat_menit > 0) {
+                                                                echo '<span class="badge bg-warning text-dark ms-1">Telat ' . $telat_menit . 'm</span>';
+                                                            }
+                                                        }
+                                                        ?>
                                                         <br><small class="text-muted"><?= date('H:i', strtotime($p['waktu_presensi'])) ?></small>
                                                     <?php else: ?>
                                                         <span class="badge bg-secondary">Belum</span>

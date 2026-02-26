@@ -49,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
     $jadwal_id = (int)$_POST['jadwal_id'];
     
     // Ambil jam selesai jadwal untuk expired time - prepared statement
-    $stmt_jadwal_info = mysqli_prepare($conn, "SELECT tanggal, jam_mulai, jam_selesai FROM jadwal WHERE id = ?");
+    $stmt_jadwal_info = mysqli_prepare($conn, "SELECT tanggal, jam_mulai FROM jadwal WHERE id = ?");
     mysqli_stmt_bind_param($stmt_jadwal_info, "i", $jadwal_id);
     mysqli_stmt_execute($stmt_jadwal_info);
     $jadwal_info = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_jadwal_info));
@@ -69,16 +69,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
         exit;
     }
     
-    // Validasi: Cek apakah jadwal sudah selesai
+    // Validasi: Cek apakah terlalu awal (TOLERANSI_SEBELUM)
     $now_time = date('H:i:s');
-    if ($now_time > $jadwal_info['jam_selesai']) {
-        $_SESSION['alert'] = ['type' => 'danger', 'message' => 'Jadwal sudah selesai, tidak bisa generate QR Code.'];
+    $waktu_buka = date('H:i:s', strtotime($jadwal_info['jam_mulai']) - (TOLERANSI_SEBELUM * 60));
+    
+    if ($now_time < $waktu_buka) {
+        $_SESSION['alert'] = ['type' => 'warning', 'message' => 'Presensi baru bisa dibuka ' . TOLERANSI_SEBELUM . ' menit sebelum jadwal dimulai (Pukul ' . date('H:i', strtotime($waktu_buka)) . ').'];
+        header("Location: index.php?page=asisten_qrcode");
+        exit;
+    }
+
+    // Validasi: Cek apakah sudah lewat batas telat
+    $batas_waktu = date('H:i:s', strtotime($jadwal_info['jam_mulai']) + (BATAS_TELAT * 60));
+    
+    if ($now_time > $batas_waktu) {
+        $_SESSION['alert'] = ['type' => 'danger', 'message' => 'Waktu presensi sudah habis (Lewat batas keterlambatan ' . BATAS_TELAT . ' menit).'];
         header("Location: index.php?page=asisten_qrcode");
         exit;
     }
     
     $qr_code = generate_qr_code();
-    $expired = $jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_selesai']; // Expired saat jadwal selesai
+    $expired_time = strtotime($jadwal_info['tanggal'] . ' ' . $jadwal_info['jam_mulai']) + (BATAS_TELAT * 60);
+    $expired = date('Y-m-d H:i:s', $expired_time);
     
     // Cek apakah ini jadwal sebagai pengganti - prepared statement
     $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
