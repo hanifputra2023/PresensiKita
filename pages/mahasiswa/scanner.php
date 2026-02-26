@@ -42,6 +42,16 @@ if ($jadwal_aktif) {
     $batas_waktu_display = date('H:i', $jam_mulai_ts + ($batas_telat * 60));
 }
 
+// Cek Eligibilitas Responsi
+$error_responsi = '';
+if ($jadwal_aktif && $jadwal_aktif['jenis'] == 'responsi') {
+    $eligibility = cek_eligibilitas_responsi($nim, $jadwal_aktif['kode_mk'], $kelas);
+    if (!$eligibility['eligible']) {
+        $jadwal_aktif = null; // Hide active schedule
+        $error_responsi = "Anda tidak dapat mengikuti Responsi karena kehadiran kurang dari 75% (" . round($eligibility['percentage']) . "%). Silakan selesaikan Inhall terlebih dahulu.";
+    }
+}
+
 // Cek jadwal berikutnya jika tidak ada yang aktif
 $jadwal_berikutnya = null;
 if (!$jadwal_aktif) {
@@ -259,6 +269,17 @@ if (!$jadwal_aktif) {
                         </div>
                     </div>
                 
+                <?php elseif ($error_responsi): ?>
+                    <!-- Error Responsi -->
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-ban fa-5x text-danger mb-4"></i>
+                            <h4 class="text-danger">Tidak Memenuhi Syarat</h4>
+                            <p class="text-muted mb-3"><?= $error_responsi ?></p>
+                            <a href="index.php?page=mahasiswa_inhall" class="btn btn-warning text-dark"><i class="fas fa-sync me-2"></i>Cek Inhall</a>
+                        </div>
+                    </div>
+
                 <?php elseif ($jadwal_aktif && in_array($jadwal_aktif['presensi_status'], ['izin', 'sakit', 'alpha'])): ?>
                     <!-- Sudah izin/sakit/alpha -->
                     <div class="card">

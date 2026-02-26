@@ -20,6 +20,21 @@ $jadwal_asisten_clause = "(
     OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
 )";
 
+// Filter tambahan: Sembunyikan jadwal Inhall jika tidak ada mahasiswa yang terdaftar (approved)
+$inhall_filter = "AND (
+    j.jenis != 'inhall' 
+    OR EXISTS (
+        SELECT 1 
+        FROM penggantian_inhall pi 
+        JOIN jadwal ja ON pi.jadwal_asli_id = ja.id 
+        JOIN mahasiswa m ON pi.nim = m.nim 
+        WHERE ja.kode_mk = j.kode_mk 
+        AND m.kode_kelas = j.kode_kelas 
+        AND pi.status = 'terdaftar' 
+        AND pi.status_approval = 'approved'
+    )
+)";
+
 // Jadwal sendiri - hilang tepat setelah jam_selesai
 $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'sendiri' as tipe_jadwal, NULL as asisten_asli
                                          FROM jadwal j 
@@ -29,6 +44,7 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk
                                          WHERE j.tanggal = CURDATE() 
                                          AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
                                          AND j.jam_selesai > CURTIME()
+                                         $inhall_filter
                                          ORDER BY j.jam_mulai");
 
 // Jadwal sebagai pengganti (dari asisten lain yang izin - hanya yang sudah disetujui)
@@ -44,6 +60,7 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, m
                                           AND aa.status_approval = 'approved'
                                           AND j.tanggal = CURDATE()
                                           AND j.jam_selesai > CURTIME()
+                                          $inhall_filter
                                           ORDER BY j.jam_mulai");
 
 // Gabungkan jadwal (hindari duplikasi berdasarkan jadwal_id)
@@ -81,7 +98,8 @@ $week_end = date('Y-m-d', strtotime('sunday this week'));
 
 $stat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal j
                                                   WHERE j.tanggal BETWEEN '$week_start' AND '$week_end'
-                                                  AND $jadwal_asisten_clause"));
+                                                  AND $jadwal_asisten_clause
+                                                  $inhall_filter"));
 
 // Hitung jadwal pengganti minggu ini
 $stat_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total 

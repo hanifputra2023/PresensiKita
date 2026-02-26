@@ -68,12 +68,42 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
 // EXCLUDE jadwal inhall dari statistik (inhall bersifat opsional)
 $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT 
-        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
         SUM(CASE 
-            WHEN p.status = 'alpha' THEN 1
-            WHEN (p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() THEN 1 
+            WHEN p.status = 'hadir' THEN 1 
+            WHEN (p.status IN ('izin', 'sakit', 'alpha') OR p.status IS NULL OR p.status = 'belum') AND EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' 
+                AND pi.jadwal_asli_id = j.id 
+                AND pi.status = 'hadir' 
+                AND pi.status_approval = 'approved'
+            ) THEN 1
+            ELSE 0 
+        END) as hadir,
+        
+        SUM(CASE 
+            WHEN p.status = 'izin' AND NOT EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved'
+            ) THEN 1 
+            ELSE 0 
+        END) as izin,
+        
+        SUM(CASE 
+            WHEN p.status = 'sakit' AND NOT EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved'
+            ) THEN 1 
+            ELSE 0 
+        END) as sakit,
+        
+        SUM(CASE 
+            WHEN (
+                p.status = 'alpha' 
+                OR ((p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW())
+            ) AND NOT EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved'
+            ) THEN 1 
             ELSE 0 
         END) as alpha,
         COUNT(j.id) as total

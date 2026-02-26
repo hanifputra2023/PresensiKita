@@ -258,6 +258,40 @@ function update_jam_keluar_asisten($kode_asisten, $jadwal_id) {
     mysqli_stmt_execute($stmt);
 }
 
+/**
+ * Cek eligibilitas mahasiswa untuk mengikuti Responsi
+ * Syarat: Kehadiran minimal 75% (Hadir + Inhall)
+ */
+function cek_eligibilitas_responsi($nim, $kode_mk, $kode_kelas) {
+    global $conn;
+    
+    // 1. Total Materi
+    $q_tot = mysqli_query($conn, "SELECT COUNT(id) as total FROM jadwal WHERE kode_kelas = '$kode_kelas' AND kode_mk = '$kode_mk' AND jenis = 'materi'");
+    $d_tot = mysqli_fetch_assoc($q_tot);
+    $total_materi = $d_tot['total'];
+    
+    if ($total_materi == 0) return ['eligible' => true, 'percentage' => 100];
+
+    // 2. Hadir Original
+    $q_hadir = mysqli_query($conn, "SELECT COUNT(pm.id) as hadir FROM presensi_mahasiswa pm JOIN jadwal j2 ON pm.jadwal_id = j2.id WHERE pm.nim = '$nim' AND j2.kode_kelas = '$kode_kelas' AND j2.kode_mk = '$kode_mk' AND j2.jenis = 'materi' AND pm.status = 'hadir'");
+    $d_hadir = mysqli_fetch_assoc($q_hadir);
+    $hadir_original = $d_hadir['hadir'];
+    
+    // 3. Inhall Done
+    $q_inhall = mysqli_query($conn, "SELECT COUNT(pi.id) as inhall_done FROM penggantian_inhall pi JOIN jadwal j3 ON pi.jadwal_asli_id = j3.id WHERE pi.nim = '$nim' AND j3.kode_kelas = '$kode_kelas' AND j3.kode_mk = '$kode_mk' AND pi.status = 'hadir' AND pi.status_approval = 'approved'");
+    $d_inhall = mysqli_fetch_assoc($q_inhall);
+    $inhall_done = $d_inhall['inhall_done'];
+    
+    $total_attendance = $hadir_original + $inhall_done;
+    $percentage = ($total_attendance / $total_materi) * 100;
+    
+    return [
+        'eligible' => ($percentage >= 75),
+        'percentage' => $percentage,
+        'detail' => "$total_attendance dari $total_materi pertemuan"
+    ];
+}
+
 // ============ FUNGSI AUTO ALPHA ============
 
 /**

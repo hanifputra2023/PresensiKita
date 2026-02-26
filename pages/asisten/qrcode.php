@@ -130,6 +130,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['generate'])) {
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 
+// Filter tambahan: Sembunyikan jadwal Inhall jika tidak ada mahasiswa yang terdaftar (approved)
+$inhall_filter = "AND (
+    j.jenis != 'inhall' 
+    OR EXISTS (
+        SELECT 1 
+        FROM penggantian_inhall pi 
+        JOIN jadwal ja ON pi.jadwal_asli_id = ja.id 
+        JOIN mahasiswa m ON pi.nim = m.nim 
+        WHERE ja.kode_mk = j.kode_mk 
+        AND m.kode_kelas = j.kode_kelas 
+        AND pi.status = 'terdaftar' 
+        AND pi.status_approval = 'approved'
+    )
+)";
+
 // Jadwal sendiri
 $jadwal_sendiri = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'sendiri' as tipe_jadwal, NULL as asisten_asli
                                      FROM jadwal j 
@@ -139,6 +154,7 @@ $jadwal_sendiri = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.
                                      WHERE j.tanggal = '$today' 
                                      AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
                                      AND j.jam_selesai >= '$now_time'
+                                     $inhall_filter
                                      ORDER BY j.jam_mulai");
 
 // Jadwal sebagai pengganti (hanya yang sudah disetujui admin)
@@ -154,6 +170,7 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, m
                                           AND aa.status_approval = 'approved'
                                           AND j.tanggal = '$today'
                                           AND j.jam_selesai >= '$now_time'
+                                          $inhall_filter
                                           ORDER BY j.jam_mulai");
 
 // Gabungkan jadwal (hindari duplikasi)

@@ -548,6 +548,16 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                         } elseif ($is_today) {
                                             $row_class = 'table-primary';
                                         }
+                                    
+                                    // Cek Eligibilitas Responsi
+                                    $eligibility = ['eligible' => true];
+                                    $eligibility_msg = '';
+                                    if ($j['jenis'] == 'responsi') {
+                                        $eligibility = cek_eligibilitas_responsi($nim, $j['kode_mk'], $kelas);
+                                        if (!$eligibility['eligible']) {
+                                            $eligibility_msg = "Kehadiran " . round($eligibility['percentage']) . "%. Wajib Inhall (Min 75%)";
+                                        }
+                                    }
                                         ?>
                                         <tr class="<?= $row_class ?>">
                                             <td><span class="badge bg-secondary"><?= $j['pertemuan_ke'] ?></span></td>
@@ -595,6 +605,9 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                                     <span class="badge bg-secondary" title="Jadwal sebelum tanggal pendaftaran">-</span>
                                                 <?php elseif ($is_ended && empty($status_display)): ?>
                                                     <span class="badge bg-danger">Alpha</span>
+                                            <?php elseif (!$eligibility['eligible']): ?>
+                                                <span class="badge bg-danger"><i class="fas fa-ban me-1"></i>Dilarang</span>
+                                                <div class="small text-danger mt-1" style="font-size: 0.65rem;"><?= $eligibility_msg ?></div>
                                                 <?php elseif ($sedang_aktif): ?>
                                                     <a href="index.php?page=mahasiswa_scanner" class="btn btn-sm btn-success">
                                                         <i class="fas fa-qrcode me-1"></i>Scan
@@ -642,6 +655,16 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                 $sisa_menit = 0;
                                 if ($belum_waktunya) {
                                     $sisa_menit = ceil(($waktu_buka - $waktu_sekarang) / 60);
+                                }
+                                
+                                // Cek Eligibilitas Responsi
+                                $eligibility = ['eligible' => true];
+                                $eligibility_msg = '';
+                                if ($j['jenis'] == 'responsi') {
+                                    $eligibility = cek_eligibilitas_responsi($nim, $j['kode_mk'], $kelas);
+                                    if (!$eligibility['eligible']) {
+                                        $eligibility_msg = "Kehadiran " . round($eligibility['percentage']) . "%. Wajib Inhall (Min 75%)";
+                                    }
                                 }
                                 
                                 // Cek apakah jadwal sebelum tanggal daftar mahasiswa
@@ -731,6 +754,9 @@ if (isset($_GET['export']) && $_GET['export'] == 'ics') {
                                                 <span class="badge bg-secondary" title="Jadwal sebelum tanggal pendaftaran">-</span>
                                             <?php elseif ($is_ended && empty($status_display)): ?>
                                                 <span class="badge bg-danger">Alpha</span>
+                                        <?php elseif (!$eligibility['eligible']): ?>
+                                            <span class="badge bg-danger"><i class="fas fa-ban me-1"></i>Dilarang</span>
+                                            <div class="small text-danger mt-1" style="font-size: 0.65rem;"><?= $eligibility_msg ?></div>
                                             <?php elseif ($sedang_aktif): ?>
                                                 <a href="index.php?page=mahasiswa_scanner" class="btn btn-sm btn-success">
                                                     <i class="fas fa-qrcode me-1"></i>Scan Presensi

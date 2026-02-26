@@ -64,6 +64,21 @@ $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
 $search = isset($_GET['search']) ? escape($_GET['search']) : '';
 $search_param = '%' . $search . '%';
 
+// Filter tambahan: Sembunyikan jadwal Inhall jika tidak ada mahasiswa yang terdaftar (approved)
+$inhall_filter = "AND (
+    j.jenis != 'inhall' 
+    OR EXISTS (
+        SELECT 1 
+        FROM penggantian_inhall pi 
+        JOIN jadwal ja ON pi.jadwal_asli_id = ja.id 
+        JOIN mahasiswa m ON pi.nim = m.nim 
+        WHERE ja.kode_mk = j.kode_mk 
+        AND m.kode_kelas = j.kode_kelas 
+        AND pi.status = 'terdaftar' 
+        AND pi.status_approval = 'approved'
+    )
+)";
+
 // Build prepared statement untuk jadwal
 if ($filter_kelas && $search) {
     $stmt_jadwal = mysqli_prepare($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk 
@@ -74,6 +89,7 @@ if ($filter_kelas && $search) {
                                 WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
                                 AND j.kode_kelas = ?
                                 AND (j.materi LIKE ? OR mk.nama_mk LIKE ?)
+                                $inhall_filter
                                 ORDER BY j.tanggal ASC, j.jam_mulai ASC");
     mysqli_stmt_bind_param($stmt_jadwal, "sssss", $kode_asisten, $kode_asisten, $filter_kelas, $search_param, $search_param);
 } elseif ($filter_kelas) {
@@ -84,6 +100,7 @@ if ($filter_kelas && $search) {
                                 LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                 WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
                                 AND j.kode_kelas = ?
+                                $inhall_filter
                                 ORDER BY j.tanggal ASC, j.jam_mulai ASC");
     mysqli_stmt_bind_param($stmt_jadwal, "sss", $kode_asisten, $kode_asisten, $filter_kelas);
 } elseif ($search) {
@@ -94,6 +111,7 @@ if ($filter_kelas && $search) {
                                 LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                 WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
                                 AND (j.materi LIKE ? OR mk.nama_mk LIKE ?)
+                                $inhall_filter
                                 ORDER BY j.tanggal ASC, j.jam_mulai ASC");
     mysqli_stmt_bind_param($stmt_jadwal, "ssss", $kode_asisten, $kode_asisten, $search_param, $search_param);
 } else {
@@ -103,6 +121,7 @@ if ($filter_kelas && $search) {
                                 LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                 LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                 WHERE (j.kode_asisten_1 = ? OR j.kode_asisten_2 = ?)
+                                $inhall_filter
                                 ORDER BY j.tanggal ASC, j.jam_mulai ASC");
     mysqli_stmt_bind_param($stmt_jadwal, "ss", $kode_asisten, $kode_asisten);
 }

@@ -104,11 +104,27 @@ $jadwal_id = isset($_GET['jadwal']) ? (int)$_GET['jadwal'] : 0;
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 
+// Filter tambahan: Sembunyikan jadwal Inhall jika tidak ada mahasiswa yang terdaftar (approved)
+$inhall_filter = "AND (
+    j.jenis != 'inhall' 
+    OR EXISTS (
+        SELECT 1 
+        FROM penggantian_inhall pi 
+        JOIN jadwal ja ON pi.jadwal_asli_id = ja.id 
+        JOIN mahasiswa m ON pi.nim = m.nim 
+        WHERE ja.kode_mk = j.kode_mk 
+        AND m.kode_kelas = j.kode_kelas 
+        AND pi.status = 'terdaftar' 
+        AND pi.status_approval = 'approved'
+    )
+)";
+
 // Query jadwal reguler - SEMUA jadwal hari ini (tanpa filter jam_selesai)
 $jadwal_reguler = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 0 as is_pengganti FROM jadwal j 
                                      LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                      WHERE j.tanggal = '$today' 
                                      AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                     $inhall_filter
                                      ORDER BY j.jam_mulai");
 
 // Query jadwal sebagai pengganti (hanya yang sudah disetujui admin) - SEMUA jadwal hari ini
@@ -118,6 +134,7 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 1 as is_pengg
                                           WHERE j.tanggal = '$today' 
                                           AND aa.status IN ('izin', 'sakit')
                                           AND aa.status_approval = 'approved'
+                                          $inhall_filter
                                           ORDER BY j.jam_mulai");
 
 // Gabungkan jadwal (hindari duplikasi)

@@ -348,7 +348,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     ];
                 }
                 
-                $materi_list = [ 'Pertemuan 1 - Pengenalan', 'Pertemuan 2 - Dasar', 'Pertemuan 3 - Lanjutan I', 'Pertemuan 4 - Lanjutan II', 'Pertemuan 5 - Praktik I', 'Pertemuan 6 - Praktik II', 'Pertemuan 7 - Praktik III', 'Pertemuan 8 - Review', 'Praresponsi', 'Inhall', 'Responsi' ];
+                $materi_list = [ 'Pertemuan 1 - Pengenalan', 'Pertemuan 2 - Dasar', 'Pertemuan 3 - Lanjutan I', 'Pertemuan 4 - Lanjutan II', 'Pertemuan 5 - Praktik I', 'Pertemuan 6 - Praktik II', 'Pertemuan 7 - Praktik III', 'Pertemuan 8 - Review', 'Praresponsi', 'Inhall 1', 'Inhall 2', 'Responsi' ];
                 
                 $konflik_list = [];
                 $jadwal_to_insert = [];
@@ -364,8 +364,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $tgl_cursor = strtotime('+1 day', $tgl_cursor);
                     }
                     
-                    for ($i = 1; $i <= 11; $i++) {
-                        $is_inhall = ($i == 10);
+                    for ($i = 1; $i <= 12; $i++) {
+                        $is_inhall_1 = ($i == 10);
+                        $is_inhall_2 = ($i == 11);
+                        $is_inhall = $is_inhall_1 || $is_inhall_2;
                         $pertemuan_ke = ($i <= 9) ? $i : ($is_inhall ? 9 : 10);
                         
                         $current_jam_mulai = $cfg['jam_mulai'];
@@ -379,10 +381,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 $tgl_str = $prares['tanggal'];
                                 
                                 // Waktu inhall: setelah praresponsi (durasi sama)
+                                $prares_start = strtotime($prares['jam_mulai']);
                                 $prares_end = strtotime($prares['jam_selesai']);
-                                $duration = $prares_end - strtotime($prares['jam_mulai']);
-                                $current_jam_mulai = date('H:i:s', $prares_end);
-                                $current_jam_selesai = date('H:i:s', $prares_end + $duration);
+                                $duration = $prares_end - $prares_start;
+                                
+                                if ($is_inhall_1) {
+                                    $start_ts = $prares_end;
+                                } else {
+                                    $start_ts = $prares_end + $duration;
+                                }
+                                
+                                $current_jam_mulai = date('H:i:s', $start_ts);
+                                $current_jam_selesai = date('H:i:s', $start_ts + $duration);
                             } else {
                                 $konflik_list[] = "Inhall (P9) Sesi $sesi_num - Gagal dibuat karena Praresponsi tidak ada.";
                                 continue;
@@ -493,7 +503,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
                 
                 mysqli_commit($conn);
-                set_alert('success', 'Berhasil generate jadwal! Praresponsi dan Inhall pada pertemuan 9 telah dibuat.');
+                set_alert('success', 'Berhasil generate jadwal! Praresponsi dan 2 sesi Inhall pada pertemuan 9 telah dibuat.');
 
             } catch (Exception $e) {
                 mysqli_rollback($conn);
@@ -1456,7 +1466,7 @@ tr.selected td { background-color: rgba(0, 102, 204, 0.05); }
 <div class="modal fade" id="modalGenerate" tabindex="-1"><div class="modal-dialog"><div class="modal-content">
 <form method="POST"><input type="hidden" name="aksi" value="generate"><div class="modal-header"><h5 class="modal-title"><i class="fas fa-magic me-2"></i>Generate Jadwal Rolling</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
 <div class="modal-body">
-    <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i><strong>Fitur ini akan:</strong><ul class="mb-0 mt-2"><li>Generate <strong>10 pertemuan</strong> (8 materi + Praresponsi + Responsi) & <strong>Inhall</strong></li><li>Lab akan <strong>rolling/berputar</strong> setiap pertemuan</li><li>Jadwal mingguan pada hari yang dipilih</li></ul></div>
+    <div class="alert alert-info"><i class="fas fa-info-circle me-2"></i><strong>Fitur ini akan:</strong><ul class="mb-0 mt-2"><li>Generate <strong>10 pertemuan</strong> (8 materi + Praresponsi + Responsi) & <strong>2 Sesi Inhall</strong></li><li>Lab akan <strong>rolling/berputar</strong> setiap pertemuan</li><li>Jadwal mingguan pada hari yang dipilih</li></ul></div>
     <div class="mb-3"><label class="form-label">Kelas <span class="text-danger">*</span></label><select name="kode_kelas" id="generate_kelas" class="form-select" required onchange="filterMkByKelas('generate_kelas', 'generate_mk'); checkAsisten2Warning(this, 'warning_asisten2_generate');"><option value="">-- Pilih --</option><?php mysqli_data_seek($kelas_list, 0); while ($k = mysqli_fetch_assoc($kelas_list)): ?><option value="<?= $k['kode_kelas'] ?>" data-prodi="<?=htmlspecialchars($k['program_studi'])?>"><?= htmlspecialchars($k['nama_kelas']) ?></option><?php endwhile; ?></select></div>
     <div class="mb-3"><label class="form-label">Mata Kuliah <span class="text-danger">*</span></label><select name="kode_mk" id="generate_mk" class="form-select" required><option value="">-- Pilih --</option><?php mysqli_data_seek($mk_list, 0); while ($mk = mysqli_fetch_assoc($mk_list)): ?><option value="<?= $mk['kode_mk'] ?>" data-prodi="<?=htmlspecialchars($mk['program_studi'])?>"><?= htmlspecialchars($mk['nama_mk']) ?></option><?php endwhile; ?></select></div>
     <div class="row">
