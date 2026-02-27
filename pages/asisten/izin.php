@@ -185,6 +185,144 @@ $where_jenis = $filter_status ? "AND pi.materi_diulang = '$filter_status'" : "";
 ?>
 
 <style>
+/* Welcome Banner Modern */
+.welcome-banner-izin-approval {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-izin-approval::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-izin-app 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-izin-app {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-izin-approval h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-izin-approval .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-izin-approval .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-izin-approval .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-izin-approval .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.welcome-banner-izin-approval .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-izin-approval {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .welcome-banner-izin-approval {
+        padding: 30px;
+    }
+    .welcome-banner-izin-approval h1 {
+        font-size: 28px;
+    }
+}
+@media (max-width: 576px) {
+    .welcome-banner-izin-approval {
+        padding: 20px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-izin-approval h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-izin-approval .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-izin-approval .banner-subtitle {
+        font-size: 14px;
+    }
+    
+    .welcome-banner-izin-approval .btn-banner {
+        width: 100%;
+        justify-content: center;
+        margin-top: 10px;
+    }
+}
+
 .modal-header.custom-gradient {
     background: linear-gradient(135deg, #0066ccff 0%, #3b5ca5ff 50%, #0066cc 100%);
     border-radius: 20px 20px 0 0 !important;
@@ -737,11 +875,27 @@ while ($row = mysqli_fetch_assoc($daftar_izin)) {
         <div class="col-md-9 col-lg-10">
             <div class="izin-page">
             <div class="content-wrapper p-4">
-                <div class="d-flex justify-content-between align-items-center mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-file-alt me-2"></i>Persetujuan Izin & Sakit</h4>
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalManual">
-                        <i class="fas fa-plus-circle me-1"></i>Input Susulan
-                    </button>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-izin-approval mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Persetujuan Izin</h1>
+                                    <p class="banner-subtitle mb-0">Kelola pengajuan izin dan sakit mahasiswa</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-check-circle me-1"></i>Validasi Kehadiran
+                            </span>
+                        </div>
+                        <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalManual">
+                            <i class="fas fa-plus-circle me-2"></i>Input Susulan
+                        </button>
+                    </div>
                 </div>
                 
                 <?= show_alert() ?>

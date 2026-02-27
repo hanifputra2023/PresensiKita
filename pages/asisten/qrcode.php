@@ -201,6 +201,119 @@ while ($j = mysqli_fetch_assoc($jadwal_pengganti)) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+/* Welcome Banner Modern */
+.welcome-banner-qrcode {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-qrcode::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-qrcode 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-qrcode {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-qrcode h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-qrcode .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-qrcode .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-qrcode .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-qrcode {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .welcome-banner-qrcode {
+        padding: 30px;
+    }
+    .welcome-banner-qrcode h1 {
+        font-size: 28px;
+    }
+}
+@media (max-width: 576px) {
+    .welcome-banner-qrcode {
+        padding: 20px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-qrcode h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-qrcode .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-qrcode .banner-subtitle {
+        font-size: 14px;
+    }
+}
+
 @media (max-width: 767.98px) {
     .qr-page .card-body {
         padding: 1rem !important;
@@ -365,7 +478,25 @@ while ($j = mysqli_fetch_assoc($jadwal_pengganti)) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-qrcode me-2"></i>Generate QR Code Presensi</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-qrcode mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-qrcode"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Generate QR Code</h1>
+                                    <p class="banner-subtitle mb-0">Buat kode QR untuk presensi mahasiswa di kelas</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-camera me-1"></i>Presensi Digital
+                            </span>
+                        </div>
+                    </div>
+                </div>
                 
                 <?= show_alert() ?>
                 

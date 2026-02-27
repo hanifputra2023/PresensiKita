@@ -93,6 +93,133 @@ $result = mysqli_query($conn, $query);
 
 <?php include 'includes/header.php'; ?>
 
+<style>
+    /* Welcome Banner Modern */
+    .welcome-banner-bap {
+        background: var(--banner-gradient);
+        border-radius: 24px;
+        padding: 40px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .welcome-banner-bap::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-bap 4s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-glow-bap {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
+    }
+    
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .welcome-banner-bap h1 {
+        font-size: 32px;
+        font-weight: 700;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-bap .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-bap .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-bap .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
+    }
+    
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-bap {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .welcome-banner-bap {
+            padding: 30px;
+        }
+        .welcome-banner-bap h1 {
+            font-size: 28px;
+        }
+    }
+    @media (max-width: 576px) {
+        .welcome-banner-bap {
+            padding: 20px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-bap h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-bap .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+        
+        .welcome-banner-bap .banner-subtitle {
+            font-size: 14px;
+        }
+    }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -100,7 +227,25 @@ $result = mysqli_query($conn, $query);
         </div>
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4"><i class="fas fa-file-signature me-2"></i>Berita Acara Praktikum</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-bap mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-file-signature"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Berita Acara Praktikum</h1>
+                                    <p class="banner-subtitle mb-0">Kelola laporan dan dokumentasi kegiatan praktikum</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-clipboard-list me-1"></i>Laporan Kegiatan
+                            </span>
+                        </div>
+                    </div>
+                </div>
                 
                 <?= show_alert() ?>
                 

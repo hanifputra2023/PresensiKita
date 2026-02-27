@@ -1365,6 +1365,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <label for="remember" class="form-check-label">Ingat saya selama 30 hari</label>
                 </div>
 
+                <div class="text-end mb-3">
+                    <a href="index.php?page=lupa_password" class="footer-link" style="font-size: 13px;">
+                        <i class="fas fa-question-circle me-1"></i> Lupa Password?
+                    </a>
+                </div>
+
                 <button type="submit" class="btn-submit" id="btnLogin">
                     <i class="fas fa-sign-in-alt"></i> Masuk
                 </button>

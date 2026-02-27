@@ -193,6 +193,144 @@ if (isset($_GET['ajax_refresh']) && $jadwal_id) {
 <?php include 'includes/header.php'; ?>
 
 <style>
+/* Welcome Banner Modern */
+.welcome-banner-monitoring {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-monitoring::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-monitoring 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-monitoring {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-monitoring h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-monitoring .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-monitoring .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-monitoring .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-monitoring .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    padding: 10px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.welcome-banner-monitoring .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-monitoring {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .welcome-banner-monitoring {
+        padding: 30px;
+    }
+    .welcome-banner-monitoring h1 {
+        font-size: 28px;
+    }
+}
+@media (max-width: 576px) {
+    .welcome-banner-monitoring {
+        padding: 20px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-monitoring h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-monitoring .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-monitoring .banner-subtitle {
+        font-size: 14px;
+    }
+    
+    .welcome-banner-monitoring .btn-banner {
+        width: 100%;
+        justify-content: center;
+        margin-top: 10px;
+    }
+}
+
 /* Dark Mode Fixes for Monitoring */
 [data-theme="dark"] .card.border-primary {
     border-color: #66b0ff !important;
@@ -245,13 +383,29 @@ if (isset($_GET['ajax_refresh']) && $jadwal_id) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2">
-                    <h4 class="mb-0"><i class="fas fa-tv me-2"></i>Monitoring Presensi</h4>
-                    <?php if ($jadwal_aktif): ?>
-                        <a href="index.php?page=asisten_qrcode&jadwal=<?= $jadwal_id ?>" class="btn btn-primary w-100 w-md-auto">
-                            <i class="fas fa-qrcode me-1"></i>Lihat QR Code
-                        </a>
-                    <?php endif; ?>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-monitoring mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-tv"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Monitoring Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Pantau kehadiran mahasiswa secara real-time</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-chart-line me-1"></i>Live Data
+                            </span>
+                        </div>
+                        <?php if ($jadwal_aktif): ?>
+                            <a href="index.php?page=asisten_qrcode&jadwal=<?= $jadwal_id ?>" class="btn btn-banner">
+                                <i class="fas fa-qrcode me-2"></i>Lihat QR Code
+                            </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
                 
                 <?php if (!$jadwal_id): ?>

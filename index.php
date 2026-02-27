@@ -8,7 +8,7 @@ require_once 'includes/maintenance_check.php';
 $page = isset($_GET['page']) ? $_GET['page'] : 'login';
 
 // Daftar halaman yang diizinkan tanpa login
-$public_pages = ['login', 'logout'];
+$public_pages = ['login', 'logout', 'lupa_password'];
 
 // Cek Remember Me cookie - auto login
 if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && isset($_COOKIE['remember_user'])) {
@@ -180,6 +180,9 @@ switch ($page) {
     // Public pages
     case 'login':
         include 'pages/login.php';
+        break;
+    case 'lupa_password':
+        include 'pages/lupa_password.php';
         break;
     case 'login_staff':
         // Redirect ke halaman login terpadu

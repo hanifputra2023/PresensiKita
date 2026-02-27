@@ -616,6 +616,150 @@ ksort($meetings);
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* ===== WELCOME BANNER REKAP ===== */
+.welcome-banner-rekap {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-rekap::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-rekap 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-rekap {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-rekap h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-rekap .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-rekap .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-rekap .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-rekap .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.welcome-banner-rekap .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    color: white;
+}
+
+.welcome-banner-rekap .detail-switch-wrapper {
+    background: rgba(255,255,255,0.2);
+    padding: 8px 16px;
+    border-radius: 10px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-rekap {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+    .welcome-banner-rekap {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-rekap h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-rekap .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-rekap .banner-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    
+    .welcome-banner-rekap .btn-banner {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .welcome-banner-rekap .detail-switch-wrapper {
+        width: 100%;
+        justify-content: center;
+    }
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -624,22 +768,40 @@ ksort($meetings);
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2 no-print">
-                    <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Rekap Presensi</h4>
-                    <div class="d-grid d-md-flex gap-2 justify-content-md-end align-items-center">
-                        <div class="form-check form-switch me-md-3">
-                            <input class="form-check-input" type="checkbox" role="switch" id="sertakanDetail" checked>
-                            <label class="form-check-label small" for="sertakanDetail">Sertakan Detail Pertemuan</label>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-rekap mb-4 no-print">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-chart-bar"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Rekap Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Rekapitulasi kehadiran mahasiswa di kelas Anda</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-file-alt me-1"></i>Laporan & Export
+                            </span>
                         </div>
-                        <button onclick="exportExcel()" class="btn btn-success">
-                            <i class="fas fa-file-excel me-1"></i>Export Excel
-                        </button>
-                        <button class="btn btn-danger" onclick="exportPDF()">
-                            <i class="fas fa-file-pdf me-1"></i>Export PDF
-                        </button>
-                        <button class="btn btn-secondary" onclick="printPage()">
-                            <i class="fas fa-print me-1"></i>Cetak
-                        </button>
+                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
+                             <div class="d-flex align-items-center gap-2 me-2 detail-switch-wrapper">
+                                <label class="small text-white mb-0" for="sertakanDetail" style="cursor: pointer; white-space: nowrap;">Sertakan Detail</label>
+                                <div class="form-check form-switch mb-0" style="padding-left: 0; min-height: auto;">
+                                    <input class="form-check-input m-0" type="checkbox" role="switch" id="sertakanDetail" checked style="cursor: pointer; width: 40px; height: 20px;">
+                                </div>
+                            </div>
+                            <button onclick="exportExcel()" class="btn btn-banner">
+                                <i class="fas fa-file-excel me-1"></i>Excel
+                            </button>
+                            <button onclick="exportPDF()" class="btn btn-banner">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
+                            </button>
+                            <button onclick="printPage()" class="btn btn-banner">
+                                <i class="fas fa-print me-1"></i>Cetak
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
