@@ -519,10 +519,10 @@ mysqli_data_seek($jadwal, 0);
                                     <p class="banner-subtitle mb-0">Kelola jadwal praktikum dan materi pembelajaran</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-chalkboard-teacher me-1"></i>Semester Aktif
-                            </span>
                         </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-chalkboard-teacher me-1"></i>Semester Aktif
+                        </span>
                     </div>
                 </div>
                 

@@ -240,10 +240,10 @@ $result = mysqli_query($conn, $query);
                                     <p class="banner-subtitle mb-0">Kelola laporan dan dokumentasi kegiatan praktikum</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-clipboard-list me-1"></i>Laporan Kegiatan
-                            </span>
                         </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-clipboard-list me-1"></i>Laporan Kegiatan
+                        </span>
                     </div>
                 </div>
                 
