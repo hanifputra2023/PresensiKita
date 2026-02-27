@@ -7,10 +7,23 @@
         opacity: 0.75; /* Efek redup saat disorot */
     }
 </style>
+<!-- Toggle Button (Desktop Only) - Positioned outside sidebar for better UX -->
+<button id="sidebarCollapseBtn" class="sidebar-toggle-btn" title="Toggle Sidebar">
+    <i class="fas fa-chevron-left"></i>
+</button>
 <div class="sidebar d-flex flex-column p-3">
-    <?php 
+
+    <?php
     // Tentukan link dashboard berdasarkan role
     $dashboard_page = isset($_SESSION['role']) ? $_SESSION['role'] . '_dashboard' : 'login';
+    
+    // Tentukan link profil
+    $profil_link = '#';
+    if (isset($_SESSION['role'])) {
+        if ($_SESSION['role'] == 'mahasiswa') $profil_link = 'index.php?page=mahasiswa_profil';
+        elseif ($_SESSION['role'] == 'asisten') $profil_link = 'index.php?page=asisten_profil';
+        elseif ($_SESSION['role'] == 'admin') $profil_link = 'index.php?page=admin_profil';
+    }
     ?>
     <a href="index.php?page=<?= $dashboard_page ?>" class="sidebar-brand d-flex align-items-center justify-content-center mb-3">
         <img src="includes/logo-AU.png" alt="Logo Light" class="logo-light" 
@@ -39,8 +52,8 @@
             <li class="nav-item"><a href="index.php?page=admin_statistik" class="nav-link <?= is_active('admin_statistik') ?>"><i class="fas fa-chart-pie"></i> Statistik</a></li>
             <li class="nav-item"><a href="index.php?page=admin_log" class="nav-link <?= is_active('admin_log') ?>"><i class="fas fa-history"></i> Log Aktivitas</a></li>
             <li class="nav-item"><a href="index.php?page=admin_bantuan" class="nav-link <?= is_active('admin_bantuan') ?>"><i class="fas fa-headset"></i> Pesan Bantuan</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_setting" class="nav-link <?= is_active('admin_setting') ?>"><i class="fas fa-cog"></i> Settings</a></li>
             <li class="nav-item"><a href="index.php?page=admin_profil" class="nav-link <?= is_active('admin_profil') ?>"><i class="fas fa-user-cog"></i> Profil</a></li>
-            <li class="nav-item"><a href="index.php?page=admin_setting" class="nav-link <?= is_active('admin_setting') ?>"><i class="fas fa-cogs"></i> Pengaturan</a></li>
 
         <?php elseif ($_SESSION['role'] == 'mahasiswa') : ?>
             <!-- MENU MAHASISWA -->
@@ -80,12 +93,14 @@
     <div class="d-none d-md-block">
         <div class="d-flex align-items-center text-white mb-3 px-2">
             <!-- Foto Profil Sidebar (Desktop) -->
-            <img src="<?= isset($header_foto) ? $header_foto : 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['username'] ?? 'User') . '&background=random&color=fff&rounded=true' ?>" 
-                 alt="Profile" 
-                 class="rounded-circle me-3" 
-                 style="width: 48px; height: 48px; object-fit: cover; border: 2px solid rgba(255,255,255,0.2);">
+            <a href="<?= $profil_link ?>" class="d-block text-decoration-none">
+                <img src="<?= isset($header_foto) ? $header_foto : 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['username'] ?? 'User') . '&background=random&color=fff&rounded=true' ?>" 
+                     alt="Profile" 
+                     class="rounded-circle me-3" 
+                     style="width: 48px; height: 48px; object-fit: cover; border: 2px solid rgba(255,255,255,0.2);">
+            </a>
             <div class="lh-1">
-                <div class="fw-bold"><?= htmlspecialchars($_SESSION['username']) ?></div>
+                <div class="fw-bold"><?= htmlspecialchars($header_nama ?? $_SESSION['username']) ?></div>
                 <!-- Menampilkan Role secara otomatis (Huruf pertama kapital) -->
                 <small class="text-white-50"><?= ucfirst($_SESSION['role']) ?></small>
             </div>
@@ -96,3 +111,36 @@
         </div>
     </div>
 </div>
+<script>
+// Anti-FOUC + Scroll Restoration: Segera setelah sidebar dirender
+(function() {
+    var sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+        sidebar.classList.add('fouc-ready');
+    }
+    
+    // Restore scroll position untuk container sidebar
+    var sidebarContainer = document.querySelector('.col-md-3.col-lg-2');
+    if (sidebarContainer) {
+        var savedPos = sessionStorage.getItem('sidebarScrollPos');
+        if (savedPos) sidebarContainer.scrollTop = parseInt(savedPos);
+    }
+
+    // Sidebar Collapse Logic
+    var collapseBtn = document.getElementById('sidebarCollapseBtn');
+    if (collapseBtn) {
+        collapseBtn.addEventListener('click', function() {
+            var current = document.documentElement.getAttribute('data-sidebar');
+            var newState = current === 'collapsed' ? 'expanded' : 'collapsed';
+            
+            document.documentElement.setAttribute('data-sidebar', newState);
+            localStorage.setItem('sidebarState', newState);
+            
+            // Trigger resize event for charts/tables to adjust
+            setTimeout(function() {
+                window.dispatchEvent(new Event('resize'));
+            }, 300);
+        });
+    }
+})();
+</script>

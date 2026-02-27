@@ -7,7 +7,7 @@ header('Cache-Control: no-cache, no-store, must-revalidate');
 // service-worker.js
 // PWA Service Worker untuk Sistem Presensi Kampus
 
-const CACHE_NAME = 'presensi-app-v5';
+const CACHE_NAME = 'presensi-app-v6';
 const urlsToCache = [
   './',
   './index.php',

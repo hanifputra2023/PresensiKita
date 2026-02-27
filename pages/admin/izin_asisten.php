@@ -455,57 +455,6 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
         background-color: var(--bg-card);
         border-color: var(--border-color);
     }
-    
-    /* Mobile Tab Navigation 2x2 Layout */
-    @media (max-width: 576px) {
-        .izin-asisten-page .nav-pills {
-            display: flex !important;
-            flex-wrap: wrap !important;
-            gap: 0.5rem !important;
-        }
-        
-        .izin-asisten-page .nav-pills .nav-item {
-            flex: 0 0 calc(50% - 0.25rem) !important;
-            max-width: calc(50% - 0.25rem) !important;
-        }
-        
-        .izin-asisten-page .nav-pills .nav-item .nav-link {
-            width: 100% !important;
-            text-align: center !important;
-            padding: 0.5rem 0.25rem !important;
-            font-size: 0.8rem !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-        }
-    }
-
-    /* Mobile Button Grid for 2x2 Layout */
-    .mobile-btn-grid {
-        display: flex !important;
-        flex-wrap: wrap !important;
-        gap: 0.5rem !important;
-    }
-    
-    .mobile-btn-item {
-        flex: 0 0 calc(50% - 0.25rem) !important;
-        max-width: calc(50% - 0.25rem) !important;
-        min-width: calc(50% - 0.25rem) !important;
-    }
-    
-    .mobile-btn-item.btn {
-        width: 100% !important;
-    }
-    
-    .mobile-btn-item form {
-        flex: 0 0 calc(50% - 0.25rem) !important;
-        max-width: calc(50% - 0.25rem) !important;
-        width: 100% !important;
-    }
-    
-    .mobile-btn-item form button {
-        width: 100% !important;
-    }
 </style>
 
 <div class="container-fluid izin-asisten-page">
@@ -1154,20 +1103,20 @@ $count_rejected = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as tot
                     <div class="card">
                         <div class="card-body empty-state text-center">
                             <?php if ($active_tab == 'pending'): ?>
-                                <i class="fas fa-check-circle text-success"></i>
                                 <h5>Tidak Ada Pengajuan</h5>
+                                <i class="fas fa-check-circle text-success"></i>
                                 <p class="text-muted mb-0">Semua pengajuan izin sudah diproses</p>
                             <?php elseif ($active_tab == 'approved'): ?>
-                                <i class="fas fa-folder-open text-muted"></i>
                                 <h5>Belum Ada Yang Disetujui</h5>
+                                <i class="fas fa-folder-open text-muted"></i>
                                 <p class="text-muted mb-0">Belum ada pengajuan izin yang disetujui</p>
                             <?php elseif ($active_tab == 'rejected'): ?>
-                                <i class="fas fa-folder-open text-muted"></i>
                                 <h5>Belum Ada Yang Ditolak</h5>
+                                <i class="fas fa-folder-open text-muted"></i>
                                 <p class="text-muted mb-0">Belum ada pengajuan izin yang ditolak</p>
                             <?php else: ?>
-                                <i class="fas fa-inbox text-muted"></i>
                                 <h5>Tidak Ada Data</h5>
+                                <i class="fas fa-inbox text-muted"></i>
                                 <p class="text-muted mb-0">Belum ada pengajuan izin dari asisten</p>
                             <?php endif; ?>
                         </div>

@@ -33,20 +33,35 @@ $sesi_mhs = $data['sesi'] ?? 1;
 // Prepared statement untuk statistik presensi
 $stmt_stat = mysqli_prepare($conn, "SELECT 
     COUNT(j.id) as total_jadwal,
-    SUM(CASE WHEN pm.status = 'hadir' THEN 1 ELSE 0 END) as total_hadir,
-    SUM(CASE WHEN pm.status = 'izin' THEN 1 ELSE 0 END) as total_izin,
-    SUM(CASE WHEN pm.status = 'sakit' THEN 1 ELSE 0 END) as total_sakit,
     SUM(CASE 
-        WHEN pm.status = 'alpha' THEN 1
-        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+        WHEN pm.status = 'hadir' THEN 1 
+        WHEN (pm.status IN ('izin', 'sakit', 'alpha') OR pm.status IS NULL OR pm.status = 'belum') AND EXISTS (
+            SELECT 1 FROM penggantian_inhall pi 
+            WHERE pi.nim = ? 
+            AND pi.jadwal_asli_id = j.id 
+            AND pi.status = 'hadir' 
+            AND pi.status_approval = 'approved'
+        ) THEN 1
+        ELSE 0 
+    END) as total_hadir,
+    
+    SUM(CASE WHEN pm.status = 'izin' AND NOT EXISTS (SELECT 1 FROM penggantian_inhall pi WHERE pi.nim = ? AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved') THEN 1 ELSE 0 END) as total_izin,
+    
+    SUM(CASE WHEN pm.status = 'sakit' AND NOT EXISTS (SELECT 1 FROM penggantian_inhall pi WHERE pi.nim = ? AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved') THEN 1 ELSE 0 END) as total_sakit,
+    
+    SUM(CASE 
+        WHEN (
+            pm.status = 'alpha'
+            OR ((pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW())
+        ) AND NOT EXISTS (SELECT 1 FROM penggantian_inhall pi WHERE pi.nim = ? AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved') THEN 1 
         ELSE 0 
     END) as total_alpha,
     SUM(CASE 
-        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() THEN 1 
+        WHEN (pm.status IS NULL OR pm.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) >= NOW() THEN 1 
         ELSE 0 
     END) as total_belum,
     SUM(CASE 
-        WHEN CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() OR pm.status IN ('hadir', 'izin', 'sakit', 'alpha') THEN 1 
+        WHEN CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() OR pm.status IN ('hadir', 'izin', 'sakit', 'alpha') THEN 1 
         ELSE 0 
     END) as total_completed
     FROM jadwal j
@@ -54,8 +69,9 @@ $stmt_stat = mysqli_prepare($conn, "SELECT
     JOIN mahasiswa m ON m.nim = ?
     WHERE j.kode_kelas = ?
     AND j.jenis != 'inhall'
+    AND (j.sesi = 0 OR j.sesi = ?)
     AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)");
-mysqli_stmt_bind_param($stmt_stat, "sss", $nim, $nim, $kode_kelas);
+mysqli_stmt_bind_param($stmt_stat, "sssssssi", $nim, $nim, $nim, $nim, $nim, $nim, $kode_kelas, $sesi_mhs);
 mysqli_stmt_execute($stmt_stat);
 $stat_result = mysqli_stmt_get_result($stmt_stat);
 $stat_data = mysqli_fetch_assoc($stat_result);
@@ -1386,7 +1402,7 @@ $log_login = mysqli_query($conn, "SELECT * FROM log_presensi WHERE user_id = '$u
                                                             <input type="password" name="password_lama" id="password_lama" class="form-control form-control-custom password-input" placeholder="Masukkan password saat ini" required>
                                                             <button class="btn btn-outline-primary toggle-password" type="button"><i class="fas fa-eye"></i></button>
                                                             <button class="btn btn-outline-secondary" type="button" id="btn_cek_password" title="Cek Password">
-                                                                <i class="fas fa-check-circle"></i> Cek
+                                                                <i class="fas fa-check-circle"></i>
                                                             </button>
                                                         </div>
                                                         <div id="password_lama_feedback" class="mt-2" style="display: none;">

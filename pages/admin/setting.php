@@ -19,7 +19,8 @@ if (mysqli_num_rows($check_table) == 0) {
             'semester_aktif' => ['Ganjil', 'Semester Aktif'],
             'tahun_ajaran' => [date('Y') . '/' . (date('Y') + 1), 'Tahun Ajaran'],
             'contact_wa' => ['', 'Nomor WhatsApp Admin'],
-            'maintenance_mode' => ['0', 'Mode Maintenance (1=Ya, 0=Tidak)']
+            'maintenance_mode' => ['0', 'Mode Maintenance (1=Ya, 0=Tidak)'],
+            'wa_token' => ['', 'Token WhatsApp Gateway (Fonnte)']
         ];
         
         foreach ($defaults as $key => $val) {
@@ -101,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             'semester_aktif' => $_POST['semester_aktif'],
             'tahun_ajaran' => $_POST['tahun_ajaran'],
             'contact_wa' => $_POST['contact_wa'],
+            'wa_token' => $_POST['wa_token'],
             'maintenance_mode' => isset($_POST['maintenance_mode']) ? '1' : '0'
         ];
         
@@ -131,48 +133,9 @@ $s = array_merge([
     'semester_aktif' => 'Ganjil',
     'tahun_ajaran' => date('Y') . '/' . (date('Y') + 1),
     'contact_wa' => '',
+    'wa_token' => '',
     'maintenance_mode' => '0'
 ], $settings_data);
-
-// Greeting berdasarkan waktu
-$greeting = sapaan_waktu();
-
-// Get real server resource usage
-$memory_usage = memory_get_usage(true);
-$memory_limit = ini_get('memory_limit');
-// Convert memory limit to bytes
-$memory_limit_bytes = $memory_limit;
-if (preg_match('/^(\d+)(.)$/', $memory_limit, $matches)) {
-    $val = $matches[1];
-    $unit = strtoupper($matches[2]);
-    switch ($unit) {
-        case 'G': $memory_limit_bytes = $val * 1024 * 1024 * 1024; break;
-        case 'M': $memory_limit_bytes = $val * 1024 * 1024; break;
-        case 'K': $memory_limit_bytes = $val * 1024; break;
-        default: $memory_limit_bytes = $val;
-    }
-}
-$memory_percent = ($memory_limit_bytes > 0) ? round(($memory_usage / $memory_limit_bytes) * 100, 1) : 0;
-
-// Get disk space
-$disk_free = @disk_free_space("/");
-$disk_total = @disk_total_space("/");
-$disk_used = $disk_total - $disk_free;
-$disk_percent = ($disk_total > 0) ? round(($disk_used / $disk_total) * 100, 1) : 0;
-
-// Get database size
-$db_name = mysqli_real_escape_string($conn, 'presensi');
-$db_size_query = mysqli_query($conn, "SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS 'size_mb' FROM information_schema.tables WHERE table_schema = '$db_name'");
-$db_size_row = mysqli_fetch_assoc($db_size_query);
-$db_size_mb = $db_size_row['size_mb'] ?? 0;
-
-// Get total records in database (as indicator of system load)
-$total_records_query = mysqli_query($conn, "SELECT 
-    (SELECT COUNT(*) FROM mahasiswa) + 
-    (SELECT COUNT(*) FROM asisten) + 
-    (SELECT COUNT(*) FROM jadwal) + 
-    (SELECT COUNT(*) FROM presensi_mahasiswa) as total");
-$total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -246,86 +209,46 @@ $total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
     transition: background 0.4s ease;
 }
 
-/* Welcome Banner - Same as Dashboard */
-.welcome-banner {
-    background: linear-gradient(135deg, #0066cc 0%, #00ccff 100%);
-    border-radius: 24px;
-    padding: 40px;
-    margin-bottom: 30px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.2);
-}
-
-.welcome-banner::before {
-    content: '';
-    position: absolute;
-    width: 300px;
-    height: 300px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
-    top: -100px;
-    right: -100px;
-    pointer-events: none;
-}
-
-.welcome-content h1 {
-    color: white;
-    font-size: 32px;
-    font-weight: 800;
-    margin-bottom: 8px;
-    letter-spacing: -0.5px;
-}
-
-.welcome-content .subtitle {
-    color: rgba(255, 255, 255, 0.9);
-    font-size: 16px;
-    margin: 0;
-    font-weight: 400;
-}
-
-.welcome-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
-    padding: 8px 16px;
-    border-radius: 20px;
-    color: white;
-    font-size: 14px;
-    font-weight: 600;
-    margin-bottom: 16px;
-}
-
-.welcome-badge i {
-    font-size: 8px;
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-}
-
-[data-theme="dark"] .welcome-banner {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-}
-
 .settings-modern::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 0px;
+    height: 320px;
+    background: var(--bg-header);
+    clip-path: polygon(0 0, 100% 0, 100% 70%, 0% 100%);
     z-index: 0;
     transition: background 0.4s ease;
 }
 
-/* Header Styling - Removed, replaced with welcome banner */
+/* Header Styling */
 .page-header-modern {
-    display: none;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 40px;
+}
+
+.header-content {
+    padding: 60px 0 40px;
+}
+
+.header-title {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--text-header);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+    transition: color 0.3s ease;
+}
+
+.header-subtitle {
+    font-size: 16px;
+    color: var(--text-header);
+    opacity: 0.9;
+    font-weight: 400;
+    max-width: 600px;
+    transition: color 0.3s ease;
 }
 
 /* Main Content */
@@ -454,7 +377,34 @@ $total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
     opacity: 0.7;
 }
 
+/* WhatsApp Input Group Styling */
+.wa-input-group {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+}
+
+.wa-icon-field {
+    width: 44px !important;
+    min-width: 44px !important;
+    max-width: 44px !important;
+    padding: 0 !important;
+    height: 52px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+}
+
+.wa-input-field {
+    flex: 1 !important;
+    min-width: 0 !important;
+    height: 52px !important;
+}
+
+
 /* Select Styling */
+
 .select-modern {
     width: 100%;
     padding: 16px 20px;
@@ -1158,15 +1108,16 @@ $total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
             
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10">
-                <!-- Welcome Banner - Same as Dashboard -->
-                <div class="welcome-banner">
-                    <div class="welcome-content">
-                        <div class="welcome-badge">
-                            <i class="fas fa-circle"></i>
-                            <?= format_tanggal(date('Y-m-d')) ?>
-                        </div>
-                        <h1><?= $greeting ?>, Admin!</h1>
-                        <p class="subtitle">Kelola konfigurasi aplikasi, preferensi sistem, dan pengaturan lainnya</p>
+                <!-- Header -->
+                <div class="page-header-modern">
+                    <div class="header-content">
+                        <h1 class="header-title">
+                            <i class="fas fa-sliders-h me-2"></i>
+                            Pengaturan Sistem
+                        </h1>
+                        <p class="header-subtitle">
+                            Kelola konfigurasi aplikasi, preferensi sistem, dan pengaturan lainnya
+                        </p>
                     </div>
                 </div>
                 
@@ -1254,17 +1205,32 @@ $total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
                                                 <i class="fab fa-whatsapp me-1"></i>
                                                 WhatsApp Support
                                             </label>
-                                            <div class="d-flex align-items-center">
-                                                <span class="input-field-modern" style="border-right: none; border-radius: 12px 0 0 12px; background: #f1f5f9; min-width: 48px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                                            <div class="d-flex align-items-center wa-input-group">
+                                                <span class="input-field-modern wa-icon-field" style="border-right: none; border-radius: 12px 0 0 12px; display: flex; align-items: center; justify-content: center; color: var(--primary); flex-shrink: 0;">
                                                     <i class="fab fa-whatsapp"></i>
                                                 </span>
-                                                <input type="text" name="contact_wa" class="input-field-modern" 
+                                                <input type="text" name="contact_wa" class="input-field-modern wa-input-field" 
                                                        value="<?= htmlspecialchars($s['contact_wa']) ?>" 
-                                                       placeholder="628123456789" style="border-radius: 0 12px 12px 0; border-left: none;">
+                                                       placeholder="628123456789" style="border-radius: 0 12px 12px 0; border-left: none; flex: 1;">
                                             </div>
+
                                             <div class="input-help">
                                                 <i class="fas fa-phone"></i>
                                                 Nomor WhatsApp untuk bantuan teknis (tanpa tanda +)
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="input-group-modern">
+                                            <label class="input-label-modern">
+                                                <i class="fas fa-key me-1"></i>
+                                                Token WhatsApp (Fonnte)
+                                            </label>
+                                            <input type="text" name="wa_token" class="input-field-modern" 
+                                                   value="<?= htmlspecialchars($s['wa_token']) ?>" 
+                                                   placeholder="Masukkan Token Fonnte">
+                                            <div class="input-help">
+                                                <i class="fas fa-info-circle"></i>
+                                                Token API dari Fonnte untuk mengirim notifikasi WA
                                             </div>
                                         </div>
                                         
@@ -1475,9 +1441,7 @@ $total_records = mysqli_fetch_assoc($total_records_query)['total'] ?? 0;
                                                                 <i class="fas fa-hdd"></i>
                                                                 Disk Space
                                                             </span>
-                                                            <span class="progress-value-modern">
-                                                                <?= $disk_free !== false ? round($disk_used/1073741824, 2) . ' GB / ' . round($disk_total/1073741824, 2) . ' GB' : 'N/A' ?>
-                                                            </span>
+                                                            <span class="progress-value-modern" id="diskValue">4.2 GB / 10 GB</span>
                                                         </div>
                                                         <div class="progress-bar-modern">
                                                             <div class="progress-fill-modern" style="width: <?= $disk_percent ?>%"></div>

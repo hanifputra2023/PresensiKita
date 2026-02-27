@@ -19,25 +19,25 @@ echo json_encode([
     "prefer_related_applications" => false,
     "icons" => [
         [
-            "src" => "./includes/icon-192.png",
+            "src" => "./assets/img/52452554464_81be58f500_m.png",
             "sizes" => "192x192",
             "type" => "image/png",
             "purpose" => "any"
         ],
         [
-            "src" => "./includes/icon-192.png",
+            "src" => "./assets/img/52452554464_81be58f500_m.png",
             "sizes" => "192x192",
             "type" => "image/png",
             "purpose" => "maskable"
         ],
         [
-            "src" => "./includes/icon-512.png",
+            "src" => "./assets/img/512x512-logo-barcelona-logo-png-0.png",
             "sizes" => "512x512",
             "type" => "image/png",
             "purpose" => "any"
         ],
         [
-            "src" => "./includes/icon-512.png",
+            "src" => "./assets/img/512x512-logo-barcelona-logo-png-0.png",
             "sizes" => "512x512",
             "type" => "image/png",
             "purpose" => "maskable"

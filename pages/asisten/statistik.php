@@ -187,7 +187,7 @@ $stat_per_kelas = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN kelas k ON j.kode_kelas = k.kode_kelas
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -204,7 +204,7 @@ $stat_per_mk = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -221,7 +221,7 @@ $stat_per_lab = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN lab l ON j.kode_lab = l.kode_lab
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -236,7 +236,7 @@ $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
@@ -254,65 +254,98 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     max-width: 1600px;
 }
 
-/* Header Banner */
-.page-header-banner {
+/* ===== WELCOME BANNER STATISTIK ===== */
+.welcome-banner-statistik {
     background: var(--banner-gradient);
-    border-radius: 20px;
-    padding: 24px 28px;
+    border-radius: 24px;
+    padding: 40px;
     color: white;
-    margin-bottom: 24px;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
     position: relative;
     overflow: hidden;
 }
-.page-header-banner::before {
+
+.welcome-banner-statistik::before {
     content: '';
     position: absolute;
-    top: -50px;
-    right: -50px;
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-stat 4s ease-in-out infinite;
 }
-.page-header-banner::after {
-    content: '';
-    position: absolute;
-    bottom: -80px;
-    left: 20%;
-    width: 150px;
-    height: 150px;
-    background: radial-gradient(circle, rgba(54, 185, 204, 0.2) 0%, transparent 70%);
+
+@keyframes pulse-glow-stat {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
 }
-.page-header-banner .header-content {
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-statistik h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
     position: relative;
     z-index: 2;
+}
+
+.welcome-banner-statistik .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-statistik .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 16px;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
 }
-.page-header-banner h4 {
-    margin: 0;
-    font-weight: 700;
-    font-size: 1.5rem;
+
+.welcome-banner-statistik .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
 }
-.page-header-banner .subtitle {
-    margin: 4px 0 0 0;
-    opacity: 0.85;
-    font-size: 0.9rem;
-}
-.btn-print {
-    background: rgba(255,255,255,0.2);
-    border: 1px solid rgba(255,255,255,0.3);
+
+.welcome-banner-statistik .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
     color: #fff;
+    border: 2px solid rgba(255, 255, 255, 0.3);
     padding: 10px 20px;
-    border-radius: 12px;
-    font-weight: 500;
+    border-radius: 10px;
+    font-weight: 600;
     backdrop-filter: blur(10px);
     transition: all 0.3s ease;
 }
-.btn-print:hover {
-    background: rgba(255,255,255,0.3);
+
+.welcome-banner-statistik .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
     color: #fff;
     transform: translateY(-2px);
 }
@@ -610,12 +643,12 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     .statistik-content {
         padding: 16px;
     }
-    .page-header-banner {
-        padding: 20px;
-        border-radius: 16px;
+    .welcome-banner-statistik {
+        padding: 24px !important;
+        border-radius: 16px !important;
     }
-    .page-header-banner h4 {
-        font-size: 1.25rem;
+    .welcome-banner-statistik h1 {
+        font-size: 24px !important;
     }
     .summary-card {
         padding: 16px;
@@ -640,21 +673,18 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 }
 
 @media (max-width: 768px) {
-    .page-header-banner .header-content {
-        flex-direction: column;
-        text-align: center;
+    .welcome-banner-statistik .d-flex.flex-column.flex-md-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
     }
-    .page-header-banner .header-content > div:last-child {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-    .page-header-banner .header-content > div:last-child .btn {
+    .welcome-banner-statistik .banner-buttons {
+        margin-top: 15px;
         width: 100%;
     }
-    .btn-print {
-        width: 100%;
+    .welcome-banner-statistik .banner-icon {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 22px !important;
     }
     .summary-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -696,16 +726,23 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
     .statistik-content {
         padding: 12px;
     }
-    .page-header-banner {
-        padding: 16px;
-        border-radius: 14px;
-        margin-bottom: 16px;
+    .welcome-banner-statistik {
+        padding: 20px !important;
+        border-radius: 14px !important;
     }
-    .page-header-banner h4 {
-        font-size: 1.1rem;
+    .welcome-banner-statistik h1 {
+        font-size: 20px !important;
     }
-    .page-header-banner .subtitle {
-        font-size: 0.8rem;
+    .welcome-banner-statistik .banner-subtitle {
+        font-size: 13px !important;
+    }
+    .welcome-banner-statistik .banner-buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+    .welcome-banner-statistik .btn-banner {
+        width: 100%;
+        justify-content: center;
     }
     .filter-card {
         padding: 14px;
@@ -749,16 +786,8 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
 }
 
 /* ==================== DARK MODE SUPPORT ==================== */
-[data-theme="dark"] .page-header-banner {
-    background: var(--banner-gradient);
-}
-[data-theme="dark"] .page-header-banner .btn-print {
-    background: rgba(255,255,255,0.1);
-    border-color: rgba(255,255,255,0.2);
-    color: #fff;
-}
-[data-theme="dark"] .page-header-banner .btn-print:hover {
-    background: rgba(255,255,255,0.2);
+[data-theme="dark"] .welcome-banner-statistik {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="dark"] .filter-card,
@@ -842,19 +871,30 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
         
         <div class="col-md-9 col-lg-10">
             <div class="statistik-content">
-                <!-- Header Banner -->
-                <div class="page-header-banner no-print">
-                    <div class="header-content">
+                
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-statistik mb-4 no-print">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                         <div>
-                            <h4><i class="fas fa-chart-pie me-2"></i>Statistik Presensi</h4>
-                            <p class="subtitle">Analisis data kehadiran kelas yang Anda ajar</p>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-chart-pie"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Statistik Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Analisis data kehadiran kelas yang Anda ajar</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-chart-bar me-1"></i>Analisis & Laporan
+                            </span>
                         </div>
-                        <div class="d-flex gap-2 flex-wrap">
-                            <a href="index.php?page=asisten_statistik&export=1&view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>" class="btn btn-success">
-                                <i class="fas fa-file-excel me-2"></i>Export Excel
+                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
+                            <a href="index.php?page=asisten_statistik&export=1&view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>" class="btn btn-banner">
+                                <i class="fas fa-file-excel me-1"></i>Excel
                             </a>
-                            <button class="btn btn-danger" onclick="exportPDF()">
-                                <i class="fas fa-file-pdf me-2"></i>Export PDF
+                            <button class="btn btn-banner" onclick="exportPDF()">
+                                <i class="fas fa-file-pdf me-1"></i>PDF
                             </button>
                         </div>
                     </div>

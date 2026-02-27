@@ -16,6 +16,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $nim = escape($_POST['nim']);
     $status = escape($_POST['status']);
     
+    // Validasi status yang diizinkan
+    $allowed_status = ['hadir', 'izin', 'sakit', 'alpha'];
+    if (!in_array($status, $allowed_status)) {
+        set_alert('danger', 'Status presensi tidak valid!');
+        header("Location: index.php?page=asisten_presensi_manual&jadwal=$jadwal_id");
+        exit;
+    }
+    
     // Cek apakah ini jadwal sebagai pengganti untuk catat hadir asisten - prepared statement
     $stmt_cek_pg = mysqli_prepare($conn, "SELECT id FROM absen_asisten 
                                                                WHERE jadwal_id = ? 
@@ -46,6 +54,42 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         mysqli_stmt_execute($stmt_ins);
     }
     
+    // [FITUR VALIDASI] Untuk status izin/sakit, kelola record di penggantian_inhall
+    if ($status == 'izin' || $status == 'sakit') {
+        // Cek apakah sudah ada record penggantian_inhall untuk jadwal dan nim ini
+        $stmt_cek_inhall = mysqli_prepare($conn, "SELECT id, status_approval FROM penggantian_inhall WHERE jadwal_asli_id = ? AND nim = ?");
+        mysqli_stmt_bind_param($stmt_cek_inhall, "is", $jadwal_id, $nim);
+        mysqli_stmt_execute($stmt_cek_inhall);
+        $cek_inhall = mysqli_fetch_assoc(mysqli_stmt_get_result($stmt_cek_inhall));
+        
+        if ($cek_inhall) {
+            // Update record yang sudah ada - set approved karena asisten yang set langsung
+            $stmt_upd_inhall = mysqli_prepare($conn, "UPDATE penggantian_inhall 
+                                                       SET materi_diulang = ?, 
+                                                           status_approval = 'approved', 
+                                                           approved_by = ?, 
+                                                           approved_at = NOW(),
+                                                           alasan_reject = NULL
+                                                       WHERE id = ?");
+            mysqli_stmt_bind_param($stmt_upd_inhall, "ssi", $status, $kode_asisten, $cek_inhall['id']);
+            mysqli_stmt_execute($stmt_upd_inhall);
+        } else {
+            // Insert record baru - langsung approved karena diset oleh asisten
+            $alasan_default = "Diset oleh asisten via presensi manual";
+            $stmt_ins_inhall = mysqli_prepare($conn, "INSERT INTO penggantian_inhall 
+                                                       (nim, jadwal_asli_id, alasan_izin, status_approval, approved_by, approved_at, materi_diulang) 
+                                                       VALUES (?, ?, ?, 'approved', ?, NOW(), ?)");
+            mysqli_stmt_bind_param($stmt_ins_inhall, "sisss", $nim, $jadwal_id, $alasan_default, $kode_asisten, $status);
+            mysqli_stmt_execute($stmt_ins_inhall);
+        }
+    } else {
+        // Jika status berubah ke hadir/alpha, hapus record penggantian_inhall yang pending (jika ada)
+        $stmt_del_inhall = mysqli_prepare($conn, "DELETE FROM penggantian_inhall 
+                                                   WHERE jadwal_asli_id = ? AND nim = ? AND status_approval = 'pending'");
+        mysqli_stmt_bind_param($stmt_del_inhall, "is", $jadwal_id, $nim);
+        mysqli_stmt_execute($stmt_del_inhall);
+    }
+    
     log_aktivitas($_SESSION['user_id'], 'PRESENSI_MANUAL', 'presensi_mahasiswa', $jadwal_id, "Presensi manual: $nim - $status");
     set_alert('success', 'Presensi berhasil dicatat!');
     
@@ -60,11 +104,27 @@ $jadwal_id = isset($_GET['jadwal']) ? (int)$_GET['jadwal'] : 0;
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 
+// Filter tambahan: Sembunyikan jadwal Inhall jika tidak ada mahasiswa yang terdaftar (approved)
+$inhall_filter = "AND (
+    j.jenis != 'inhall' 
+    OR EXISTS (
+        SELECT 1 
+        FROM penggantian_inhall pi 
+        JOIN jadwal ja ON pi.jadwal_asli_id = ja.id 
+        JOIN mahasiswa m ON pi.nim = m.nim 
+        WHERE ja.kode_mk = j.kode_mk 
+        AND m.kode_kelas = j.kode_kelas 
+        AND pi.status = 'terdaftar' 
+        AND pi.status_approval = 'approved'
+    )
+)";
+
 // Query jadwal reguler - SEMUA jadwal hari ini (tanpa filter jam_selesai)
 $jadwal_reguler = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 0 as is_pengganti FROM jadwal j 
                                      LEFT JOIN kelas k ON j.kode_kelas = k.kode_kelas
                                      WHERE j.tanggal = '$today' 
                                      AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
+                                     $inhall_filter
                                      ORDER BY j.jam_mulai");
 
 // Query jadwal sebagai pengganti (hanya yang sudah disetujui admin) - SEMUA jadwal hari ini
@@ -74,6 +134,7 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, 1 as is_pengg
                                           WHERE j.tanggal = '$today' 
                                           AND aa.status IN ('izin', 'sakit')
                                           AND aa.status_approval = 'approved'
+                                          $inhall_filter
                                           ORDER BY j.jam_mulai");
 
 // Gabungkan jadwal (hindari duplikasi)
@@ -244,6 +305,119 @@ if ($jadwal_id) {
     background-color: var(--header-bg) !important;
     box-shadow: 0 2px 2px -1px rgba(0,0,0,0.1);
 }
+
+/* Welcome Banner Modern */
+.welcome-banner-presensi {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-presensi::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-presensi 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-presensi {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-presensi h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-presensi .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-presensi .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-presensi .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-presensi {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .welcome-banner-presensi {
+        padding: 30px;
+    }
+    .welcome-banner-presensi h1 {
+        font-size: 28px;
+    }
+}
+@media (max-width: 576px) {
+    .welcome-banner-presensi {
+        padding: 20px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-presensi h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-presensi .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+    
+    .welcome-banner-presensi .banner-subtitle {
+        font-size: 14px;
+    }
+}
 </style>
 
 <div class="container-fluid">
@@ -254,7 +428,25 @@ if ($jadwal_id) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-edit me-2"></i>Presensi Manual</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-presensi mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-edit"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Presensi Manual</h1>
+                                    <p class="banner-subtitle mb-0">Input kehadiran mahasiswa secara manual jika diperlukan</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-user-check me-1"></i>Input Kehadiran
+                            </span>
+                        </div>
+                    </div>
+                </div>
                 
                 <?= show_alert() ?>
                 

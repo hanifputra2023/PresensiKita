@@ -8,10 +8,33 @@ $sesi = $mahasiswa['sesi'] ?? 1;
 // Jadwal hari ini yang SEDANG AKTIF (dalam rentang waktu)
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
+$toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
 
 // OPTIMISASI: Hitung batas waktu di PHP agar query SQL bisa menggunakan index (SARGable)
-// Jadwal aktif jika: Jam Mulai <= Sekarang (Tanpa toleransi)
-$waktu_batas_masuk = $now_time;
+// Jadwal aktif jika: Jam Mulai <= (Sekarang + Toleransi)
+$waktu_batas_masuk = date('H:i:s', strtotime("+$toleransi_sebelum minutes"));
+
+// [FIX] Logika Tukar Sesi / Shift
+// Menampilkan jadwal jika:
+// 1. Mahasiswa punya record presensi di jadwal tersebut (meskipun sesi lama/beda)
+// 2. ATAU (Jadwal sesuai sesi saat ini DAN Mahasiswa TIDAK punya record di jadwal lain untuk pertemuan yang sama)
+$session_swap_logic = "
+    AND (
+        p.id IS NOT NULL
+        OR 
+        (
+            (j.sesi = 0 OR j.sesi = '$sesi')
+            AND NOT EXISTS (
+                SELECT 1 FROM presensi_mahasiswa pm2 
+                JOIN jadwal j2 ON pm2.jadwal_id = j2.id 
+                WHERE pm2.nim = '$nim' 
+                AND j2.kode_mk = j.kode_mk 
+                AND j2.pertemuan_ke = j.pertemuan_ke
+                AND j2.id != j.id
+            )
+        )
+    )
+";
 
 // Jadwal aktif = sudah masuk waktu mulai (dengan toleransi sebelum) DAN belum lewat jam_selesai (TANPA toleransi)
 // Langsung hilang begitu jam_selesai tercapai
@@ -26,7 +49,7 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                         WHERE j.tanggal = '$today' AND j.kode_kelas = '$kelas'
                                         AND j.jam_mulai <= '$waktu_batas_masuk'
-                                        AND (j.sesi = 0 OR j.sesi = '$sesi')
+                                        $session_swap_logic
                                         AND j.jam_selesai > '$now_time'
                                         AND (
                                             j.jenis != 'inhall'
@@ -45,12 +68,42 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
 // EXCLUDE jadwal inhall dari statistik (inhall bersifat opsional)
 $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     SELECT 
-        SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
-        SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
-        SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
         SUM(CASE 
-            WHEN p.status = 'alpha' THEN 1
-            WHEN (p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() THEN 1 
+            WHEN p.status = 'hadir' THEN 1 
+            WHEN (p.status IN ('izin', 'sakit', 'alpha') OR p.status IS NULL OR p.status = 'belum') AND EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' 
+                AND pi.jadwal_asli_id = j.id 
+                AND pi.status = 'hadir' 
+                AND pi.status_approval = 'approved'
+            ) THEN 1
+            ELSE 0 
+        END) as hadir,
+        
+        SUM(CASE 
+            WHEN p.status = 'izin' AND NOT EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved'
+            ) THEN 1 
+            ELSE 0 
+        END) as izin,
+        
+        SUM(CASE 
+            WHEN p.status = 'sakit' AND NOT EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved'
+            ) THEN 1 
+            ELSE 0 
+        END) as sakit,
+        
+        SUM(CASE 
+            WHEN (
+                p.status = 'alpha' 
+                OR ((p.status IS NULL OR p.status = 'belum') AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW())
+            ) AND NOT EXISTS (
+                SELECT 1 FROM penggantian_inhall pi 
+                WHERE pi.nim = '$nim' AND pi.jadwal_asli_id = j.id AND pi.status = 'hadir' AND pi.status_approval = 'approved'
+            ) THEN 1 
             ELSE 0 
         END) as alpha,
         COUNT(j.id) as total
@@ -58,10 +111,10 @@ $stat = mysqli_fetch_assoc(mysqli_query($conn, "
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
     JOIN mahasiswa m ON m.nim = '$nim'
     WHERE j.kode_kelas = '$kelas'
-    AND (j.sesi = 0 OR j.sesi = '$sesi')
+    $session_swap_logic
     AND j.jenis != 'inhall'
     AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
-    AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW())
+    AND (p.status IN ('hadir', 'izin', 'sakit', 'alpha') OR CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW())
 "));
 
 // Jadwal terdekat (5 jadwal mendatang) - termasuk jadwal HARI INI yang belum aktif
@@ -77,7 +130,7 @@ $jadwal_terdekat = mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.st
                                          LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
                                          LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                          WHERE j.kode_kelas = '$kelas'
-                                         AND (j.sesi = 0 OR j.sesi = '$sesi')
+                                         $session_swap_logic
                                          AND (
                                              j.tanggal > '$today'
                                              OR (
@@ -168,7 +221,7 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 /* ===== MAHASISWA DASHBOARD MODERN STYLE ===== */
 .dashboard-content {
     padding: 24px;
-    max-width: 1400px;
+    
     animation: fadeIn 0.4s ease-out;
 }
 
@@ -556,6 +609,12 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
     box-shadow: var(--card-shadow);
     border: 1px solid var(--border-color);
     overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.card-box:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 25px var(--card-shadow);
 }
 .card-box .card-header-custom {
     padding: 18px 24px;
@@ -580,6 +639,7 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 .card-box .card-body-custom {
     padding: 20px 24px;
 }
+
 
 /* Ring Chart */
 .ring-container {
@@ -663,6 +723,7 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 .quick-btn.izin::before { background: linear-gradient(135deg, #ffaa00, #dda20a); }
 .quick-btn.jurnal::before { background: linear-gradient(135deg, #6f42c1, #8540f5); }
 .quick-btn.ulasan::before { background: linear-gradient(135deg, #e83e8c, #f66d9b); }
+.quick-btn.install-pwa::before { background: linear-gradient(135deg, #20c997, #28a745); }
 .quick-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 18px rgba(0,0,0,0.12);
@@ -686,6 +747,7 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 .quick-btn.izin i { color: #ffaa00; }
 .quick-btn.jurnal i { color: #6f42c1; }
 .quick-btn.ulasan i { color: #e83e8c; }
+.quick-btn.install-pwa i { color: #20c997; }
 .quick-btn:hover i {
     color: white;
 }
@@ -1340,6 +1402,7 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 [data-theme="dark"] .quick-btn.izin i { color: #ffc107; }
 [data-theme="dark"] .quick-btn.jurnal i { color: #a57ccf; }
 [data-theme="dark"] .quick-btn.ulasan i { color: #f08eb3; }
+[data-theme="dark"] .quick-btn.install-pwa i { color: #20c997; }
 [data-theme="dark"] .quick-btn:hover {
     box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     border-color: transparent;
@@ -1397,6 +1460,16 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 [data-theme="dark"] .presensi-item {
     background: rgba(255,255,255,0.05);
     border-color: var(--border-color);
+}
+.card-box .card-header-custom .btn-warna {
+    border-radius: 20px var(--border-color);
+    color: var(--putih);
+    text-decoration: none;
+    transition: all 0.5s ease-in-out;
+}
+.card-box .card-header-custom .btn-warna:hover {
+    font-size: 18px;
+    
 }
 </style>
 
@@ -1508,7 +1581,14 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
 
                 <!-- Jadwal Aktif Alert - Tampilkan SEMUA jadwal aktif hari ini -->
                 <?php if (mysqli_num_rows($jadwal_hari_ini) > 0): ?>
-                    <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): ?>
+                    <?php while ($jhi = mysqli_fetch_assoc($jadwal_hari_ini)): 
+                        // Cek keterlambatan untuk warning di dashboard
+                        $jam_mulai_ts = strtotime($jhi['tanggal'] . ' ' . $jhi['jam_mulai']);
+                        $now_ts = time();
+                        $telat_menit = ceil(($now_ts - $jam_mulai_ts) / 60);
+                        $is_late_sanction = ($telat_menit > TOLERANSI_TELAT && $telat_menit <= BATAS_TELAT); // > 15 menit
+                        $is_late_warning = ($telat_menit > 0 && $telat_menit <= TOLERANSI_TELAT); // 1-15 menit
+                    ?>
                     <div class="jadwal-aktif-alert">
                         <div class="pulse-icon">
                             <i class="fas fa-broadcast-tower"></i>
@@ -1530,11 +1610,29 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
                                 <i class="fas fa-check-circle me-2"></i>Sudah <?= ucfirst($jhi['presensi_status']) ?>
                             </div>
                         <?php else: ?>
-                            <a href="index.php?page=mahasiswa_scanner" class="btn-scan">
+                            <a href="index.php?page=mahasiswa_scanner" class="btn-scan <?= $is_late_sanction ? 'btn-danger' : ($is_late_warning ? 'btn-warning text-dark' : '') ?>">
                                 <i class="fas fa-qrcode"></i>Scan Presensi
                             </a>
+                            <?php if ($is_late_sanction): ?>
+                                <div class="ms-3 text-danger fw-bold small d-none d-md-block">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>Terlambat! Sanksi Push Up.
+                                </div>
+                            <?php elseif ($is_late_warning): ?>
+                                <div class="ms-3 text-warning fw-bold small d-none d-md-block">
+                                    <i class="fas fa-exclamation-circle me-1"></i>Terlambat <?= $telat_menit ?> menit.
+                                </div>
+                            <?php endif; ?>
                         <?php endif; ?>
                     </div>
+                    <?php if ($is_late_sanction): ?>
+                        <div class="alert alert-danger d-md-none mt-n3 mb-4 small">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Anda terlambat <?= $telat_menit ?> menit. Sanksi Push Up berlaku.
+                        </div>
+                    <?php elseif ($is_late_warning): ?>
+                        <div class="alert alert-warning d-md-none mt-n3 mb-4 small">
+                            <i class="fas fa-exclamation-circle me-2"></i>Anda terlambat <?= $telat_menit ?> menit. Harap lebih tepat waktu.
+                        </div>
+                    <?php endif; ?>
                     <?php endwhile; ?>
                 <?php endif; ?>
                 
@@ -1658,6 +1756,10 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
                                         <i class="fas fa-paper-plane"></i>
                                         <span>Izin</span>
                                     </a>
+                                    <a href="javascript:void(0)" class="quick-btn install-pwa" id="pwa-install-btn" style="display: none;" onclick="installPWA()">
+                                        <i class="fas fa-download"></i>
+                                        <span>Install App</span>
+                                    </a>
                                 </div>
                             </div>
                         </div>
@@ -1667,7 +1769,7 @@ $next_level_progress = ($my_points - $my_level['min']) / ($my_level['max'] - $my
                     <div class="card-box">
                         <div class="card-header-custom">
                             <h3><i class="fas fa-calendar-alt"></i> Jadwal Mendatang</h3>
-                            <a href="index.php?page=mahasiswa_jadwal" class="btn btn-sm btn-outline-primary">Lihat Semua</a>
+                            <a href="index.php?page=mahasiswa_jadwal" class="btn-warna">Lihat Semua</a>
                         </div>
                         <div class="card-body-custom">
                             <?php if (mysqli_num_rows($jadwal_terdekat) > 0): ?>

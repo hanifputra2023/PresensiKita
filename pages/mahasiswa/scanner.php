@@ -9,7 +9,7 @@ $sesi = $mahasiswa['sesi'] ?? 1;
 $today = date('Y-m-d');
 $now_time = date('H:i:s');
 $toleransi_sebelum = TOLERANSI_SEBELUM; // menit sebelum jam_mulai
-$toleransi_sesudah = TOLERANSI_SESUDAH; // menit setelah jam_selesai
+$batas_telat = BATAS_TELAT; // menit setelah jam_mulai (batas terlambat)
 
 // Inhall hanya ditampilkan untuk mahasiswa yang terdaftar di penggantian_inhall
 $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, mk.nama_mk, p.status as presensi_status
@@ -21,7 +21,7 @@ $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, 
                                                          AND j.kode_kelas = '$kelas'
                                                          AND (j.sesi = 0 OR j.sesi = '$sesi')
                                                          AND SUBTIME(j.jam_mulai, SEC_TO_TIME($toleransi_sebelum * 60)) <= '$now_time'
-                                                         AND ADDTIME(j.jam_selesai, SEC_TO_TIME($toleransi_sesudah * 60)) >= '$now_time'
+                                                         AND ADDTIME(j.jam_mulai, SEC_TO_TIME($batas_telat * 60)) >= '$now_time'
                                                          AND (
                                                              j.jenis != 'inhall'
                                                              OR EXISTS (
@@ -34,6 +34,23 @@ $jadwal_aktif = mysqli_fetch_assoc(mysqli_query($conn, "SELECT j.*, l.nama_lab, 
                                                              OR p.id IS NOT NULL
                                                          )
                                                          ORDER BY (CASE WHEN p.status IS NULL OR p.status = 'belum' THEN 0 ELSE 1 END), j.jam_mulai LIMIT 1"));
+
+// Hitung batas waktu scan untuk ditampilkan
+$batas_waktu_display = '';
+if ($jadwal_aktif) {
+    $jam_mulai_ts = strtotime($jadwal_aktif['jam_mulai']);
+    $batas_waktu_display = date('H:i', $jam_mulai_ts + ($batas_telat * 60));
+}
+
+// Cek Eligibilitas Responsi
+$error_responsi = '';
+if ($jadwal_aktif && $jadwal_aktif['jenis'] == 'responsi') {
+    $eligibility = cek_eligibilitas_responsi($nim, $jadwal_aktif['kode_mk'], $kelas);
+    if (!$eligibility['eligible']) {
+        $jadwal_aktif = null; // Hide active schedule
+        $error_responsi = "Anda tidak dapat mengikuti Responsi karena kehadiran kurang dari 75% (" . round($eligibility['percentage']) . "%). Silakan selesaikan Inhall terlebih dahulu.";
+    }
+}
 
 // Cek jadwal berikutnya jika tidak ada yang aktif
 $jadwal_berikutnya = null;
@@ -61,6 +78,153 @@ if (!$jadwal_aktif) {
 ?>
 <?php include 'includes/header.php'; ?>
 
+<style>
+/* ===== WELCOME BANNER SCANNER ===== */
+.welcome-banner-scanner {
+    background: var(--banner-gradient);
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    animation: fadeInUp 0.5s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-scanner::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    animation: pulse-glow-scanner 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow-scanner {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50% { transform: scale(1.05); opacity: 0.6; }
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.welcome-banner-scanner h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-scanner .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-scanner .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-scanner .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Dark Mode Support */
+[data-theme="dark"] .welcome-banner-scanner {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Nav Tabs Theme Support */
+.nav-tabs {
+    border-bottom-color: var(--border-color);
+}
+
+.nav-tabs .nav-link {
+    color: var(--text-main);
+    border: 1px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: var(--border-color);
+    background-color: var(--bg-card);
+}
+
+.nav-tabs .nav-link.active {
+    background-color: var(--bg-card);
+    color: var(--primary-color, #0066cc);
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-card);
+}
+
+[data-theme="dark"] .nav-tabs {
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link {
+    color: var(--text-muted);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link:hover {
+    color: var(--text-main);
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .nav-tabs .nav-link.active {
+    background-color: var(--bg-card);
+    color: var(--primary-color, #3a8fd9);
+    border-color: var(--border-color);
+    border-bottom-color: var(--bg-card);
+}
+
+/* Responsive Design */
+@media (max-width: 576px) {
+    .welcome-banner-scanner {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-scanner h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-scanner .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+}
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <div class="col-md-3 col-lg-2 px-0">
@@ -69,7 +233,25 @@ if (!$jadwal_aktif) {
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <h4 class="mb-4 pt-2"><i class="fas fa-qrcode me-2"></i>Scan QR Code Presensi</h4>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner-scanner mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-qrcode"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Scan QR Code Presensi</h1>
+                                    <p class="banner-subtitle mb-0">Lakukan presensi kehadiran praktikum dengan mudah</p>
+                                </div>
+                            </div>
+                        </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-camera me-1"></i>Presensi Digital
+                        </span>
+                    </div>
+                </div>
                 
                 <?php if ($jadwal_aktif && $jadwal_aktif['presensi_status'] == 'hadir'): ?>
                     <!-- Sudah presensi -->
@@ -87,6 +269,17 @@ if (!$jadwal_aktif) {
                         </div>
                     </div>
                 
+                <?php elseif ($error_responsi): ?>
+                    <!-- Error Responsi -->
+                    <div class="card">
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-ban fa-5x text-danger mb-4"></i>
+                            <h4 class="text-danger">Tidak Memenuhi Syarat</h4>
+                            <p class="text-muted mb-3"><?= $error_responsi ?></p>
+                            <a href="index.php?page=mahasiswa_inhall" class="btn btn-warning text-dark"><i class="fas fa-sync me-2"></i>Cek Inhall</a>
+                        </div>
+                    </div>
+
                 <?php elseif ($jadwal_aktif && in_array($jadwal_aktif['presensi_status'], ['izin', 'sakit', 'alpha'])): ?>
                     <!-- Sudah izin/sakit/alpha -->
                     <div class="card">
@@ -115,6 +308,9 @@ if (!$jadwal_aktif) {
                         <strong>Jadwal Aktif:</strong> <?= $jadwal_aktif['nama_mk'] ?> - <?= $jadwal_aktif['materi'] ?> 
                         (<?= format_waktu($jadwal_aktif['jam_mulai']) ?> - <?= format_waktu($jadwal_aktif['jam_selesai']) ?>)
                         di <?= $jadwal_aktif['nama_lab'] ?>
+                        <div class="mt-2 pt-2 border-top border-info text-danger fw-bold">
+                            <i class="fas fa-stopwatch me-1"></i> Batas Waktu Scan: Pukul <?= $batas_waktu_display ?> WIB
+                        </div>
                     </div>
                     
                     <div class="row justify-content-center">

@@ -27,7 +27,7 @@ $where_lab = $filter_lab ? "AND j.kode_lab = '$filter_lab'" : '';
 if ($status == 'alpha') {
     // Alpha: Status tersimpan sebagai alpha ATAU jadwal sudah lewat dan tidak ada status hadir/izin/sakit
     $status_condition = "j.id IS NOT NULL 
-                         AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
+                         AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW()  
                          AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
                          AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
 } elseif ($status == 'belum') {
@@ -52,7 +52,18 @@ $query = "SELECT DISTINCT
           FROM mahasiswa m
           LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
           LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
-              AND (j.sesi = 0 OR j.sesi = m.sesi)
+              AND (
+                  EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                  OR 
+                  ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                      SELECT 1 FROM presensi_mahasiswa pm_other 
+                      JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                      WHERE pm_other.nim = m.nim 
+                      AND j_other.kode_mk = j.kode_mk 
+                      AND j_other.pertemuan_ke = j.pertemuan_ke 
+                      AND j_other.id != j.id
+                  ))
+              )
               AND j.tanggal BETWEEN '$start_date' AND '$end_date'
               AND j.tanggal <= CURDATE()
               AND j.jenis != 'inhall'
@@ -82,7 +93,7 @@ while ($row = mysqli_fetch_assoc($result)) {
         // Tentukan status: jika kosong dan jadwal sudah lewat = alpha, jika belum lewat = belum
         $status_final = $row['status'];
         if (empty($status_final)) {
-            $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+            $jadwal_end = date('Y-m-d H:i:s', strtotime($row['tanggal'] . ' ' . $row['jam_mulai']) + (BATAS_TELAT * 60)); // Batas telat
             $waktu_selesai = strtotime($jadwal_end);
             
             if ($row['tanggal_daftar'] > $jadwal_end) {

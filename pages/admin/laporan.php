@@ -31,44 +31,26 @@ if (isset($_GET['ajax_detail'])) {
                                          JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
-                                         WHERE j.kode_kelas = '$kelas' 
-                                         AND (j.sesi = 0 OR j.sesi = '$sesi_mhs')
+                                         WHERE j.kode_kelas = '$kelas'
+                                         AND (
+                                             p.id IS NOT NULL
+                                             OR 
+                                             ((j.sesi = 0 OR j.sesi = '$sesi_mhs') AND NOT EXISTS (
+                                                 SELECT 1 FROM presensi_mahasiswa pm2 
+                                                 JOIN jadwal j2 ON pm2.jadwal_id = j2.id 
+                                                 WHERE pm2.nim = '$nim' AND j2.kode_mk = j.kode_mk AND j2.pertemuan_ke = j.pertemuan_ke AND j2.id != j.id
+                                             ))
+                                         )
                                          AND j.tanggal BETWEEN '$start_date_detail' AND '$end_date_detail'
                                          $mk_condition
                                          $lab_condition
                                          ORDER BY j.pertemuan_ke ASC");
     
     if (mysqli_num_rows($detail_query) > 0) {
-        $grouped_data = [];
-        while ($row = mysqli_fetch_assoc($detail_query)) {
-            // Grouping untuk menghindari duplikasi jika ada split lab (jadwal paralel)
-            // Key: Pertemuan + Tanggal + Jam + MK
-            $key = $row['pertemuan_ke'] . '_' . $row['tanggal'] . '_' . $row['jam_mulai'] . '_' . $row['kode_mk'];
-            
-            if (!isset($grouped_data[$key])) {
-                // Inisialisasi grup dengan baris pertama sebagai basis
-                $grouped_data[$key] = $row;
-                $grouped_data[$key]['all_labs'] = [];
-                $grouped_data[$key]['attended_lab'] = null;
-            }
-
-            // Kumpulkan semua kemungkinan lab untuk pertemuan ini
-            if (!empty($row['nama_lab'])) {
-                $grouped_data[$key]['all_labs'][] = $row['nama_lab'];
-            }
-            
-            // Jika baris ini memiliki status presensi, ini adalah data yang valid
-            if (!empty($row['status'])) {
-                $grouped_data[$key]['status'] = $row['status'];
-                $grouped_data[$key]['waktu_presensi'] = $row['waktu_presensi'];
-                $grouped_data[$key]['attended_lab'] = $row['nama_lab']; // Simpan lab spesifik tempat presensi
-                $grouped_data[$key]['jadwal_id'] = $row['jadwal_id']; // Penting untuk update status
-            }
-        }
-
-        foreach ($grouped_data as $d) {
+        // Karena query sudah difilter dengan benar, tidak perlu grouping manual yang rumit
+        while ($d = mysqli_fetch_assoc($detail_query)) {
             $status = $d['status'];
-            $jadwal_end_time = $d['tanggal'] . ' ' . $d['jam_selesai'];
+            $jadwal_end_time = date('Y-m-d H:i:s', strtotime($d['tanggal'] . ' ' . $d['jam_mulai']) + (30 * 60)); // Batas telat 30 menit
             $is_past = strtotime($jadwal_end_time) < time();
             $is_registered = $tanggal_daftar < $jadwal_end_time;
 
@@ -123,15 +105,8 @@ if (isset($_GET['ajax_detail'])) {
             
             // Tentukan tampilan lab berdasarkan status
             $lab_display = '';
-            if (!empty($d['attended_lab'])) {
-                // Jika mahasiswa hadir/izin/sakit, tampilkan lab spesifik
-                $lab_display = "<i class='fas fa-map-marker-alt me-1'></i>" . htmlspecialchars($d['attended_lab']);
-            } else {
-                // Jika alpha/belum, tampilkan semua kemungkinan lab
-                $unique_labs = array_unique($d['all_labs']);
-                $lab_list = !empty($unique_labs) ? implode(' / ', $unique_labs) : '-';
-                $lab_display = "<i class='fas fa-th-list me-1'></i>" . htmlspecialchars($lab_list);
-            }
+            $lab_name = $d['nama_lab'] ?: '-';
+            $lab_display = "<i class='fas fa-map-marker-alt me-1'></i>" . htmlspecialchars($lab_name);
 
             echo "<tr>
                 <td class='text-center'>{$d['pertemuan_ke']}</td>
@@ -384,8 +359,20 @@ if (isset($_GET['export_rekap_nilai'])) {
         // Total Jumlah Presensi (Hadir)
         echo '<td>' . $stats['hadir'] . '</td>';
 
+        // Logika Status Akademik (Tambahan agar muncul di Excel Rekap Nilai)
+        $total_absen = $stats['izin'] + $stats['sakit'] + $stats['alpha'];
+        $total_valid = $stats['izin'] + $stats['sakit'];
+        $total_alpha = $stats['alpha'];
+        
+        $status_ket = 'AMAN';
+        if ($total_absen > 3) $status_ket = 'GUGUR';
+        elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
+        elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
+        elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+
         // Ket Tambahan
         $ket = [];
+        $ket[] = "<strong>$status_ket</strong>"; // Tampilkan status paling depan
         if ($stats['sakit'] > 0) $ket[] = "Sakit: " . $stats['sakit'];
         if ($stats['izin'] > 0) $ket[] = "Izin: " . $stats['izin'];
         if ($is_inhall == 'Inhall') $ket[] = "Total Inhall: 1";
@@ -420,14 +407,22 @@ if (isset($_GET['export_detail_mhs'])) {
     $mk_condition = $mk ? "AND j.kode_mk = '$mk'" : "";
     $lab_condition = $lab ? "AND j.kode_lab = '$lab'" : "";
     
-    $query = mysqli_query($conn, "SELECT j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, j.jenis,
+    $query = mysqli_query($conn, "SELECT j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, j.jenis, j.sesi,
                                          p.status, p.waktu_presensi, mk.nama_mk, l.nama_lab, j.kode_mk
                                          FROM jadwal j
                                          JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
-                                         WHERE j.kode_kelas = '$kelas' 
-                                         AND (j.sesi = 0 OR j.sesi = '$sesi_mhs')
+                                         WHERE j.kode_kelas = '$kelas'
+                                         AND (
+                                             p.id IS NOT NULL
+                                             OR 
+                                             ((j.sesi = 0 OR j.sesi = '$sesi_mhs') AND NOT EXISTS (
+                                                 SELECT 1 FROM presensi_mahasiswa pm2 
+                                                 JOIN jadwal j2 ON pm2.jadwal_id = j2.id 
+                                                 WHERE pm2.nim = '$nim' AND j2.kode_mk = j.kode_mk AND j2.pertemuan_ke = j.pertemuan_ke AND j2.id != j.id
+                                             ))
+                                         )
                                          AND j.tanggal BETWEEN '$start_date' AND '$end_date'
                                          $mk_condition
                                          $lab_condition
@@ -568,12 +563,25 @@ if (isset($_GET['export'])) {
                                SUM(CASE WHEN p.status = 'hadir' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as hadir,
                                SUM(CASE WHEN p.status = 'izin' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as izin,
                                SUM(CASE WHEN p.status = 'sakit' AND j.jenis != 'inhall' THEN 1 ELSE 0 END) as sakit,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
-                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', j.jam_selesai) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) < NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))) THEN 1 ELSE 0 END) as alpha,
+                               SUM(CASE WHEN j.jenis != 'inhall' AND (p.status = 'belum' OR p.status IS NULL) AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) >= NOW() AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as belum,
                                COUNT(DISTINCT CASE WHEN j.jenis != 'inhall' AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN j.id END) as total_pertemuan,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'terdaftar' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_for_inhall_exp) as perlu_inhall,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_for_inhall_exp) as sudah_inhall
-                               FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi) AND j.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_exp 
+                               FROM mahasiswa m LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
+                                   AND (
+                                       EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                                       OR 
+                                       ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                                           SELECT 1 FROM presensi_mahasiswa pm_other 
+                                           JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                                           WHERE pm_other.nim = m.nim 
+                                           AND j_other.kode_mk = j.kode_mk 
+                                           AND j_other.pertemuan_ke = j.pertemuan_ke 
+                                           AND j_other.id != j.id
+                                       ))
+                                   )
+                                   AND j.tanggal BETWEEN '$start_date_exp' AND '$end_date_exp' $where_jadwal_exp 
                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
@@ -588,7 +596,19 @@ if (isset($_GET['export'])) {
         // Ambil detail pertemuan untuk kolom tambahan (P1, P2, dst)
         $detail_sql = "SELECT m.nim, m.tanggal_daftar, j.pertemuan_ke, j.tanggal, j.jam_selesai, l.nama_lab, p.status
                        FROM mahasiswa m
-                       JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi)
+                       JOIN jadwal j ON m.kode_kelas = j.kode_kelas 
+                           AND (
+                               EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                               OR 
+                               ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                                   SELECT 1 FROM presensi_mahasiswa pm_other 
+                                   JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                                   WHERE pm_other.nim = m.nim 
+                                   AND j_other.kode_mk = j.kode_mk 
+                                   AND j_other.pertemuan_ke = j.pertemuan_ke 
+                                   AND j_other.id != j.id
+                               ))
+                           )
                        LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                        LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                        WHERE $where_mhs_sql_exp 
@@ -631,7 +651,7 @@ if (isset($_GET['export'])) {
     }
 
     // Header CSV (menggunakan semicolon)
-    $header = ["No", "NIM", "Nama", "Kelas", "Sesi", "Daftar Mata Kuliah", "Daftar Lab", "Hadir", "Izin", "Sakit", "Alpha", "Belum", "Perlu Inhall", "Sudah Inhall", "Total Pertemuan", "Persentase Kehadiran"];
+    $header = ["No", "NIM", "Nama", "Kelas", "Sesi", "Daftar Mata Kuliah", "Daftar Lab", "Hadir", "Izin", "Sakit", "Alpha", "Belum", "Perlu Inhall", "Sudah Inhall", "Total Pertemuan", "Persentase Kehadiran", "Status Akademik"];
     
     if ($sertakan_detail) {
         // Tambahkan kolom pertemuan dinamis ke header
@@ -652,8 +672,22 @@ if (isset($_GET['export'])) {
     while ($row = mysqli_fetch_assoc($rekap_export)) {
         $sudah_presensi = $row['hadir'] + $row['izin'] + $row['sakit'] + $row['alpha'];
         $persen = $sudah_presensi > 0 ? round(($row['hadir'] / $sudah_presensi) * 100) : 0;
+
+        // Logika Status Akademik
+        $total_absen = $row['izin'] + $row['sakit'] + $row['alpha'];
+        $total_valid = $row['izin'] + $row['sakit'];
+        $total_alpha = $row['alpha'];
         
-        $line = [$no++, $row['nim'], $row['nama'], $row['nama_kelas'], $row['sesi'], $row['all_mk'] ?: '-', $row['all_lab'] ?: '-', $row['hadir'], $row['izin'], $row['sakit'], $row['alpha'], $row['belum'], $row['perlu_inhall'], $row['sudah_inhall'], $row['total_pertemuan'], $persen . '%'];
+        $status_ket = 'AMAN';
+        if ($total_absen > 3) {
+            $status_ket = 'GUGUR';
+            $row['perlu_inhall'] = 0; // Reset perlu inhall jika gugur
+        }
+        elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
+        elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
+        elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+        
+        $line = [$no++, $row['nim'], $row['nama'], $row['nama_kelas'], $row['sesi'], $row['all_mk'] ?: '-', $row['all_lab'] ?: '-', $row['hadir'], $row['izin'], $row['sakit'], $row['alpha'], $row['belum'], $row['perlu_inhall'], $row['sudah_inhall'], $row['total_pertemuan'], $persen . '%', $status_ket];
         
         if ($sertakan_detail) {
             // Isi data pertemuan per mahasiswa
@@ -723,7 +757,19 @@ $current_page = get_current_page();
 // Hitung total data untuk pagination - hitung berdasarkan grouping
 $count_sql = "SELECT COUNT(DISTINCT m.nim) as total
               FROM mahasiswa m
-              LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi) 
+              LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
+                  AND (
+                      EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                      OR 
+                      ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                          SELECT 1 FROM presensi_mahasiswa pm_other 
+                          JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                          WHERE pm_other.nim = m.nim 
+                          AND j_other.kode_mk = j.kode_mk 
+                          AND j_other.pertemuan_ke = j.pertemuan_ke 
+                          AND j_other.id != j.id
+                      ))
+                  )
                   AND j.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal
               WHERE $where_mhs_sql";
 $count_query = mysqli_query($conn, $count_sql);
@@ -748,7 +794,19 @@ $base_query = "SELECT m.nim, m.nama, k.nama_kelas, m.kode_kelas, m.sesi,
                                (SELECT COUNT(*) FROM penggantian_inhall pi JOIN jadwal jpi ON pi.jadwal_asli_id = jpi.id WHERE pi.nim = m.nim AND pi.status = 'hadir' AND pi.status_approval = 'approved' AND jpi.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal_for_inhall) as sudah_inhall
                                FROM mahasiswa m
                                LEFT JOIN kelas k ON m.kode_kelas = k.kode_kelas
-                               LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi) 
+                               LEFT JOIN jadwal j ON j.kode_kelas = m.kode_kelas 
+                                   AND (
+                                       EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                                       OR 
+                                       ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                                           SELECT 1 FROM presensi_mahasiswa pm_other 
+                                           JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                                           WHERE pm_other.nim = m.nim 
+                                           AND j_other.kode_mk = j.kode_mk 
+                                           AND j_other.pertemuan_ke = j.pertemuan_ke 
+                                           AND j_other.id != j.id
+                                       ))
+                                   )
                                    AND j.tanggal BETWEEN '$start_date' AND '$end_date' $where_jadwal
                                LEFT JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
@@ -774,7 +832,19 @@ $meetings = [];
 // Query diperbarui untuk mengambil kode_mk untuk grouping
 $detail_print_sql = "SELECT m.nim, m.tanggal_daftar, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, l.nama_lab, p.status, j.kode_mk
                FROM mahasiswa m
-               JOIN jadwal j ON m.kode_kelas = j.kode_kelas AND (j.sesi = 0 OR j.sesi = m.sesi)
+               JOIN jadwal j ON m.kode_kelas = j.kode_kelas 
+                   AND (
+                       EXISTS (SELECT 1 FROM presensi_mahasiswa pm_check WHERE pm_check.jadwal_id = j.id AND pm_check.nim = m.nim)
+                       OR 
+                       ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+                           SELECT 1 FROM presensi_mahasiswa pm_other 
+                           JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                           WHERE pm_other.nim = m.nim 
+                           AND j_other.kode_mk = j.kode_mk 
+                           AND j_other.pertemuan_ke = j.pertemuan_ke 
+                           AND j_other.id != j.id
+                       ))
+                   )
                LEFT JOIN lab l ON j.kode_lab = l.kode_lab
                LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
                WHERE $where_mhs_sql 
@@ -795,25 +865,9 @@ while ($d = mysqli_fetch_assoc($detail_print_res)) {
     // Key to group parallel schedules (same meeting, same time, same MK)
     $key = $p_ke . '_' . $d['tanggal'] . '_' . $d['jam_mulai'] . '_' . $d['kode_mk'];
 
-    if (!isset($grouped_details[$nim][$key])) {
-        $grouped_details[$nim][$key] = [
-            'status' => null,
-            'attended_lab' => null,
-            'all_labs' => [],
-            'tanggal' => $d['tanggal'],
-            'jam_selesai' => $d['jam_selesai'],
-            'tanggal_daftar' => $d['tanggal_daftar'] ?? '2099-12-31'
-        ];
-    }
-    
-    if (!empty($d['nama_lab'])) {
-        $grouped_details[$nim][$key]['all_labs'][] = $d['nama_lab'];
-    }
-    
-    if (!empty($d['status'])) {
-        $grouped_details[$nim][$key]['status'] = $d['status'];
-        $grouped_details[$nim][$key]['attended_lab'] = $d['nama_lab'];
-    }
+    // Karena query sudah difilter, kita tidak perlu grouping kompleks lagi.
+    // Setiap baris adalah data valid.
+    $grouped_details[$nim][$key] = $d;
 }
 
 // Process the grouped data to create the final display string for each student's meeting
@@ -835,14 +889,8 @@ foreach ($grouped_details as $nim => $meetings_data) {
         
         $status_display = ucfirst($status);
         
-        if ($status === 'hadir' || $status === 'izin' || $status === 'sakit') {
-            $lab_name = $data['attended_lab'] ?: '-';
-            $info = "$status_display ($lab_name)";
-        } else { // Alpha or Belum
-            $unique_labs = array_unique($data['all_labs']);
-            $lab_list = !empty($unique_labs) ? implode('/', $unique_labs) : '-';
-            $info = "$status_display ($lab_list)";
-        }
+        $lab_name = $data['nama_lab'] ?: '-';
+        $info = "$status_display ($lab_name)";
         
         // In case of multiple MKs at the same time for a student (unlikely but possible)
         if (isset($print_details[$nim][$p_ke])) {
@@ -1077,41 +1125,25 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
         
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <!-- Welcome Banner -->
-                <div class="welcome-banner-laporan no-print">
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
-                        <div>
-                            <div class="d-flex align-items-center gap-3 mb-2">
-                                <div class="banner-icon">
-                                    <i class="fas fa-chart-bar"></i>
-                                </div>
-                                <div>
-                                    <h1 class="mb-1">Laporan Presensi</h1>
-                                    <p class="banner-subtitle mb-0">Export dan analisis data presensi mahasiswa per periode</p>
-                                </div>
-                            </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-circle"></i>REPORTING SYSTEM
-                            </span>
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-stretch align-items-md-center gap-3 mb-4 pt-2 no-print">
+                    <h4 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Laporan Presensi</h4>
+                    <div class="d-grid d-md-flex gap-2 justify-content-md-end align-items-center">
+                        <div class="form-check form-switch me-md-3">
+                            <input class="form-check-input" type="checkbox" role="switch" id="sertakanDetail" checked>
+                            <label class="form-check-label small" for="sertakanDetail">Sertakan Detail Pertemuan</label>
                         </div>
-                        <div class="d-flex flex-wrap gap-2 justify-content-md-end align-items-center">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" role="switch" id="sertakanDetail" checked style="cursor: pointer;">
-                                <label class="form-check-label small" for="sertakanDetail" style="cursor: pointer; user-select: none;">Detail Pertemuan</label>
-                            </div>
-                            <button onclick="exportExcel()" class="btn btn-banner btn-sm">
-                                <i class="fas fa-file-excel me-1"></i>Excel
-                            </button>
-                            <button onclick="exportRekapNilai()" class="btn btn-banner btn-sm">
-                                <i class="fas fa-file-excel me-1"></i>Rekap Nilai
-                            </button>
-                            <button class="btn btn-banner btn-sm" onclick="exportPDF()">
-                                <i class="fas fa-file-pdf me-1"></i>PDF
-                            </button>
-                            <button class="btn btn-banner btn-sm" onclick="printPage()">
-                                <i class="fas fa-print me-1"></i>Cetak
-                            </button>
-                        </div>
+                        <button onclick="exportExcel()" class="btn btn-success">
+                            <i class="fas fa-file-excel me-1"></i>Export Excel
+                        </button>
+                        <button onclick="exportRekapNilai()" class="btn btn-warning text-dark">
+                            <i class="fas fa-file-excel me-1"></i>Rekap Nilai
+                        </button>
+                        <button class="btn btn-danger" onclick="exportPDF()">
+                            <i class="fas fa-file-pdf me-1"></i>Export PDF
+                        </button>
+                        <button class="btn btn-secondary" onclick="printPage()">
+                            <i class="fas fa-print me-1"></i>Cetak
+                        </button>
                     </div>
                 </div>
                 
@@ -1199,6 +1231,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                         <th class="text-center text-secondary">Belum</th>
                                         <th class="text-center text-purple">Inhall</th>
                                         <th class="text-center">%</th>
+                                        <th class="text-center">Status</th>
                                         <th class="text-center">Aksi</th>
                                     </tr>
                                 </thead>
@@ -1211,6 +1244,24 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                         // Persentase dihitung dari yang sudah ada status (bukan belum presensi)
                                         $sudah_presensi = $r['hadir'] + $r['izin'] + $r['sakit'] + $r['alpha'];
                                         $persen = $sudah_presensi > 0 ? round(($r['hadir'] / $sudah_presensi) * 100) : 0;
+                                        
+                                        // Logika Status
+                                        $total_absen = $r['izin'] + $r['sakit'] + $r['alpha'];
+                                        $total_valid = $r['izin'] + $r['sakit'];
+                                        $total_alpha = $r['alpha'];
+                                        
+                                        $status_badge = '<span class="badge bg-success">Aman</span>';
+                                        if ($total_absen > 3) {
+                                            $status_badge = '<span class="badge bg-danger">GUGUR</span>';
+                                            $r['perlu_inhall'] = 0; // Reset perlu inhall jika gugur
+                                        }
+                                        elseif ($total_alpha > 0) {
+                                            if ($total_absen == 3) $status_badge = '<span class="badge bg-danger">KRITIS</span>';
+                                            else $status_badge = '<span class="badge bg-warning text-dark">Peringatan</span>';
+                                        }
+                                        elseif ($total_valid == 3) $status_badge = '<span class="badge bg-warning text-dark">Wajib Inhal</span>';
+                                        elseif ($total_valid == 2) $status_badge = '<span class="badge bg-info text-dark">Boleh Inhal</span>';
+                                        
                                         $total_inhall = $r['perlu_inhall'] + $r['sudah_inhall'];
                                         ?>
                                         <tr>
@@ -1245,6 +1296,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                                     <?= $persen ?>%
                                                 </span>
                                             </td>
+                                            <td class="text-center"><?= $status_badge ?></td>
                                             <td class="text-center">
                                                 <button class="btn btn-sm btn-info text-white" 
                                                         onclick="showDetail('<?= $r['nim'] ?>', '<?= $r['nama'] ?>', '<?= $r['kode_kelas'] ?>')">
@@ -1264,7 +1316,25 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                             while ($r = mysqli_fetch_assoc($rekap)): 
                                 $sudah_presensi = $r['hadir'] + $r['izin'] + $r['sakit'] + $r['alpha'];
                                 $persen = $sudah_presensi > 0 ? round(($r['hadir'] / $sudah_presensi) * 100) : 0;
-                                $total_inhall = $r['perlu_inhall'] + $r['sudah_inhall'];
+                                    
+                                    // Logika Status Mobile
+                                    $total_absen = $r['izin'] + $r['sakit'] + $r['alpha'];
+                                    $total_valid = $r['izin'] + $r['sakit'];
+                                    $total_alpha = $r['alpha'];
+                                    
+                                    $status_text = 'Aman'; $status_cls = 'success';
+                                    if ($total_absen > 3) { 
+                                        $status_text = 'GUGUR'; $status_cls = 'danger'; 
+                                        $r['perlu_inhall'] = 0; // Reset perlu inhall
+                                    }
+                                    elseif ($total_alpha > 0) { 
+                                        if ($total_absen == 3) { $status_text = 'KRITIS'; $status_cls = 'danger'; }
+                                        else { $status_text = 'Peringatan'; $status_cls = 'warning text-dark'; }
+                                    }
+                                    elseif ($total_valid == 3) { $status_text = 'Wajib Inhal'; $status_cls = 'warning text-dark'; }
+                                    elseif ($total_valid == 2) { $status_text = 'Boleh Inhal'; $status_cls = 'info text-dark'; }
+                                    
+                                    $total_inhall = $r['perlu_inhall'] + $r['sudah_inhall'];
                             ?>
                                 <div class="card mb-2 border">
                                     <div class="card-body p-3">
@@ -1279,6 +1349,9 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                                     <i class="fas fa-book me-1"></i><?= $r['all_mk'] ?: '-' ?>
                                                 </div>
                                             </div>
+                                                <span class="badge bg-<?= $status_cls ?> me-1" style="font-size: 0.8rem;">
+                                                    <?= $status_text ?>
+                                                </span>
                                             <span class="badge <?= $persen >= 75 ? 'bg-success' : ($persen >= 50 ? 'bg-warning' : 'bg-danger') ?>" style="font-size: 0.9rem;">
                                                 <?= $persen ?>%
                                             </span>
@@ -1333,6 +1406,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                             <th class="text-center detail-col">P<?= $pm ?></th>
                                         <?php endforeach; ?>
                                         <th class="text-center">%</th>
+                                        <th class="text-center">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1342,6 +1416,21 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                     while ($r_print = mysqli_fetch_assoc($rekap_print)): 
                                         $sudah_presensi_print = $r_print['hadir'] + $r_print['izin'] + $r_print['sakit'] + $r_print['alpha'];
                                         $persen_print = $sudah_presensi_print > 0 ? round(($r_print['hadir'] / $sudah_presensi_print) * 100) : 0;
+                                        
+                                        // Logika Status Print
+                                        $total_absen = $r_print['izin'] + $r_print['sakit'] + $r_print['alpha'];
+                                        $total_valid = $r_print['izin'] + $r_print['sakit'];
+                                        $total_alpha = $r_print['alpha'];
+                                        
+                                        $status_print = 'Aman';
+                                        if ($total_absen > 3) {
+                                            $status_print = 'GUGUR';
+                                            $r_print['perlu_inhall'] = 0;
+                                        }
+                                        elseif ($total_alpha > 0) $status_print = ($total_absen == 3) ? 'KRITIS' : 'Peringatan';
+                                        elseif ($total_valid == 3) $status_print = 'Wajib Inhal';
+                                        elseif ($total_valid == 2) $status_print = 'Boleh Inhal';
+                                        
                                         $total_inhall_print = $r_print['perlu_inhall'] + $r_print['sudah_inhall'];
                                     ?>
                                         <tr>
@@ -1366,6 +1455,7 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
                                                 <td class="text-center detail-col"><?= $print_details[$r_print['nim']][$pm] ?? '-' ?></td>
                                             <?php endforeach; ?>
                                             <td class="text-center"><?= $persen_print ?>%</td>
+                                            <td class="text-center fw-bold"><?= $status_print ?></td>
                                         </tr>
                                     <?php endwhile; ?>
                                 </tbody>
@@ -1419,6 +1509,180 @@ $lab_list = mysqli_query($conn, "SELECT * FROM lab ORDER BY kode_lab");
 </div>
 
 <style>
+/* Welcome Banner Modern */
+.welcome-banner-laporan {
+    background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff));
+    border-radius: 24px;
+    padding: 40px;
+    color: white;
+    box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.welcome-banner-laporan::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+}
+
+.welcome-banner-laporan h1 {
+    font-size: 32px;
+    font-weight: 700;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-laporan .banner-subtitle {
+    font-size: 16px;
+    opacity: 0.95;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-laporan .banner-icon {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-laporan .banner-badge {
+    display: inline-block;
+    padding: 8px 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    z-index: 1;
+}
+
+.welcome-banner-laporan .banner-badge i {
+    font-size: 8px;
+    margin-right: 6px;
+}
+
+.welcome-banner-laporan .btn-banner {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    backdrop-filter: blur(10px);
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.welcome-banner-laporan .btn-banner:hover {
+    background: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+    color: white;
+}
+
+.welcome-banner-laporan .form-check-input {
+    background-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='rgba(255,255,255,0.8)'/%3e%3c/svg%3e");
+}
+
+.welcome-banner-laporan .form-check-input:checked {
+    background-color: #28a745;
+    border-color: #28a745;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%23fff'/%3e%3c/svg%3e");
+}
+
+.welcome-banner-laporan .form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .welcome-banner-laporan {
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+@media (max-width: 768px) {
+    .welcome-banner-laporan {
+        padding: 24px;
+        border-radius: 16px;
+    }
+    
+    .welcome-banner-laporan h1 {
+        font-size: 24px;
+    }
+    
+    .welcome-banner-laporan .banner-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+    }
+}
+
+@media (min-width: 577px) and (max-width: 799px) {
+    .welcome-banner-laporan .banner-buttons {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 10px !important;
+    }
+    
+    .welcome-banner-laporan .banner-buttons .btn-banner {
+        padding: 10px 16px;
+        font-size: 14px;
+        flex: 1 1 auto;
+        min-width: 120px;
+    }
+    
+    .welcome-banner-laporan .d-flex.flex-column.flex-md-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .welcome-banner-laporan .d-flex.flex-column.flex-md-row > div:last-child {
+        margin-top: 15px;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-banner-laporan .banner-buttons {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .welcome-banner-laporan .banner-buttons .btn-banner {
+        width: 100%;
+        padding: 12px 20px;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .welcome-banner-laporan .banner-buttons .detail-switch-wrapper {
+        width: 100%;
+        justify-content: center;
+        margin-right: 0 !important;
+    }
+}
+
 .print-only {
     display: none;
 }

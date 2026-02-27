@@ -1,22 +1,14 @@
 <?php
 require_once 'includes/fungsi.php';
 
+// [BARU] Cek Mode Pemeliharaan
+require_once 'includes/maintenance_check.php';
 
+// Routing sistem dinamis
 $page = isset($_GET['page']) ? $_GET['page'] : 'login';
 
-// [BARU] Cek Maintenance Mode
-$maintenance_mode = function_exists('get_setting') ? get_setting('maintenance_mode', '0') : '0';
-$is_admin = isset($_SESSION['role']) && $_SESSION['role'] == 'admin';
-$is_login_page = in_array($page, ['login', 'logout']);
-
-// Jika mode maintenance aktif, bukan admin, dan bukan di halaman login/logout -> Tampilkan Maintenance
-if ($maintenance_mode == '1' && !$is_admin && !$is_login_page) {
-    include 'pages/maintenance.php';
-    exit;
-}
-
 // Daftar halaman yang diizinkan tanpa login
-$public_pages = ['login', 'logout'];
+$public_pages = ['login', 'logout', 'lupa_password'];
 
 // Cek Remember Me cookie - auto login
 if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token']) && isset($_COOKIE['remember_user'])) {
@@ -189,6 +181,9 @@ switch ($page) {
     case 'login':
         include 'pages/login.php';
         break;
+    case 'lupa_password':
+        include 'pages/lupa_password.php';
+        break;
     case 'login_staff':
         // Redirect ke halaman login terpadu
         header("Location: index.php?page=login");
@@ -273,13 +268,13 @@ switch ($page) {
         cek_role(['admin']);
         include 'pages/admin/bantuan.php';
         break;
-    case 'admin_profil':
-        cek_role(['admin']);
-        include 'pages/admin/profil.php';
-        break;
     case 'admin_setting':
         cek_role(['admin']);
         include 'pages/admin/setting.php';
+        break;
+    case 'admin_profil':
+        cek_role(['admin']);
+        include 'pages/admin/profil.php';
         break;
     
     // Asisten pages

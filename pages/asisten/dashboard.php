@@ -20,6 +20,21 @@ $jadwal_asisten_clause = "(
     OR j.id IN (SELECT jadwal_id FROM absen_asisten WHERE pengganti = '$kode_asisten' AND status IN ('izin', 'sakit') AND status_approval = 'approved')
 )";
 
+// Filter tambahan: Sembunyikan jadwal Inhall jika tidak ada mahasiswa yang terdaftar (approved)
+$inhall_filter = "AND (
+    j.jenis != 'inhall' 
+    OR EXISTS (
+        SELECT 1 
+        FROM penggantian_inhall pi 
+        JOIN jadwal ja ON pi.jadwal_asli_id = ja.id 
+        JOIN mahasiswa m ON pi.nim = m.nim 
+        WHERE ja.kode_mk = j.kode_mk 
+        AND m.kode_kelas = j.kode_kelas 
+        AND pi.status = 'terdaftar' 
+        AND pi.status_approval = 'approved'
+    )
+)";
+
 // Jadwal sendiri - hilang tepat setelah jam_selesai
 $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk.nama_mk, 'sendiri' as tipe_jadwal, NULL as asisten_asli
                                          FROM jadwal j 
@@ -29,6 +44,7 @@ $jadwal_hari_ini = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, mk
                                          WHERE j.tanggal = CURDATE() 
                                          AND (j.kode_asisten_1 = '$kode_asisten' OR j.kode_asisten_2 = '$kode_asisten')
                                          AND j.jam_selesai > CURTIME()
+                                         $inhall_filter
                                          ORDER BY j.jam_mulai");
 
 // Jadwal sebagai pengganti (dari asisten lain yang izin - hanya yang sudah disetujui)
@@ -44,6 +60,7 @@ $jadwal_pengganti = mysqli_query($conn, "SELECT j.*, k.nama_kelas, l.nama_lab, m
                                           AND aa.status_approval = 'approved'
                                           AND j.tanggal = CURDATE()
                                           AND j.jam_selesai > CURTIME()
+                                          $inhall_filter
                                           ORDER BY j.jam_mulai");
 
 // Gabungkan jadwal (hindari duplikasi berdasarkan jadwal_id)
@@ -81,7 +98,8 @@ $week_end = date('Y-m-d', strtotime('sunday this week'));
 
 $stat = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total FROM jadwal j
                                                   WHERE j.tanggal BETWEEN '$week_start' AND '$week_end'
-                                                  AND $jadwal_asisten_clause"));
+                                                  AND $jadwal_asisten_clause
+                                                  $inhall_filter"));
 
 // Hitung jadwal pengganti minggu ini
 $stat_pengganti = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) as total 
@@ -103,7 +121,7 @@ $stat_hadir = mysqli_fetch_assoc(mysqli_query($conn, "
         SUM(CASE 
             WHEN j.jenis != 'inhall' 
                  AND (p.status = 'alpha' OR ((p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) 
-                 AND CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() 
+                 AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() 
                  AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)))
             THEN 1 
             ELSE 0 
@@ -186,7 +204,7 @@ $jumlah_pengumuman = count($pengumuman_list);
 /* ===== ASISTEN DASHBOARD STYLE ===== */
 .dashboard-content {
     padding: 24px;
-    max-width: 1600px;
+    animation: fadeIn 0.4s ease-out;
 }
 
 /* Announcement Style */
@@ -946,6 +964,10 @@ $jumlah_pengumuman = count($pengumuman_list);
 .quick-btn:hover i {
     color: white;
 }
+.quick-btn.install-pwa::before { background: linear-gradient(135deg, #20c997, #28a745); }
+.quick-btn.install-pwa i { color: #20c997; }
+.quick-btn.install-pwa:hover { box-shadow: 0 8px 20px rgba(32, 201, 151, 0.25); }
+
 .quick-btn span {
     font-size: 0.85rem;
     font-weight: 500;
@@ -1068,6 +1090,7 @@ $jumlah_pengumuman = count($pengumuman_list);
 [data-theme="dark"] .quick-btn:hover {
     background: var(--primary-color);
 }
+[data-theme="dark"] .quick-btn.install-pwa i { color: #20c997; }
 
 /* Responsive */
 @media (max-width: 1200px) {
@@ -2130,6 +2153,10 @@ $jumlah_pengumuman = count($pengumuman_list);
                                 <a href="index.php?page=logout" class="quick-btn">
                                     <i class="fas fa-sign-out-alt"></i>
                                     <span>Logout</span>
+                                </a>
+                                <a href="javascript:void(0)" class="quick-btn install-pwa" id="pwa-install-btn" style="display: none;" onclick="installPWA()">
+                                    <i class="fas fa-download"></i>
+                                    <span>Install App</span>
                                 </a>
                             </div>
                         </div>

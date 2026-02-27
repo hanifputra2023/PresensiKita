@@ -7,6 +7,8 @@
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
     <!-- Html5QrcodeScanner -->
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="pwa-register.js"></script>
+
 
     <script>
         // Global Theme Toggle Logic
@@ -51,34 +53,21 @@
             });
         });
  
-        // Script untuk mempertahankan posisi scroll sidebar saat navigasi
-        // Dijalankan langsung tanpa DOMContentLoaded untuk mengurangi flicker/glitch
+        // Anti-FOUC: Fallback untuk halaman tanpa sidebar.php yang baru
+        document.querySelectorAll('.sidebar').forEach(function(el) {
+            el.classList.add('fouc-ready');
+        });
+
+        // Script untuk menyimpan posisi scroll sidebar saat navigasi
+        // (Restore sudah dilakukan di sidebar.php untuk menghindari delay)
         const sidebar = document.querySelector('.col-md-3.col-lg-2'); 
         if (sidebar) {
-            // 1. Kembalikan posisi scroll jika ada di storage
-            const savedPos = sessionStorage.getItem('sidebarScrollPos');
-            if (savedPos) sidebar.scrollTop = savedPos;
- 
-            // 2. Simpan posisi scroll saat user klik link atau refresh
+            // Simpan posisi scroll saat user klik link atau refresh
             window.addEventListener('beforeunload', function() {
                 sessionStorage.setItem('sidebarScrollPos', sidebar.scrollTop);
             });
         }
     </script>
     
-    <!-- PWA Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('sw.php')
-                    .then(function(registration) {
-                        console.log('PWA ServiceWorker registered with scope:', registration.scope);
-                    })
-                    .catch(function(err) {
-                        console.log('PWA ServiceWorker registration failed:', err);
-                    });
-            });
-        }
-    </script>
 </body>
 </html>

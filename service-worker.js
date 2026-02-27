@@ -1,13 +1,14 @@
 // service-worker.js
 // PWA Service Worker untuk Sistem Presensi Kampus
 
-const CACHE_NAME = 'presensi-app-v4';
+
+const CACHE_NAME = 'presensi-app-v11';
 const urlsToCache = [
   './',
-  './index.php',
-  './includes/icon-192.png',
-  './includes/icon-512.png',
-  './manifest.json'
+  'index.php',
+  'assets/img/52452554464_81be58f500_m.png',
+  'assets/img/512x512-logo-barcelona-logo-png-0.png',
+  'manifest.json'
 ];
 
 // Event Install: Cache file penting saat pertama kali install
@@ -35,10 +36,9 @@ self.addEventListener('activate', (event) => {
             return caches.delete(cacheName);
           }
         })
-      );
+      ).then(() => self.clients.claim()); // Claim clients segera setelah update
     })
   );
-  return self.clients.claim();
 });
 
 // Event Fetch: Network First strategy dengan fallback ke cache
@@ -73,7 +73,7 @@ self.addEventListener('fetch', (event) => {
           }
           
           // Untuk navigasi (halaman HTML), fallback ke halaman utama
-          if (event.request.mode === 'navigate') {
+          if (event.request.mode === 'navigate' || (event.request.method === 'GET' && event.request.headers.get('accept').includes('text/html'))) {
             return caches.match('./index.php');
           }
           

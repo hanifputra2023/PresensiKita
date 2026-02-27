@@ -28,7 +28,7 @@ $today_stats_query = mysqli_query($conn, "SELECT
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60))) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')) AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON j.kode_kelas = m.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND m.nim = p.nim
@@ -116,7 +116,7 @@ $jumlah_pengumuman = count($pengumuman_list);
 /* ===== RICH DASHBOARD STYLE ===== */
 .dashboard-content {
     padding: 24px;
-    max-width: 1600px;
+    
     animation: fadeIn 0.4s ease-out;
 }
 
@@ -519,6 +519,12 @@ $jumlah_pengumuman = count($pengumuman_list);
     box-shadow: var(--card-shadow);
     border: 1px solid var(--border-color);
     overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+.card-box:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 25px var(--card-shadow);
 }
 .card-box .card-header {
     padding: 18px 22px;

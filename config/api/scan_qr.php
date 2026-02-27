@@ -83,6 +83,15 @@ if ($is_inhall) {
         echo json_encode(['success' => false, 'message' => 'Jadwal ini khusus untuk Sesi ' . $qr_session['sesi'] . '. Anda terdaftar di Sesi ' . $mahasiswa['sesi']]);
         exit;
     }
+
+    // VALIDASI RESPONSI: Cek kehadiran minimal 75%
+    if ($qr_session['jenis'] == 'responsi') {
+        $eligibility = cek_eligibilitas_responsi($nim, $qr_session['kode_mk'], $qr_session['kode_kelas']);
+        if (!$eligibility['eligible']) {
+            echo json_encode(['success' => false, 'message' => 'Kehadiran Anda ' . round($eligibility['percentage']) . '%. Minimal 75% untuk mengikuti Responsi. Silakan Inhall.']);
+            exit;
+        }
+    }
 }
 
 // VALIDASI 3: Cek waktu presensi (toleransi 15 menit sebelum dan sesudah)

@@ -285,18 +285,12 @@ while ($row = mysqli_fetch_assoc($pengumuman_query)) {
                                 <i class="fas fa-circle"></i>SISTEM PENGUMUMAN
                             </span>
                         </div>
-                        <div class="d-flex gap-2 align-items-center">
-                            <div class="d-none d-flex align-items-center me-2" id="selectAllContainer" style="background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 10px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.3);">
-                                <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="border-color: rgba(255,255,255,0.6);">
-                                <label class="form-check-label fw-bold ms-2 small text-white" for="selectAll" style="cursor:pointer">Semua</label>
-                            </div>
-                            <button type="button" class="btn" id="btnSelectMode" onclick="toggleSelectMode()" style="background: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); backdrop-filter: blur(10px); padding: 10px 20px; border-radius: 10px; font-weight: 600;">
-                                <i class="fas fa-check-square me-1"></i> Pilih
-                            </button>
-                            <button class="btn" data-bs-toggle="modal" data-bs-target="#modalTambah" style="background: white; color: var(--primary-color); border: 2px solid white; padding: 10px 20px; border-radius: 10px; font-weight: 600;">
-                                <i class="fas fa-plus me-1"></i>Buat Pengumuman
-                            </button>
-                        </div>
+                        <button type="button" class="btn btn-outline-secondary" id="btnSelectMode" onclick="toggleSelectMode()">
+                            <i class="fas fa-check-square me-1"></i> Pilih
+                        </button>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            <i class="fas fa-plus me-1"></i>Buat Pengumuman
+                        </button>
                     </div>
                 </div>
                 

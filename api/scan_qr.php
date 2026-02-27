@@ -100,23 +100,32 @@ if ($is_inhall) {
         echo json_encode(['success' => false, 'message' => 'Jadwal ini khusus untuk Sesi ' . $qr_session['sesi'] . '. Anda terdaftar di Sesi ' . $mahasiswa['sesi']]);
         exit;
     }
+
+    // VALIDASI RESPONSI: Cek kehadiran minimal 75%
+    if ($qr_session['jenis'] == 'responsi') {
+        $eligibility = cek_eligibilitas_responsi($nim, $qr_session['kode_mk'], $qr_session['kode_kelas']);
+        if (!$eligibility['eligible']) {
+            echo json_encode(['success' => false, 'message' => 'Kehadiran Anda ' . round($eligibility['percentage']) . '%. Minimal 75% untuk mengikuti Responsi. Silakan Inhall.']);
+            exit;
+        }
+    }
 }
 
 // VALIDASI 3: Cek waktu presensi (harus tepat waktu mulai, tidak ada toleransi sebelum)
 $now = time();
 $jadwal_mulai = strtotime($qr_session['tanggal'] . ' ' . $qr_session['jam_mulai']);
-$jadwal_selesai = strtotime($qr_session['tanggal'] . ' ' . $qr_session['jam_selesai']);
+$batas_awal = $jadwal_mulai - (TOLERANSI_SEBELUM * 60);
+$batas_akhir = $jadwal_mulai + (BATAS_TELAT * 60);
 
-// Tanpa toleransi
-if ($now < $jadwal_mulai) {
-    $menit_tersisa = ceil(($jadwal_mulai - $now) / 60);
-    $jam_buka = date('H:i', $jadwal_mulai);
-    echo json_encode(['success' => false, 'message' => "Presensi belum dibuka. Presensi akan dibuka tepat pukul $jam_buka (tersisa $menit_tersisa menit lagi)."]);
+if ($now < $batas_awal) {
+    $menit_tersisa = ceil(($batas_awal - $now) / 60);
+    $jam_buka = date('H:i', $batas_awal);
+    echo json_encode(['success' => false, 'message' => "Presensi belum dibuka. Presensi akan dibuka pukul $jam_buka."]);
     exit;
 }
 
-if ($now > $jadwal_selesai) {
-    echo json_encode(['success' => false, 'message' => 'Waktu presensi sudah berakhir untuk sesi ini.']);
+if ($now > $batas_akhir) {
+    echo json_encode(['success' => false, 'message' => 'Waktu presensi sudah berakhir (Melebihi batas keterlambatan).']);
     exit;
 }
 
@@ -221,6 +230,19 @@ if ($cek_presensi) {
 if ($query) {
     $message = "Presensi berhasil dicatat untuk {$qr_session['nama_mk']} - {$qr_session['materi']} di {$qr_session['nama_lab']}";
     
+    // Cek keterlambatan
+    if ($now > $jadwal_mulai) {
+        $terlambat_menit = ceil(($now - $jadwal_mulai) / 60);
+        
+        if ($terlambat_menit <= TOLERANSI_TELAT) {
+            // Telat ringan (1-15 menit)
+            $message .= "<br><br><span class='text-warning fw-bold'>⚠️ Anda terlambat $terlambat_menit menit.</span><br><span class='text-warning'>Boleh hadir, tapi lain kali harap lebih tepat waktu.</span>";
+        } else {
+            // Telat berat (> 15 menit) - Sanksi
+            $message .= "<br><br><span class='text-danger fw-bold'>⚠️ ANDA TERLAMBAT $terlambat_menit MENIT!</span><br><span class='text-danger'>Sanksi: Push up 1 menit x 3 kali.</span>";
+        }
+    }
+
     // Jika ini adalah jadwal INHALL, update penggantian_inhall
     if ($is_inhall && isset($inhall_id)) {
         $stmt_inhall_upd = mysqli_prepare($conn, "UPDATE penggantian_inhall SET status = 'hadir', jadwal_inhall_id = ? WHERE id = ?");

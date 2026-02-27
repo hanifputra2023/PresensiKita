@@ -254,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                             <div class="mb-3" id="divKelas" style="display: none;">
                                 <label class="form-label fw-bold">Pilih Kelas</label>
-                                <select name="filter_kelas" class="form-select">
+                                <select name="filter_kelas" id="filterKelas" class="form-select" onchange="updateKelasTemplate()">
                                     <option value="">-- Pilih Kelas --</option>
                                     <?php while ($k = mysqli_fetch_assoc($kelas_list)): ?>
                                         <option value="<?= $k['kode_kelas'] ?>"><?= $k['nama_kelas'] ?></option>
@@ -264,7 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                             <div class="mb-3">
                                 <label class="form-label fw-bold">Isi Pesan</label>
-                                <textarea name="pesan" class="form-control" rows="6" required placeholder="Tulis pesan Anda di sini... Gunakan {nama} untuk menyebut nama penerima secara otomatis."></textarea>
+                                <textarea name="pesan" id="pesanInput" class="form-control" rows="6" required placeholder="Tulis pesan Anda di sini... Gunakan {nama} untuk menyebut nama penerima secara otomatis."></textarea>
                                 <div class="form-text">
                                     Tips: Gunakan *teks* untuk tebal, _teks_ untuk miring. <br>
                                     Contoh: "Halo {nama}, jangan lupa besok ada praktikum!"
@@ -288,10 +288,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 </div>
 
 <script>
+const templates = {
+    'semua_mahasiswa': "Halo {nama},\n\nAda pengumuman penting untuk seluruh mahasiswa. Harap cek dashboard sistem presensi untuk informasi terbaru.\n\nTerima kasih.",
+    'kelas_tertentu': "Halo {nama},\n\nAda informasi khusus untuk kelas Anda. Mohon cek jadwal dan materi terbaru di sistem.\n\nTerima kasih.",
+    'semua_asisten': "Halo Asisten {nama},\n\nMohon cek jadwal asistensi terbaru dan pastikan berita acara diisi tepat waktu.\n\nSemangat bertugas!",
+    'alpha_hari_ini': "Halo {nama},\n\nAnda tercatat *ALPHA* (Tidak Hadir) pada jadwal praktikum hari ini. Mohon segera hubungi asisten atau admin jika ada kesalahan, atau ikuti prosedur Inhall jika berhalangan.\n\nTerima kasih."
+};
+
 function toggleKelas() {
     var type = document.getElementById('targetType').value;
     var div = document.getElementById('divKelas');
+    var pesanInput = document.getElementById('pesanInput');
+    
     div.style.display = (type == 'kelas_tertentu') ? 'block' : 'none';
+    
+    if (templates[type]) {
+        pesanInput.value = templates[type];
+    }
+}
+
+function updateKelasTemplate() {
+    var type = document.getElementById('targetType').value;
+    var kelasSelect = document.getElementById('filterKelas');
+    var namaKelas = kelasSelect.options[kelasSelect.selectedIndex].text;
+    var pesanInput = document.getElementById('pesanInput');
+
+    if (type === 'kelas_tertentu' && namaKelas && namaKelas !== '-- Pilih Kelas --') {
+         pesanInput.value = "Halo {nama},\n\nAda informasi khusus untuk kelas " + namaKelas + ". Mohon cek jadwal dan materi terbaru di sistem.\n\nTerima kasih.";
+    }
 }
 </script>
 

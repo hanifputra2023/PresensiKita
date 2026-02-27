@@ -51,11 +51,23 @@ $base_where = "
       $where_kelas
       $where_mk
       $where_lab
+      AND (
+          p.id IS NOT NULL
+          OR 
+          ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
+              SELECT 1 FROM presensi_mahasiswa pm_other 
+              JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+              WHERE pm_other.nim = m.nim 
+              AND j_other.kode_mk = j.kode_mk 
+              AND j_other.pertemuan_ke = j.pertemuan_ke 
+              AND j_other.id != j.id
+          ))
+      )
 ";
 
 // For alpha, we must only look at past schedules OR already saved as alpha. For other statuses, we can see the record anytime.
 if ($status == 'alpha') {
-    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', j.jam_selesai) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
+    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
 } else {
     $status_condition = "AND p.status = '$status'";
 }
@@ -87,7 +99,7 @@ while ($row = mysqli_fetch_assoc($result)) {
     if ($row['tanggal']) {
         $status_final = $row['status'];
         if (empty($status_final)) {
-            $jadwal_end = $row['tanggal'] . ' ' . $row['jam_selesai'];
+            $jadwal_end = date('Y-m-d H:i:s', strtotime($row['tanggal'] . ' ' . $row['jam_mulai']) + (BATAS_TELAT * 60)); // Batas telat
             if ($row['tanggal_daftar'] > $jadwal_end) {
                 $status_final = 'unregistered';
             } else {

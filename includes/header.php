@@ -1,55 +1,65 @@
 <?php
-// Fetch foto profil untuk digunakan di Header (Mobile) dan Sidebar (Desktop)
+// Fetch foto profil dan nama untuk digunakan di Header (Mobile) dan Sidebar (Desktop)
 $header_foto = '';
+$header_nama = '';
 if (isset($_SESSION['user_id'])) {
     $uid_head = $_SESSION['user_id'];
     $role_head = $_SESSION['role'];
-
-    // Helper: check if a column exists, prefer project helper if available
-    if (!function_exists('column_exists')) {
-        function _local_column_exists($table, $column) {
-            global $conn;
-            $tbl = mysqli_real_escape_string($conn, $table);
-            $col = mysqli_real_escape_string($conn, $column);
-            $res = mysqli_query($conn, "SHOW COLUMNS FROM `" . $tbl . "` LIKE '" . $col . "'");
-            return ($res && mysqli_num_rows($res) > 0);
-        }
-        $check_column = '_local_column_exists';
-    } else {
-        $check_column = 'column_exists';
-    }
-
+    
     if ($role_head == 'mahasiswa') {
-        if (call_user_func($check_column, 'mahasiswa', 'foto')) {
-            $q_head = mysqli_query($conn, "SELECT foto FROM mahasiswa WHERE user_id = '" . mysqli_real_escape_string($conn, $uid_head) . "'");
-            if ($q_head && $r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        $q_head = mysqli_query($conn, "SELECT foto, nama FROM mahasiswa WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) {
+            $header_foto = $r_head['foto'];
+            $header_nama = $r_head['nama'];
         }
     } elseif ($role_head == 'asisten') {
-        if (call_user_func($check_column, 'asisten', 'foto')) {
-            $q_head = mysqli_query($conn, "SELECT foto FROM asisten WHERE user_id = '" . mysqli_real_escape_string($conn, $uid_head) . "'");
-            if ($q_head && $r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        $q_head = mysqli_query($conn, "SELECT foto, nama FROM asisten WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) {
+            $header_foto = $r_head['foto'];
+            $header_nama = $r_head['nama'];
         }
     } elseif ($role_head == 'admin') {
-        if (call_user_func($check_column, 'users', 'foto')) {
-            $q_head = mysqli_query($conn, "SELECT foto FROM users WHERE id = '" . mysqli_real_escape_string($conn, $uid_head) . "'");
-            if ($q_head && $r_head = mysqli_fetch_assoc($q_head)) $header_foto = $r_head['foto'];
+        $q_head = mysqli_query($conn, "SELECT foto, nama FROM admin WHERE user_id = '$uid_head'");
+        if ($r_head = mysqli_fetch_assoc($q_head)) {
+            $header_foto = $r_head['foto'];
+            $header_nama = $r_head['nama'];
         }
     }
 }
+// Fallback jika nama kosong
+if (empty($header_nama)) {
+    $header_nama = $_SESSION['username'] ?? 'User';
+}
 // Fallback jika foto kosong atau file tidak ada
 if (empty($header_foto) || !file_exists($header_foto)) {
-    $header_foto = 'https://ui-avatars.com/api/?name=' . urlencode($_SESSION['username'] ?? 'User') . '&background=random&color=fff&rounded=true&size=128';
+    $header_foto = 'https://ui-avatars.com/api/?name=' . urlencode($header_nama) . '&background=random&color=fff&rounded=true&size=128';
 }
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <!-- Anti-FOUC: Immediately apply theme before any render -->
+    <script>
+        (function() {
+            var theme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', theme);
+            
+            // Initialize Sidebar State
+            var sidebarState = localStorage.getItem('sidebarState') || 'expanded';
+            document.documentElement.setAttribute('data-sidebar', sidebarState);
+        })();
+    </script>
+    <style>
+        /* Anti-FOUC: Hide sidebar until ready */
+        .sidebar { opacity: 0; transition: opacity 0.15s ease-in; }
+        .sidebar.fouc-ready { opacity: 1; }
+    </style>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= function_exists('get_setting') ? get_setting('app_name', defined('APP_NAME') ? APP_NAME : 'PresensiKita') : 'PresensiKita' ?></title>
+    <title><?= APP_NAME ?></title>
     
     <!-- PWA Meta Tags -->
-    <link rel="manifest" href="manifest.php">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#0066cc">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -58,9 +68,9 @@ if (empty($header_foto) || !file_exists($header_foto)) {
     <meta name="application-name" content="Sistem Presensi Kampus">
     
     <!-- Favicon & Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="includes/icon-192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="includes/icon-512.png">
-    <link rel="apple-touch-icon" href="includes/icon-192.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/img/52452554464_81be58f500_m.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="assets/img/512x512-logo-barcelona-logo-png-0.png">
+    <link rel="apple-touch-icon" href="assets/img/52452554464_81be58f500_m.png">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -130,7 +140,6 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             background-color: var(--bg-body);
             color: var(--text-main);
             overflow-x: hidden;
-            transition: background-color 0.3s, color 0.3s;
         }
         .modal-header{
             background-color: var(--primary-color);
@@ -142,7 +151,6 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             background: var(--sidebar-bg);
             display: flex;
             flex-direction: column;
-            transition: background 0.3s;
         }
         
         /* Sidebar Brand Sticky */
@@ -162,7 +170,6 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             width: calc(100% + 2rem);
             
             box-shadow: 0 2px 10px rgba(0,0,0,0.15);
-            transition: background 0.3s;
         }
         
         .sidebar-brand:hover {
@@ -999,6 +1006,157 @@ if (empty($header_foto) || !file_exists($header_foto)) {
             }
         }
         
+        /* ============ COLLAPSIBLE SIDEBAR (DESKTOP ONLY) ============ */
+        @media (min-width: 992px) {
+            /* Smooth Transition for Layout Elements */
+            .row > .col-md-3.col-lg-2,
+            .row > .col-md-9.col-lg-10,
+            .sidebar,
+            .sidebar .nav-link,
+            .sidebar-brand,
+            .sidebar-brand img,
+            .sidebar-toggle-btn,
+            .sidebar .d-flex.align-items-center {
+                transition: width 0.3s, margin 0.3s, padding 0.3s, flex 0.3s, max-width 0.3s;
+            }
+
+            /* Collapsed State: Sidebar Container */
+            [data-sidebar="collapsed"] .row > .col-md-3.col-lg-2 {
+                width: 80px !important;
+                flex: 0 0 80px !important;
+                max-width: 80px !important;
+            }
+
+            /* Collapsed State: Content Area */
+            [data-sidebar="collapsed"] .row > .col-md-9.col-lg-10 {
+                margin-left: 80px !important;
+                width: calc(100% - 80px) !important;
+                flex: 0 0 calc(100% - 80px) !important;
+                max-width: calc(100% - 80px) !important;
+            }
+
+            /* Collapsed State: Sidebar Internals */
+            [data-sidebar="collapsed"] .sidebar {
+                padding: 10px !important;
+                align-items: center;
+                overflow-x: hidden;
+                overflow-y: auto;
+            }
+
+            /* Hide horizontal overflow on nav */
+            [data-sidebar="collapsed"] .sidebar .nav {
+                overflow-x: hidden;
+                width: 100%;
+            }
+
+            [data-sidebar="collapsed"] .sidebar .nav-item {
+                overflow: hidden;
+                width: 100%;
+            }
+
+            /* Hide Text in Nav Links */
+            [data-sidebar="collapsed"] .sidebar .nav-link {
+                font-size: 0;
+                justify-content: center;
+                padding: 12px 0;
+                width: 100%;
+                text-align: center;
+            }
+
+            /* Center Icons */
+            [data-sidebar="collapsed"] .sidebar .nav-link i {
+                font-size: 1.25rem;
+                margin-right: 0 !important;
+                width: auto;
+            }
+
+            /* Hide Logo/Brand when collapsed */
+            [data-sidebar="collapsed"] .sidebar-brand {
+                display: none !important;
+            }
+
+            /* Adjust Footer Profile */
+            [data-sidebar="collapsed"] .sidebar .d-flex.align-items-center.text-white {
+                flex-direction: column;
+                padding: 0 !important;
+                text-align: center;
+                margin-bottom: 1rem !important;
+            }
+            [data-sidebar="collapsed"] .sidebar .rounded-circle.me-3 {
+                margin-right: 0 !important;
+                margin-bottom: 5px;
+                width: 36px !important;
+                height: 36px !important;
+            }
+            [data-sidebar="collapsed"] .sidebar .lh-1 {
+                display: none;
+            }
+
+            /* Adjust Footer Buttons */
+            [data-sidebar="collapsed"] .sidebar .d-flex.gap-2 {
+                flex-direction: column;
+                gap: 8px !important;
+                width: 100%;
+            }
+            [data-sidebar="collapsed"] .sidebar .btn-outline-light {
+                padding: 8px 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            }
+            
+            /* Toggle Button Position in Collapsed Mode */
+            [data-sidebar="collapsed"] .sidebar-toggle-btn {
+                right: -12px;
+            }
+            [data-sidebar="collapsed"] .sidebar-toggle-btn i {
+                transform: rotate(180deg);
+            }
+        }
+
+        /* Toggle Button Style - Positioned at sidebar edge */
+        .sidebar-toggle-btn {
+            position: fixed;
+            top: 20px;
+            left: calc(16.666667% - 12px); /* Positioned at the edge of sidebar (col-lg-2 = 16.67%) */
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--sidebar-bg);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            display: none; /* Hidden on mobile */
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1060;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .sidebar-toggle-btn i {
+            font-size: 10px;
+            transition: transform 0.3s ease;
+        }
+        
+        @media (min-width: 992px) {
+            .sidebar-toggle-btn {
+                display: flex;
+            }
+        }
+        
+        /* Adjust for collapsed sidebar */
+        [data-sidebar="collapsed"] .sidebar-toggle-btn {
+            left: 68px; /* 80px sidebar - 12px offset */
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            transform: scale(1.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
         /* Hide scrollbar for sidebar but allow scroll */
         .col-md-3.col-lg-2::-webkit-scrollbar {
             width: 5px;
@@ -1069,9 +1227,10 @@ if (empty($header_foto) || !file_exists($header_foto)) {
         <?php 
         if ($_SESSION['role'] == 'mahasiswa') $profil_link = 'index.php?page=mahasiswa_profil';
         elseif ($_SESSION['role'] == 'asisten') $profil_link = 'index.php?page=asisten_profil';
-        else $profil_link = 'index.php?page=admin_dashboard';
+        elseif ($_SESSION['role'] == 'admin') $profil_link = 'index.php?page=admin_profil';
+        else $profil_link = '#';
         ?>
-        <a href="<?= $profil_link ?>" title="<?= $_SESSION['role'] == 'admin' ? 'Dashboard' : 'Profil Saya' ?>">
+        <a href="<?= $profil_link ?>" title="Profil Saya">
             <img src="<?= $header_foto ?>" alt="User" class="rounded-circle" style="width: 32px; height: 32px; object-fit: cover; border: 2px solid rgba(255,255,255,0.3);">
         </a>
         

@@ -437,9 +437,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         body {
             display: flex;
-            justify-content: center;
-            align-items: center;
             min-height: 100vh;
+            min-height: 100dvh;
             background-image: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url("uploads/logo/Kampus-I-Balapan-1.png");
             background-size: cover;
             background-position: center;
@@ -555,6 +554,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         /* ======================== */
 
         .login-container {
+            margin: auto;
             position: relative;
             width: 100%;
             max-width: 460px;
@@ -1363,6 +1363,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="form-check">
                     <input type="checkbox" name="remember" id="remember" class="form-check-input">
                     <label for="remember" class="form-check-label">Ingat saya selama 30 hari</label>
+                </div>
+
+                <div class="text-end mb-3">
+                    <a href="index.php?page=lupa_password" class="footer-link" style="font-size: 13px;">
+                        <i class="fas fa-question-circle me-1"></i> Lupa Password?
+                    </a>
                 </div>
 
                 <button type="submit" class="btn-submit" id="btnLogin">

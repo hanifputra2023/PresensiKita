@@ -68,6 +68,34 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['aksi']) && $_POST['aks
     exit;
 }
 
+// Handle Delete All Logs
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['aksi']) && $_POST['aksi'] == 'hapus_semua_log') {
+    if (mysqli_query($conn, "TRUNCATE TABLE log_presensi")) {
+        set_alert('success', 'Semua log aktivitas berhasil dihapus.');
+    } else {
+        set_alert('danger', 'Gagal menghapus semua log aktivitas.');
+    }
+    header("Location: index.php?page=admin_log");
+    exit;
+}
+
+// Handle Bulk Delete
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['aksi']) && $_POST['aksi'] == 'hapus_banyak') {
+    if (isset($_POST['ids']) && is_array($_POST['ids'])) {
+        $ids = $_POST['ids'];
+        $success_count = 0;
+        $stmt_del = mysqli_prepare($conn, "DELETE FROM log_presensi WHERE id = ?");
+        foreach ($ids as $id) {
+            $safe_id = (int)$id;
+            mysqli_stmt_bind_param($stmt_del, "i", $safe_id);
+            if(mysqli_stmt_execute($stmt_del)) $success_count++;
+        }
+        set_alert('success', $success_count . ' Log aktivitas berhasil dihapus.');
+    }
+    header("Location: index.php?page=admin_log");
+    exit;
+}
+
 // Pagination
 $per_page = 20;
 $current_page = get_current_page();
@@ -146,90 +174,122 @@ $logs = mysqli_stmt_get_result($stmt_logs);
 <?php include 'includes/header.php'; ?>
 
 <style>
-    /* Welcome Banner - Modern Design */
+    /* Welcome Banner Modern */
     .welcome-banner-log {
         background: var(--banner-gradient);
         border-radius: 24px;
         padding: 40px;
-        margin-bottom: 30px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+        animation: fadeInUp 0.5s ease;
         position: relative;
         overflow: hidden;
-        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.2);
     }
     
     .welcome-banner-log::before {
         content: '';
         position: absolute;
-        top: -100px;
-        right: -100px;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(78, 115, 223, 0.5) 0%, transparent 70%);
-        animation: pulse-glow 4s ease-in-out infinite;
+        top: -50%;
+        right: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+        animation: pulse-glow-log 4s ease-in-out infinite;
     }
     
-    .welcome-banner-log::after {
-        content: '';
-        position: absolute;
-        bottom: -150px;
-        left: -100px;
-        width: 350px;
-        height: 350px;
-        background: radial-gradient(circle, rgba(54, 185, 204, 0.3) 0%, transparent 70%);
-        animation: pulse-glow 4s ease-in-out infinite 2s;
+    @keyframes pulse-glow-log {
+        0%, 100% {
+            transform: scale(1);
+            opacity: 0.5;
+        }
+        50% {
+            transform: scale(1.05);
+            opacity: 0.6;
+        }
     }
     
-    @keyframes pulse-glow {
-        0%, 100% { transform: scale(1); opacity: 0.4; }
-        50% { transform: scale(1.05); opacity: 0.6; }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(30px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     
-    .welcome-content-log h1 {
-        color: white;
+    .welcome-banner-log h1 {
         font-size: 32px;
-        font-weight: 800;
-        margin-bottom: 8px;
-        letter-spacing: -0.5px;
-        position: relative;
-        z-index: 2;
-    }
-    
-    .welcome-content-log .subtitle {
-        color: rgba(255, 255, 255, 0.85);
-        font-size: 16px;
+        font-weight: 700;
         margin: 0;
-        font-weight: 400;
         position: relative;
-        z-index: 2;
+        z-index: 1;
     }
     
-    .welcome-badge-log {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 8px 16px;
-        border-radius: 20px;
-        color: white;
-        font-size: 14px;
-        font-weight: 600;
-        margin-bottom: 16px;
+    .welcome-banner-log .banner-subtitle {
+        font-size: 16px;
+        opacity: 0.95;
         position: relative;
-        z-index: 2;
+        z-index: 1;
+    }
+    
+    .welcome-banner-log .banner-icon {
+        width: 60px;
+        height: 60px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        backdrop-filter: blur(10px);
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        position: relative;
+        z-index: 1;
+    }
+    
+    .welcome-banner-log .banner-badge {
+        display: inline-block;
+        padding: 8px 20px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: 600;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
         text-transform: uppercase;
         letter-spacing: 0.5px;
+        position: relative;
+        z-index: 1;
     }
     
-    .welcome-badge-log i {
-        font-size: 8px;
-        animation: pulse 2s infinite;
+    /* Dark Mode Support */
+    [data-theme="dark"] .welcome-banner-log {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
     
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .welcome-banner-log {
+            padding: 24px;
+            border-radius: 16px;
+        }
+        
+        .welcome-banner-log h1 {
+            font-size: 24px;
+        }
+        
+        .welcome-banner-log .banner-icon {
+            width: 50px;
+            height: 50px;
+            font-size: 22px;
+        }
+    }
+    
+    /* Responsive untuk tablet dan mobile besar (577px - 750px) */
+    @media (min-width: 577px) and (max-width: 750px) {
+        .welcome-banner-log {
+            padding: 30px;
+        }
+        
+        .welcome-banner-log h1 {
+            font-size: 26px;
+        }
     }
     
     /* Stats Cards - Match Dashboard Style */
@@ -298,58 +358,163 @@ $logs = mysqli_stmt_get_result($stmt_logs);
         font-size: 0.8rem;
     }
     
-    /* Filter Bar Modern */
-    .filter-bar {
+    /* Filter Bar Modern (Adapted from Kelas) */
+    .filter-bar-log {
         background: var(--bg-card);
-        padding: 24px;
+        border: 1px solid var(--border-color);
         border-radius: 16px;
+        padding: 24px 28px;
         box-shadow: var(--card-shadow);
         margin-bottom: 24px;
-        border: 1px solid var(--border-color);
+        animation: fadeInUp 0.5s ease 0.1s both;
     }
     
-    .filter-bar .form-label {
-        font-weight: 600;
-        font-size: 0.8rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+    .filter-bar-log .filter-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
     }
     
-    .filter-bar .form-control,
-    .filter-bar .form-select {
-        border-radius: 12px;
-        border: 2px solid var(--border-color);
-        padding: 10px 14px;
-        transition: all 0.3s ease;
+    .filter-bar-log .filter-group {
+        flex: 1;
+        min-width: 200px;
     }
     
-    .filter-bar .form-control:focus,
-    .filter-bar .form-select:focus {
-        border-color: var(--primary-color);
-        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
+    .filter-bar-log .filter-group-search {
+        flex: 2;
+        min-width: 280px;
     }
     
-    .filter-bar .input-group-text {
-        border-radius: 12px 0 0 12px;
-        border: 2px solid var(--border-color);
-        border-right: none;
-        background: var(--bg-card);
+    .filter-bar-log .filter-group-action {
+        flex: 0 0 auto;
+        min-width: 120px;
     }
     
-    .filter-bar .btn-primary {
-        height: 46px;
+    .filter-bar-log .form-label-modern {
         display: flex;
         align-items: center;
-        justify-content: center;
-        padding: 0 20px;
-        border-radius: 12px;
-        font-weight: 600;
-        transition: all 0.3s ease;
+        gap: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted, #666);
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        margin-bottom: 10px;
     }
     
-    .filter-bar .btn-primary:hover {
+    .filter-bar-log .form-label-modern i {
+        font-size: 0.85rem;
+        opacity: 0.7;
+    }
+    
+    .filter-bar-log .search-input-wrapper {
+        position: relative;
+    }
+    
+    .filter-bar-log .search-icon {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted, #999);
+        font-size: 15px;
+        z-index: 1;
+        transition: color 0.3s ease;
+    }
+    
+    .filter-bar-log .search-input-wrapper:focus-within .search-icon {
+        color: var(--primary-color);
+    }
+    
+    .filter-bar-log .form-control-modern {
+        width: 100%;
+        border-radius: 12px;
+        border: 2px solid var(--border-color);
+        padding: 14px 16px 14px 46px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        background: var(--bg-card);
+        color: var(--text-color);
+    }
+    
+    .filter-bar-log .form-control-modern::placeholder {
+        color: var(--text-muted, #999);
+        font-weight: 400;
+    }
+    
+    .filter-bar-log .form-control-modern:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .filter-bar-log .form-control-modern:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.12);
+        outline: none;
+    }
+    
+    .filter-bar-log select.form-control-modern {
+        padding-left: 16px;
+        padding-right: 40px;
+        cursor: pointer;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background: var(--bg-card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 16px center;
+        background-size: 14px;
+    }
+    
+    .filter-bar-log .btn-filter {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 14px 20px;
+        border-radius: 12px;
+        font-weight: 600;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        border: 2px solid var(--primary-color);
+        background: transparent;
+        color: var(--primary-color);
+        white-space: nowrap;
+        height: 52px;
+    }
+    
+    .filter-bar-log .btn-filter:hover {
+        background: var(--primary-color);
+        color: white;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+        box-shadow: 0 4px 12px rgba(0, 102, 204, 0.25);
+    }
+    
+    .filter-bar-log .btn-secondary {
+        border-radius: 12px;
+        height: 52px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        padding: 0 20px;
+    }
+    
+    .filter-bar-log .select-all-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 16px;
+        background: rgba(0, 102, 204, 0.08);
+        border-radius: 12px;
+        height: 52px;
+    }
+    
+    .filter-bar-log .select-all-wrapper label {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--primary-color);
+        cursor: pointer;
+        white-space: nowrap;
     }
     
     /* Timeline-like style for mobile logs */
@@ -439,6 +604,20 @@ $logs = mysqli_stmt_get_result($stmt_logs);
         scrollbar-width: none; /* Firefox */
         -ms-overflow-style: none; /* IE and Edge */
     }
+
+    /* Bulk Selection Styles */
+    .select-checkbox-col { display: none; width: 40px; text-align: center; }
+    .select-mode .select-checkbox-col { display: table-cell; }
+    .item-checkbox { width: 22px; height: 22px; cursor: pointer; border: 2px solid var(--text-muted); border-radius: 50%; }
+    .item-checkbox:checked { background-color: var(--primary-color); border-color: var(--primary-color); }
+    
+    /* Mobile Card Selection */
+    .log-card-mobile { position: relative; transition: all 0.2s; }
+    .log-card-mobile.selected { border-color: var(--primary-color) !important; background-color: rgba(0, 102, 204, 0.05) !important; }
+    [data-theme="dark"] .log-card-mobile.selected { background-color: rgba(0, 102, 204, 0.15) !important; }
+    .card-select-overlay { position: absolute; top: 10px; left: 10px; z-index: 5; display: none; }
+    .select-mode .card-select-overlay { display: block; }
+    .select-mode .log-card-mobile .card-body { padding-top: 2.5rem !important; }
 
     .table thead th {
         background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
@@ -670,6 +849,88 @@ $logs = mysqli_stmt_get_result($stmt_logs);
         height: 2rem;
         border-width: 0.25em;
     }
+    
+    /* Bulk Action Bar */
+    #bulkActionBar { position: fixed; bottom: -100px; left: 0; right: 0; background: var(--bg-card); box-shadow: 0 -5px 20px rgba(0,0,0,0.1); padding: 15px 30px; z-index: 1000; transition: bottom 0.3s ease-in-out; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); }
+    #bulkActionBar.show { bottom: 0; }
+    [data-theme="dark"] #bulkActionBar { box-shadow: 0 -5px 20px rgba(0,0,0,0.3); }
+    
+    #bulkActionBar .btn {
+        border-radius: 12px;
+        font-weight: 600;
+        padding: 10px 24px;
+    }
+
+    @media (max-width: 576px) {
+        #bulkActionBar { flex-direction: column; gap: 10px; padding: 15px; }
+        #bulkActionBar > div { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+        #bulkActionBar > div:last-child { gap: 10px; }
+        #bulkActionBar button { flex: 1; }
+        #bulkActionBar .btn.me-2 { margin-right: 0 !important; }
+    }
+
+    /* Responsive Filter Bar */
+    @media (max-width: 576px) {
+        .filter-bar-log { padding: 16px; border-radius: 12px; }
+        .filter-bar-log .filter-row { flex-direction: column; gap: 12px; }
+        .filter-bar-log .filter-group, 
+        .filter-bar-log .filter-group-search, 
+        .filter-bar-log .filter-group-action { flex: 1 1 100% !important; min-width: 100% !important; }
+        .filter-bar-log .form-label-modern { font-size: 0.7rem; margin-bottom: 6px; }
+        .filter-bar-log .form-control-modern { padding: 12px 14px 12px 42px; font-size: 14px; }
+        .filter-bar-log select.form-control-modern { padding-left: 14px; }
+        .filter-bar-log .btn-filter, .filter-bar-log .btn-secondary { width: 100%; padding: 12px 16px; height: 48px; }
+        .filter-bar-log .action-buttons-mobile { display: flex; gap: 10px; width: 100%; }
+        .filter-bar-log .action-buttons-mobile .btn-filter, .filter-bar-log .action-buttons-mobile .btn-secondary { flex: 1; }
+        .filter-bar-log .select-all-wrapper { width: 100%; justify-content: center; padding: 12px 14px; height: 48px; }
+        .filter-bar-log .filter-group:last-child button { height: 48px !important; }
+    }
+
+    @media (min-width: 577px) and (max-width: 991px) {
+        .filter-bar-log { padding: 20px; }
+        .filter-bar-log .filter-row { flex-wrap: wrap; gap: 14px; }
+        .filter-bar-log .filter-group-search { flex: 1 1 100%; min-width: 100%; }
+        .filter-bar-log .filter-group { flex: 1 1 calc(50% - 7px); min-width: calc(50% - 7px); }
+        .filter-bar-log .filter-group-action { flex: 1 1 calc(50% - 7px); min-width: calc(50% - 7px); }
+        .filter-bar-log .form-label-modern { display: flex !important; }
+        .filter-bar-log .btn-filter, .filter-bar-log .btn-secondary { width: 100%; padding: 14px 20px; height: 52px; font-size: 15px; }
+        .filter-bar-log .action-buttons-mobile { width: 100%; }
+        .filter-bar-log .action-buttons-mobile .btn-filter, .filter-bar-log .action-buttons-mobile .btn-secondary { flex: 1; }
+        .filter-bar-log .select-all-wrapper { flex: 1; justify-content: center; height: 52px; padding: 14px 16px; }
+    }
+    
+    /* Slider Confirm */
+    .slider-container { position: relative; width: 100%; height: 55px; background: #f0f2f5; border-radius: 30px; user-select: none; overflow: hidden; box-shadow: inset 0 2px 5px rgba(0,0,0,0.1); }
+    [data-theme="dark"] .slider-container { background: var(--bg-input); box-shadow: inset 0 2px 5px rgba(0,0,0,0.3); }
+    .slider-text { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: #888; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; z-index: 1; pointer-events: none; transition: opacity 0.3s; }
+    .slider-handle { position: absolute; top: 5px; left: 5px; width: 45px; height: 45px; background: #dc3545; border-radius: 50%; cursor: pointer; z-index: 2; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.1s; }
+    .slider-handle:active { cursor: grabbing; transform: scale(0.95); }
+    .slider-progress { position: absolute; top: 0; left: 0; height: 100%; background: rgba(220, 53, 69, 0.2); width: 0; z-index: 0; }
+    .slider-container.unlocked .slider-handle { width: calc(100% - 10px); border-radius: 30px; }
+    .slider-container.unlocked .slider-text { opacity: 0; }
+    
+    /* Dark Mode Overrides for Filter Bar */
+    [data-theme="dark"] .filter-bar-log {
+        background: rgba(255, 255, 255, 0.05);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+    [data-theme="dark"] .filter-bar-log .form-label-modern { color: #aaa; }
+    [data-theme="dark"] .filter-bar-log .form-control-modern {
+        background: rgba(255, 255, 255, 0.05);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
+    [data-theme="dark"] .filter-bar-log .form-control-modern:hover,
+    [data-theme="dark"] .filter-bar-log .form-control-modern:focus {
+        border-color: var(--primary-color);
+    }
+    [data-theme="dark"] .filter-bar-log select.form-control-modern {
+        background: rgba(255, 255, 255, 0.05) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 16px center;
+        background-size: 14px;
+    }
+    [data-theme="dark"] .filter-bar-log .select-all-wrapper {
+        background: rgba(0, 102, 204, 0.15);
+    }
 </style>
 
 <div class="container-fluid">
@@ -682,14 +943,22 @@ $logs = mysqli_stmt_get_result($stmt_logs);
             <div class="content-wrapper p-4">
                 
                 <!-- Welcome Banner -->
-                <div class="welcome-banner-log">
-                    <div class="welcome-content-log">
-                        <div class="welcome-badge-log">
-                            <i class="fas fa-circle"></i>
-                            <?= date('l, d F Y') ?>
+                <div class="welcome-banner-log mb-4">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+                        <div>
+                            <div class="d-flex align-items-center gap-3 mb-2">
+                                <div class="banner-icon">
+                                    <i class="fas fa-history"></i>
+                                </div>
+                                <div>
+                                    <h1 class="mb-1">Log Aktivitas Sistem</h1>
+                                    <p class="banner-subtitle mb-0">Pantau semua aktivitas dan perubahan data secara real-time dengan detail lengkap</p>
+                                </div>
+                            </div>
+                            <span class="banner-badge">
+                                <i class="fas fa-clock me-1"></i><?= date('l, d F Y') ?>
+                            </span>
                         </div>
-                        <h1><i class="fas fa-history me-3"></i>Log Aktivitas Sistem</h1>
-                        <p class="subtitle">Pantau semua aktivitas dan perubahan data secara real-time dengan detail lengkap</p>
                     </div>
                 </div>
                 
@@ -762,47 +1031,68 @@ $logs = mysqli_stmt_get_result($stmt_logs);
                 </div>
                 
                 <!-- Search Filter -->
-                <div class="filter-bar">
+                <div class="filter-bar-log">
                         <form method="GET" class="row g-2 align-items-end">
                             <input type="hidden" name="page" value="admin_log">
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Dari Tanggal</label>
-                                <input type="date" name="start_date" class="form-control" value="<?= htmlspecialchars($start_date) ?>">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Sampai Tanggal</label>
-                                <input type="date" name="end_date" class="form-control" value="<?= htmlspecialchars($end_date) ?>">
-                            </div>
-                            <div class="col-md-2">
-                                <label class="form-label small text-muted mb-1">Tipe Aksi</label>
-                                <select name="filter_aksi" class="form-select">
-                                    <option value="">Semua</option>
-                                    <option value="LOGIN" <?= $filter_aksi == 'LOGIN' ? 'selected' : '' ?>>Login</option>
-                                    <option value="INSERT" <?= $filter_aksi == 'INSERT' ? 'selected' : '' ?>>Insert</option>
-                                    <option value="UPDATE" <?= $filter_aksi == 'UPDATE' ? 'selected' : '' ?>>Update</option>
-                                    <option value="DELETE" <?= $filter_aksi == 'DELETE' ? 'selected' : '' ?>>Delete</option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label small text-muted mb-1">Pencarian</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
-                                    <input type="text" id="liveSearchInput" name="search" class="form-control border-start-0 ps-0" placeholder="Cari username..." value="<?= htmlspecialchars($search) ?>" autocomplete="off">
+                            <div class="filter-row w-100">
+                                <div class="filter-group">
+                                    <label class="form-label-modern"><i class="fas fa-calendar-alt"></i> Dari Tanggal</label>
+                                    <input type="date" name="start_date" class="form-control-modern" value="<?= htmlspecialchars($start_date) ?>">
                                 </div>
-                            </div>
-                            <div class="col-md-1">
-                                <button type="submit" class="btn btn-primary w-100"><i class="fas fa-filter"></i></button>
+                                <div class="filter-group">
+                                    <label class="form-label-modern"><i class="fas fa-calendar-alt"></i> Sampai Tanggal</label>
+                                    <input type="date" name="end_date" class="form-control-modern" value="<?= htmlspecialchars($end_date) ?>">
+                                </div>
+                                <div class="filter-group">
+                                    <label class="form-label-modern"><i class="fas fa-tag"></i> Tipe Aksi</label>
+                                    <select name="filter_aksi" class="form-control-modern">
+                                        <option value="">Semua</option>
+                                        <option value="LOGIN" <?= $filter_aksi == 'LOGIN' ? 'selected' : '' ?>>Login</option>
+                                        <option value="INSERT" <?= $filter_aksi == 'INSERT' ? 'selected' : '' ?>>Insert</option>
+                                        <option value="UPDATE" <?= $filter_aksi == 'UPDATE' ? 'selected' : '' ?>>Update</option>
+                                        <option value="DELETE" <?= $filter_aksi == 'DELETE' ? 'selected' : '' ?>>Delete</option>
+                                    </select>
+                                </div>
+                                <div class="filter-group filter-group-search">
+                                    <label class="form-label-modern"><i class="fas fa-search"></i> Pencarian</label>
+                                    <div class="search-input-wrapper">
+                                        <i class="fas fa-search search-icon"></i>
+                                        <input type="text" id="liveSearchInput" name="search" class="form-control-modern" placeholder="Cari username, detail..." value="<?= htmlspecialchars($search) ?>" autocomplete="off">
+                                    </div>
+                                </div>
+                                <!-- Action Buttons -->
+                                <div class="filter-group filter-group-action">
+                                    <label class="form-label-modern d-none d-md-flex">
+                                        <i class="fas fa-cog"></i>
+                                        Aksi
+                                    </label>
+                                    <div class="d-flex gap-2 action-buttons-mobile">
+                                        <button type="button" class="btn-filter" id="btnSelectMode" onclick="toggleSelectMode()">
+                                            <i class="fas fa-check-square"></i>
+                                            <span>Pilih</span>
+                                        </button>
+                                        <div class="select-all-wrapper d-none" id="selectAllContainer">
+                                            <input class="form-check-input item-checkbox m-0" type="checkbox" id="selectAll" onchange="toggleSelectAll()" style="width: 20px; height: 20px; cursor: pointer; border-radius: 6px;">
+                                            <label class="m-0" for="selectAll">Semua</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="filter-group" style="flex: 0 0 auto; min-width: 50px;">
+                                    <label class="form-label-modern d-none d-md-flex">&nbsp;</label>
+                                    <button type="submit" class="btn btn-primary w-100" style="height: 52px; border-radius: 12px;"><i class="fas fa-filter"></i></button>
+                                </div>
                             </div>
                         </form>
                 </div>
                 
-                <div class="card shadow-sm border-0">
+                <div class="card shadow-sm border-0" id="logTableContainer">
                     <div class="card-body p-0">
                         <!-- Desktop View -->
                         <div class="table-responsive d-none d-lg-block">
                             <table class="table align-middle">
                                 <thead>
                                     <tr>
+                                        <th class="select-checkbox-col"><i class="fas fa-check-square"></i></th>
                                         <th>Waktu</th>
                                         <th>User</th>
                                         <th>Aktivitas</th>
@@ -857,7 +1147,10 @@ $logs = mysqli_stmt_get_result($stmt_logs);
                                                 $aksiLabel = ucfirst(strtolower(str_replace('_', ' ', $aksi)));
                                             }
                                         ?>
-                                        <tr class="<?= $rowClass ?>" data-searchable="<?= strtolower(htmlspecialchars($l['username'] ?? 'System')) ?>">
+                                        <tr class="<?= $rowClass ?>" id="row-<?= $l['id'] ?>" data-searchable="<?= strtolower(htmlspecialchars($l['username'] ?? 'System')) ?>">
+                                            <td class="select-checkbox-col">
+                                                <input type="checkbox" class="form-check-input item-checkbox m-0" value="<?= $l['id'] ?>" onchange="toggleSelection(<?= $l['id'] ?>)">
+                                            </td>
                                             <td class="text-nowrap">
                                                 <div class="d-flex align-items-center">
                                                     <span class="status-indicator <?= $statusClass ?>"></span>
@@ -900,13 +1193,9 @@ $logs = mysqli_stmt_get_result($stmt_logs);
                                                 </div>
                                             </td>
                                             <td class="text-end">
-                                                <form method="POST" onsubmit="return confirm('Yakin ingin menghapus log ini?');" class="d-inline">
-                                                    <input type="hidden" name="aksi" value="hapus_log">
-                                                    <input type="hidden" name="id" value="<?= $l['id'] ?>">
-                                                    <button type="submit" class="btn btn-sm btn-delete-log" title="Hapus Log">
+                                                <button class="btn btn-sm btn-delete-log" onclick="confirmSlideDelete('single', <?= $l['id'] ?>)" title="Hapus Log">
                                                         <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
+                                                </button>
                                             </td>
                                         </tr>
                                         <?php endwhile; ?>
@@ -973,7 +1262,10 @@ $logs = mysqli_stmt_get_result($stmt_logs);
                                 <div class="log-timeline-icon">
                                     <i class="fas <?= $icon ?>"></i>
                                 </div>
-                                <div class="card border-0 shadow-sm bg-light">
+                                <div class="card border-0 shadow-sm bg-light log-card-mobile" id="card-<?= $l['id'] ?>">
+                                    <div class="card-select-overlay">
+                                        <input type="checkbox" class="form-check-input item-checkbox m-0" value="<?= $l['id'] ?>" onchange="toggleSelection(<?= $l['id'] ?>)">
+                                    </div>
                                     <div class="card-body p-3">
                                         <div class="d-flex justify-content-between align-items-start mb-2">
                                             <div class="d-flex align-items-center gap-2">
@@ -1010,6 +1302,38 @@ $logs = mysqli_stmt_get_result($stmt_logs);
         </div>
     </div>
 </div>
+
+<div id="bulkActionBar">
+    <div class="d-flex align-items-center">
+        <span class="badge bg-primary me-2" style="font-size: 1rem;"><span id="selectedCount">0</span></span>
+        <span class="text-dark fw-bold">Log Dipilih</span>
+    </div>
+    <div>
+        <button class="btn btn-secondary me-2" onclick="toggleSelectMode()">Batal</button>
+        <button class="btn btn-danger" onclick="confirmSlideDelete('bulk')"><i class="fas fa-trash-alt me-2"></i>Hapus Terpilih</button>
+    </div>
+</div>
+
+<div class="modal fade" id="modalSlideConfirm" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center p-4">
+                <div class="mb-3 text-danger"><i class="fas fa-exclamation-triangle fa-3x"></i></div>
+                <h4 class="fw-bold text-danger mb-2">Konfirmasi Hapus</h4>
+                <p class="text-muted mb-4" id="slideConfirmMsg">Apakah Anda yakin? Data yang dihapus tidak dapat dikembalikan.</p>
+                <div class="slider-container" id="deleteSlider">
+                    <div class="slider-progress" id="sliderProgress"></div>
+                    <div class="slider-text">GESER UNTUK MENGHAPUS >></div>
+                    <div class="slider-handle" id="sliderHandle"><i class="fas fa-trash"></i></div>
+                </div>
+                <button type="button" class="btn btn-link text-muted mt-3 text-decoration-none" data-bs-dismiss="modal" id="btnCancelSlide">Batal</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="formHapus" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_log"><input type="hidden" name="id" id="hapus_id"></form>
+<form id="formHapusBulk" method="POST" class="d-none"><input type="hidden" name="aksi" value="hapus_banyak"><div id="bulkInputs"></div></form>
 
 <script>
 // Live Search Functionality with AJAX (search all data, not just current page)
@@ -1196,7 +1520,107 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    
+    // --- Selection & Bulk Action Logic ---
+    window.selectedItems = new Set();
+    window.isSelectMode = false;
+
+    window.toggleSelectMode = function() {
+        isSelectMode = !isSelectMode;
+        const tableContainer = document.getElementById('logTableContainer');
+        const btn = document.getElementById('btnSelectMode');
+        const selectAllContainer = document.getElementById('selectAllContainer');
+        
+        if (isSelectMode) {
+            tableContainer.classList.add('select-mode');
+            btn.classList.replace('btn-filter', 'btn-secondary'); // Adjust class
+            btn.innerHTML = '<i class="fas fa-times me-1"></i> Batal';
+            selectAllContainer.classList.remove('d-none');
+            selectAllContainer.classList.add('d-flex');
+        } else {
+            tableContainer.classList.remove('select-mode');
+            btn.classList.replace('btn-secondary', 'btn-filter');
+            btn.innerHTML = '<i class="fas fa-check-square"></i> <span>Pilih</span>';
+            selectAllContainer.classList.add('d-none');
+            selectAllContainer.classList.remove('d-flex');
+            selectedItems.clear();
+            document.getElementById('selectAll').checked = false;
+            document.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+            document.querySelectorAll('.log-card-mobile').forEach(c => c.classList.remove('selected'));
+            updateBulkUI();
+        }
+    }
+
+    window.toggleSelection = function(id) {
+        const idStr = String(id);
+        const isSelected = selectedItems.has(idStr);
+        if (!isSelected) selectedItems.add(idStr); else selectedItems.delete(idStr);
+        
+        const checkboxes = document.querySelectorAll(`.item-checkbox[value="${id}"]`);
+        checkboxes.forEach(cb => cb.checked = !isSelected);
+        
+        const row = document.getElementById('row-' + id);
+        if(row) row.classList.toggle('selected', !isSelected);
+        
+        const card = document.getElementById('card-' + id);
+        if(card) card.classList.toggle('selected', !isSelected);
+        
+        updateBulkUI();
+    }
+
+    window.toggleSelectAll = function() {
+        const isChecked = document.getElementById('selectAll').checked;
+        document.querySelectorAll('.item-checkbox').forEach(cb => {
+            const id = String(cb.value);
+            if (cb.checked !== isChecked) toggleSelection(id);
+        });
+    }
+
+    window.updateBulkUI = function() {
+        const bar = document.getElementById('bulkActionBar');
+        document.getElementById('selectedCount').innerText = selectedItems.size;
+        if (selectedItems.size > 0) bar.classList.add('show'); else bar.classList.remove('show');
+    }
 });
+
+// --- Slide to Confirm Logic ---
+let deleteType = ''; let deleteTargetId = null;
+function confirmSlideDelete(type, id = null) {
+    deleteType = type; deleteTargetId = id;
+    const modal = new bootstrap.Modal(document.getElementById('modalSlideConfirm'));
+    const msg = document.getElementById('slideConfirmMsg');
+    if (type === 'bulk') msg.innerHTML = `Anda akan menghapus <b>${selectedItems.size} log</b> terpilih.`;
+    else msg.innerHTML = `Anda akan menghapus log ini.`;
+    resetSlider(); modal.show();
+}
+
+const sliderContainer = document.getElementById('deleteSlider');
+const sliderHandle = document.getElementById('sliderHandle');
+const sliderProgress = document.getElementById('sliderProgress');
+let isDragging = false;
+
+if(sliderHandle) {
+    sliderHandle.addEventListener('mousedown', startDrag); sliderHandle.addEventListener('touchstart', startDrag);
+    document.addEventListener('mouseup', endDrag); document.addEventListener('touchend', endDrag);
+    document.addEventListener('mousemove', drag); document.addEventListener('touchmove', drag);
+}
+
+function startDrag(e) { isDragging = true; }
+function drag(e) { if(!isDragging) return; let clientX = e.clientX || e.touches[0].clientX; let rect = sliderContainer.getBoundingClientRect(); let x = clientX - rect.left - (sliderHandle.offsetWidth/2); let max = rect.width - sliderHandle.offsetWidth; if(x<0)x=0; if(x>max)x=max; sliderHandle.style.left = x+'px'; sliderProgress.style.width = (x+20)+'px'; if(x>=max*0.95) { isDragging=false; sliderContainer.classList.add('unlocked'); sliderHandle.style.left=max+'px'; sliderProgress.style.width='100%'; performDelete(); } }
+function endDrag() { if(!isDragging) return; isDragging=false; if(!sliderContainer.classList.contains('unlocked')) { sliderHandle.style.left='5px'; sliderProgress.style.width='0'; } }
+function resetSlider() { sliderContainer.classList.remove('unlocked'); sliderHandle.style.left='5px'; sliderProgress.style.width='0'; document.querySelector('.slider-text').style.opacity='1'; }
+
+function performDelete() {
+    setTimeout(() => {
+        if (deleteType === 'single') { document.getElementById('hapus_id').value = deleteTargetId; document.getElementById('formHapus').submit(); }
+        else {
+            const container = document.getElementById('bulkInputs'); container.innerHTML = '';
+            selectedItems.forEach(id => { const input = document.createElement('input'); input.type = 'hidden'; input.name = 'ids[]'; input.value = id; container.appendChild(input); });
+            document.getElementById('formHapusBulk').submit();
+        }
+    }, 300);
+}
 </script>
 
 <?php include 'includes/footer.php'; ?>

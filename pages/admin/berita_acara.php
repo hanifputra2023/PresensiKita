@@ -245,6 +245,61 @@ $result = mysqli_query($conn, $query);
     .card { border: none !important; shadow: none !important; }
     .welcome-banner-berita-acara { display: none; }
 }
+
+/* Responsive Welcome Banner */
+@media (max-width: 768px) {
+    .welcome-banner-bap {
+        padding: 24px !important;
+        border-radius: 16px !important;
+    }
+    
+    .welcome-banner-bap h1 {
+        font-size: 24px !important;
+    }
+    
+    .welcome-banner-bap .banner-icon {
+        width: 50px !important;
+        height: 50px !important;
+        font-size: 22px !important;
+    }
+}
+
+@media (min-width: 577px) and (max-width: 799px) {
+    .welcome-banner-bap .d-flex.flex-column.flex-md-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .welcome-banner-bap .banner-buttons {
+        margin-top: 15px;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .welcome-banner-bap .btn-cetak {
+        width: 100%;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 576px) {
+    .welcome-banner-bap .banner-buttons {
+        width: 100%;
+        flex-direction: column;
+    }
+    
+    .welcome-banner-bap .btn-cetak {
+        width: 100%;
+        padding: 12px 20px;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
 </style>
 
 <div class="container-fluid">
@@ -254,27 +309,11 @@ $result = mysqli_query($conn, $query);
         </div>
         <div class="col-md-9 col-lg-10">
             <div class="content-wrapper p-4">
-                <!-- Welcome Banner -->
-                <div class="welcome-banner-berita-acara no-print">
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <div class="d-flex align-items-center gap-3 mb-3">
-                                <div class="banner-icon">
-                                    <i class="fas fa-file-signature"></i>
-                                </div>
-                                <div>
-                                    <h1 class="mb-1">Berita Acara Praktikum</h1>
-                                    <p class="banner-subtitle mb-0">Rekap dan monitoring berita acara pelaksanaan praktikum</p>
-                                </div>
-                            </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-circle me-1"></i>DOCUMENTATION
-                            </span>
-                        </div>
-                        <button onclick="window.print()" class="btn btn-banner">
-                            <i class="fas fa-print me-2"></i>Cetak Laporan
-                        </button>
-                    </div>
+                <div class="d-flex justify-content-between align-items-center mb-4 no-print">
+                    <h4 class="mb-0"><i class="fas fa-file-signature me-2"></i>Rekap Berita Acara Praktikum</h4>
+                    <button onclick="window.print()" class="btn btn-secondary">
+                        <i class="fas fa-print me-1"></i> Cetak
+                    </button>
                 </div>
 
                 <div class="card mb-4 no-print">
