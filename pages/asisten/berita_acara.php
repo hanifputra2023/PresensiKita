@@ -240,10 +240,10 @@ $result = mysqli_query($conn, $query);
                                     <p class="banner-subtitle mb-0">Kelola laporan dan dokumentasi kegiatan praktikum</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-clipboard-list me-1"></i>Laporan Kegiatan
-                            </span>
                         </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-clipboard-list me-1"></i>Laporan Kegiatan
+                        </span>
                     </div>
                 </div>
                 
@@ -252,7 +252,7 @@ $result = mysqli_query($conn, $query);
                 <div class="card border-0 shadow-sm">
                     <div class="card-body">
                         <?php if (mysqli_num_rows($result) > 0): ?>
-                            <div class="table-responsive">
+                            <div class="table-responsive d-none d-md-block">
                                 <table class="table table-hover align-middle">
                                     <thead class="table-light">
                                         <tr>
@@ -294,6 +294,42 @@ $result = mysqli_query($conn, $query);
                                         <?php endwhile; ?>
                                     </tbody>
                                 </table>
+                            </div>
+
+                            <!-- Mobile View -->
+                            <div class="d-md-none">
+                                <?php 
+                                mysqli_data_seek($result, 0);
+                                while($row = mysqli_fetch_assoc($result)): 
+                                ?>
+                                <div class="card mb-3 border">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <div>
+                                                <h6 class="fw-bold mb-1"><?= $row['nama_mk'] ?></h6>
+                                                <small class="text-muted d-block"><?= $row['materi'] ?></small>
+                                            </div>
+                                            <?php if($row['bap_id']): ?>
+                                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Sudah Diisi</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-circle me-1"></i>Belum Diisi</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        
+                                        <div class="small text-muted mb-3">
+                                            <div class="mb-1"><i class="fas fa-calendar-alt me-2 text-primary" style="width: 20px; text-align: center;"></i><?= format_tanggal($row['tanggal']) ?></div>
+                                            <div class="mb-1"><i class="fas fa-clock me-2 text-primary" style="width: 20px; text-align: center;"></i><?= format_waktu($row['jam_mulai']) ?> - <?= format_waktu($row['jam_selesai']) ?></div>
+                                            <div><i class="fas fa-map-marker-alt me-2 text-primary" style="width: 20px; text-align: center;"></i><?= $row['nama_kelas'] ?> - <?= $row['nama_lab'] ?></div>
+                                        </div>
+                                        
+                                        <div class="d-grid">
+                                            <button class="btn btn-sm btn-primary" onclick='isiBAP(<?= json_encode($row) ?>)'>
+                                                <i class="fas fa-edit me-1"></i><?= $row['bap_id'] ? 'Edit' : 'Isi' ?> BAP
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <?php endwhile; ?>
                             </div>
                         <?php else: ?>
                             <div class="text-center py-5 text-muted">

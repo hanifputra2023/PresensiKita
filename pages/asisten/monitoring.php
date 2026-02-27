@@ -396,15 +396,17 @@ if (isset($_GET['ajax_refresh']) && $jadwal_id) {
                                     <p class="banner-subtitle mb-0">Pantau kehadiran mahasiswa secara real-time</p>
                                 </div>
                             </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
                             <span class="banner-badge">
                                 <i class="fas fa-chart-line me-1"></i>Live Data
                             </span>
+                            <?php if ($jadwal_aktif): ?>
+                                <a href="index.php?page=asisten_qrcode&jadwal=<?= $jadwal_id ?>" class="btn btn-banner">
+                                    <i class="fas fa-qrcode me-2"></i>Lihat QR Code
+                                </a>
+                            <?php endif; ?>
                         </div>
-                        <?php if ($jadwal_aktif): ?>
-                            <a href="index.php?page=asisten_qrcode&jadwal=<?= $jadwal_id ?>" class="btn btn-banner">
-                                <i class="fas fa-qrcode me-2"></i>Lihat QR Code
-                            </a>
-                        <?php endif; ?>
                     </div>
                 </div>
                 

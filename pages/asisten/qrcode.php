@@ -491,10 +491,10 @@ while ($j = mysqli_fetch_assoc($jadwal_pengganti)) {
                                     <p class="banner-subtitle mb-0">Buat kode QR untuk presensi mahasiswa di kelas</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-camera me-1"></i>Presensi Digital
-                            </span>
                         </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-camera me-1"></i>Presensi Digital
+                        </span>
                     </div>
                 </div>
                 

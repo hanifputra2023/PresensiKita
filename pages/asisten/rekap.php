@@ -563,6 +563,7 @@ while ($d = mysqli_fetch_assoc($detail_print_res)) {
             'attended_lab' => null,
             'all_labs' => [],
             'tanggal' => $d['tanggal'],
+            'jam_mulai' => $d['jam_mulai'],
             'jam_selesai' => $d['jam_selesai'],
             'tanggal_daftar' => $d['tanggal_daftar'] ?? '2099-12-31'
         ];
@@ -781,26 +782,30 @@ ksort($meetings);
                                     <p class="banner-subtitle mb-0">Rekapitulasi kehadiran mahasiswa di kelas Anda</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-file-alt me-1"></i>Laporan & Export
-                            </span>
                         </div>
-                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
-                             <div class="d-flex align-items-center gap-2 me-2 detail-switch-wrapper">
-                                <label class="small text-white mb-0" for="sertakanDetail" style="cursor: pointer; white-space: nowrap;">Sertakan Detail</label>
-                                <div class="form-check form-switch mb-0" style="padding-left: 0; min-height: auto;">
-                                    <input class="form-check-input m-0" type="checkbox" role="switch" id="sertakanDetail" checked style="cursor: pointer; width: 40px; height: 20px;">
+                        <div class="d-flex flex-column align-items-md-stretch gap-2 w-100 w-md-auto">
+                            <div class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-between gap-2 mb-2 mb-md-0">
+                                <span class="banner-badge mb-0 w-100 w-md-auto text-center">
+                                    <i class="fas fa-file-alt me-1"></i>Laporan & Export
+                                </span>
+                                <div class="d-flex align-items-center justify-content-center gap-2 detail-switch-wrapper w-100 w-md-auto">
+                                    <label class="small text-white mb-0" for="sertakanDetail" style="cursor: pointer; white-space: nowrap;">Sertakan Detail</label>
+                                    <div class="form-check form-switch mb-0" style="padding-left: 0; min-height: auto;">
+                                        <input class="form-check-input m-0" type="checkbox" role="switch" id="sertakanDetail" checked style="cursor: pointer; width: 40px; height: 20px;">
+                                    </div>
                                 </div>
                             </div>
-                            <button onclick="exportExcel()" class="btn btn-banner">
-                                <i class="fas fa-file-excel me-1"></i>Excel
-                            </button>
-                            <button onclick="exportPDF()" class="btn btn-banner">
-                                <i class="fas fa-file-pdf me-1"></i>PDF
-                            </button>
-                            <button onclick="printPage()" class="btn btn-banner">
-                                <i class="fas fa-print me-1"></i>Cetak
-                            </button>
+                            <div class="d-flex flex-row gap-2 align-items-stretch banner-buttons">
+                                <button onclick="exportExcel()" class="btn btn-banner flex-fill">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </button>
+                                <button onclick="exportPDF()" class="btn btn-banner flex-fill">
+                                    <i class="fas fa-file-pdf me-1"></i>PDF
+                                </button>
+                                <button onclick="printPage()" class="btn btn-banner flex-fill">
+                                    <i class="fas fa-print me-1"></i>Cetak
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

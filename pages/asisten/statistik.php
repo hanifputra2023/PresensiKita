@@ -885,17 +885,19 @@ $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi
                                     <p class="banner-subtitle mb-0">Analisis data kehadiran kelas yang Anda ajar</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
+                        </div>
+                        <div class="d-flex flex-column align-items-md-stretch gap-2 w-100 w-md-auto">
+                            <span class="banner-badge mb-0 w-100 w-md-auto text-center">
                                 <i class="fas fa-chart-bar me-1"></i>Analisis & Laporan
                             </span>
-                        </div>
-                        <div class="d-flex gap-2 align-items-center flex-wrap banner-buttons">
-                            <a href="index.php?page=asisten_statistik&export=1&view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>" class="btn btn-banner">
-                                <i class="fas fa-file-excel me-1"></i>Excel
-                            </a>
-                            <button class="btn btn-banner" onclick="exportPDF()">
-                                <i class="fas fa-file-pdf me-1"></i>PDF
-                            </button>
+                            <div class="d-flex flex-row gap-2 align-items-stretch banner-buttons">
+                                <a href="index.php?page=asisten_statistik&export=1&view=<?= $view ?>&bulan=<?= $filter_bulan ?>&kelas=<?= $filter_kelas ?>&mk=<?= $filter_mk ?>&lab=<?= $filter_lab ?>" class="btn btn-banner flex-fill">
+                                    <i class="fas fa-file-excel me-1"></i>Excel
+                                </a>
+                                <button class="btn btn-banner flex-fill" onclick="exportPDF()">
+                                    <i class="fas fa-file-pdf me-1"></i>PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

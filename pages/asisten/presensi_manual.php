@@ -441,10 +441,10 @@ if ($jadwal_id) {
                                     <p class="banner-subtitle mb-0">Input kehadiran mahasiswa secara manual jika diperlukan</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
-                                <i class="fas fa-user-check me-1"></i>Input Kehadiran
-                            </span>
                         </div>
+                        <span class="banner-badge">
+                            <i class="fas fa-user-check me-1"></i>Input Kehadiran
+                        </span>
                     </div>
                 </div>
                 

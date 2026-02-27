@@ -888,13 +888,15 @@ while ($row = mysqli_fetch_assoc($daftar_izin)) {
                                     <p class="banner-subtitle mb-0">Kelola pengajuan izin dan sakit mahasiswa</p>
                                 </div>
                             </div>
-                            <span class="banner-badge">
+                        </div>
+                        <div class="d-flex flex-column align-items-start align-items-md-stretch gap-2 w-100 w-md-auto">
+                            <span class="banner-badge text-center">
                                 <i class="fas fa-check-circle me-1"></i>Validasi Kehadiran
                             </span>
+                            <button class="btn btn-banner w-100" data-bs-toggle="modal" data-bs-target="#modalManual">
+                                <i class="fas fa-plus-circle me-2"></i>Input Susulan
+                            </button>
                         </div>
-                        <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalManual">
-                            <i class="fas fa-plus-circle me-2"></i>Input Susulan
-                        </button>
                     </div>
                 </div>
                 

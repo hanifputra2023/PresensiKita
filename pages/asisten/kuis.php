@@ -218,14 +218,19 @@ $kuis_list = mysqli_query($conn, "SELECT k.*, j.tanggal, mk.nama_mk, kl.nama_kel
                                     <p class="banner-subtitle mb-0">Kelola kuis dan evaluasi untuk mahasiswa</p>
                                 </div>
                             </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-3">
                             <span class="banner-badge">
                                 <i class="fas fa-clipboard-check me-1"></i>Evaluasi Pembelajaran
                             </span>
                         </div>
-                        <button class="btn btn-banner" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                            <i class="fas fa-plus me-2"></i>Buat Kuis Baru
-                        </button>
                     </div>
+                </div>
+                
+                <div class="d-flex justify-content-end mb-3">
+                    <button class="btn btn-primary w-100 w-md-auto" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                        <i class="fas fa-plus me-2"></i>Buat Kuis Baru
+                    </button>
                 </div>
                 
                 <?= show_alert() ?>
