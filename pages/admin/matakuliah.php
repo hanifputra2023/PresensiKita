@@ -94,6 +94,11 @@ if ($search) {
 // [BARU] Ambil daftar prodi untuk datalist
 $prodi_list = mysqli_query($conn, "SELECT DISTINCT program_studi FROM kelas WHERE program_studi IS NOT NULL AND program_studi != '' ORDER BY program_studi");
 
+// [BARU] Ambil default semester dari settings agar tidak gimik
+$q_set = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'semester_aktif'");
+$row_set = mysqli_fetch_assoc($q_set);
+$default_semester = $row_set['setting_value'] ?? 'Ganjil';
+
 // Handle AJAX Search
 if (isset($_GET['ajax_search'])) {
     ?>
@@ -1117,8 +1122,8 @@ if (isset($_GET['ajax_search'])) {
                     <div class="mb-3">
                         <label class="form-label">Semester</label>
                         <select name="semester" class="form-select" required>
-                            <option value="Ganjil" selected>Ganjil</option>
-                            <option value="Genap">Genap</option>
+                            <option value="Ganjil" <?= $default_semester == 'Ganjil' ? 'selected' : '' ?>>Ganjil</option>
+                            <option value="Genap" <?= $default_semester == 'Genap' ? 'selected' : '' ?>>Genap</option>
                         </select>
                     </div>
                 </div>

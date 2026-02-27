@@ -116,6 +116,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $error = "Username/NIM tidak ditemukan!";
     }
 }
+
+// [BARU] Ambil Pengaturan Aplikasi agar Dinamis
+$q_settings = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings");
+$app_settings = [];
+while ($row = mysqli_fetch_assoc($q_settings)) {
+    $app_settings[$row['setting_key']] = $row['setting_value'];
+}
+$instansi_name = $app_settings['instansi_name'] ?? 'Universitas AKPRIND';
+$app_name_display = $app_settings['app_name'] ?? 'System Presensi Lab';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -1300,7 +1309,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         </div>
         
         <div class="loading-content">
-            <h1 class="loading-title">Universitas AKPRIND</h1>
+            <h1 class="loading-title"><?= htmlspecialchars($instansi_name) ?></h1>
             <p class="loading-subtitle">Menyiapkan Sistem Presensi Lab</p>
             
             <div class="loading-message" id="loadingMessage">
@@ -1325,9 +1334,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <!-- Logo Section -->
         <div class="logo-section">
             <div class="logo-wrapper">
-                <img id="mainLogo" src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo Universitas AKPRIND">
+                <img id="mainLogo" src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo <?= htmlspecialchars($instansi_name) ?>">
             </div>
-            <div class="system-title">System Presensi Lab</div>
+            <div class="system-title"><?= htmlspecialchars($app_name_display) ?></div>
         </div>
 
         <!-- Login Section -->
@@ -1378,7 +1387,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
             <!-- Login Footer -->
             <div class="login-footer">
-                <p class="login-footer-text">© 2026 Universitas AKPRIND Yogyakarta</p>
+                <p class="login-footer-text">© <?= date('Y') ?> <?= htmlspecialchars($instansi_name) ?></p>
                 <div class="login-footer-version">
                     <i class="fas fa-shield-alt"></i>
                     <span>Sistem Presensi Lab v2.0</span>

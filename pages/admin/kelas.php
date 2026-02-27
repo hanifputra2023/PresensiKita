@@ -115,6 +115,11 @@ $kelas = mysqli_stmt_get_result($stmt_kelas);
 // [BARU] Ambil daftar prodi untuk filter
 $prodi_list = mysqli_query($conn, "SELECT DISTINCT program_studi FROM kelas WHERE program_studi IS NOT NULL AND program_studi != '' ORDER BY program_studi");
 
+// [BARU] Ambil default tahun ajaran dari settings agar tidak gimik
+$q_set = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'tahun_ajaran'");
+$row_set = mysqli_fetch_assoc($q_set);
+$default_tahun = $row_set['setting_value'] ?? '';
+
 // --- MODIFIKASI AJAX SEARCH (Looping Card) ---
 if (isset($_GET['ajax_search'])) {
     ?>
@@ -1304,7 +1309,7 @@ if (isset($_GET['ajax_search'])) {
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tahun Ajaran</label>
-                        <input type="text" name="tahun_ajaran" class="form-control" placeholder="Contoh: 2023/2024" required>
+                        <input type="text" name="tahun_ajaran" class="form-control" placeholder="Contoh: 2023/2024" value="<?= htmlspecialchars($default_tahun) ?>" required>
                     </div>
                 </div>
                 <div class="modal-footer">

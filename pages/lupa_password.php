@@ -25,10 +25,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (mysqli_num_rows($result) > 0) {
             $user_data = mysqli_fetch_assoc($result);
 
-            // Ambil nomor WA Admin dari database
-            $q_admin_wa = mysqli_query($conn, "SELECT setting_value FROM app_settings WHERE setting_key = 'contact_wa'");
-            $admin_wa_row = mysqli_fetch_assoc($q_admin_wa);
-            $admin_wa = $admin_wa_row ? $admin_wa_row['setting_value'] : '';
+            // Ambil semua pengaturan dari database
+            $q_settings = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings");
+            $app_settings = [];
+            while ($row = mysqli_fetch_assoc($q_settings)) {
+                $app_settings[$row['setting_key']] = $row['setting_value'];
+            }
+            $admin_wa = $app_settings['contact_wa'] ?? '';
 
             if (empty($admin_wa)) {
                 $error = "Nomor WhatsApp admin belum diatur. Silakan hubungi admin secara manual.";
@@ -64,6 +67,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 }
+
+// Fetch settings untuk tampilan jika belum diambil di atas
+if (!isset($app_settings)) {
+    $q_settings = mysqli_query($conn, "SELECT setting_key, setting_value FROM app_settings");
+    while ($row = mysqli_fetch_assoc($q_settings)) {
+        $app_settings[$row['setting_key']] = $row['setting_value'];
+    }
+}
+$instansi_name = $app_settings['instansi_name'] ?? 'Universitas AKPRIND';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -649,7 +661,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             </div>
         </div>
         <div class="loading-content">
-            <h1 class="loading-title">Universitas AKPRIND</h1>
+            <h1 class="loading-title"><?= htmlspecialchars($instansi_name) ?></h1>
             <p class="loading-subtitle">Menyiapkan Sistem Presensi Lab</p>
             <div class="loading-message" id="loadingMessage">Memuat antarmuka...</div>
         </div>
@@ -669,7 +681,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="login-container" id="loginContainer">
         <div class="logo-section">
             <div class="logo-wrapper">
-                <img id="mainLogo" src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo Universitas AKPRIND">
+                <img id="mainLogo" src="includes/Gemini_Generated_Image_ykixgyykixgyykix-removebg-preview (1).png" alt="Logo <?= htmlspecialchars($instansi_name) ?>">
             </div>
             <div class="system-title">Lupa Password</div>
         </div>
