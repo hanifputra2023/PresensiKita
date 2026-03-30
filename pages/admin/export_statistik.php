@@ -40,7 +40,7 @@ if ($view == 'kelas') {
         SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
         SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
         SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-        SUM(CASE WHEN m.nim IS NOT NULL AND j.id IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60)) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        SUM(CASE WHEN m.nim IS NOT NULL AND j.id IS NOT NULL AND (j.sesi = 0 OR j.sesi = m.sesi) AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(30 * 60)) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
         FROM kelas k
         LEFT JOIN jadwal j ON j.kode_kelas = k.kode_kelas AND j.tanggal BETWEEN '$start_date' AND '$end_date' AND j.jenis != 'inhall' $where_mk $where_lab
         LEFT JOIN mahasiswa m ON m.kode_kelas = k.kode_kelas AND (j.id IS NULL OR m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
@@ -56,7 +56,7 @@ if ($view == 'kelas') {
         SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
         SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
         SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-        SUM(CASE WHEN m.nim IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        SUM(CASE WHEN m.nim IS NOT NULL AND (j.sesi = 0 OR j.sesi = m.sesi) AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
         FROM jadwal j
         JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
         LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
@@ -74,7 +74,7 @@ if ($view == 'kelas') {
         SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
         SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
         SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-        SUM(CASE WHEN m.nim IS NOT NULL AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
+        SUM(CASE WHEN m.nim IS NOT NULL AND (j.sesi = 0 OR j.sesi = m.sesi) AND (j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit')) THEN 1 ELSE 0 END) as alpha
         FROM jadwal j
         JOIN lab l ON j.kode_lab = l.kode_lab
         LEFT JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas AND (m.tanggal_daftar IS NULL OR m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai))
@@ -92,7 +92,9 @@ $q_data = mysqli_query($conn, $sql);
 $filename = 'statistik_presensi_admin_' . $view . '_' . date('Y-m-d_His') . '.csv';
 
 // Bersihkan buffer output jika ada
-if (ob_get_length()) ob_end_clean();
+while (ob_get_level()) {
+    ob_end_clean();
+}
 
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename="' . $filename . '"');

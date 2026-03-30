@@ -61,7 +61,7 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN kelas k ON j.kode_kelas = k.kode_kelas
             JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -87,7 +87,7 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
             JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
             JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -113,9 +113,8 @@ if (isset($_GET['export'])) {
             SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
             SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
             SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-            SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+            SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_selesai < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
             FROM jadwal j
-            JOIN lab l ON j.kode_lab = l.kode_lab
             JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
             LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
             $base_where_exp
@@ -184,10 +183,11 @@ $stat_per_kelas = mysqli_query($conn, "SELECT
     k.kode_kelas, k.nama_kelas,
     COUNT(DISTINCT m.nim) as jumlah_mhs,
     COUNT(DISTINCT j.id) as total_jadwal,
+    COUNT(DISTINCT CASE WHEN j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_mulai <= CURTIME()) THEN j.id END) as total_jadwal,
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN kelas k ON j.kode_kelas = k.kode_kelas
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -201,10 +201,11 @@ $stat_per_mk = mysqli_query($conn, "SELECT
     mk.kode_mk, mk.nama_mk,
     COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
     COUNT(DISTINCT j.id) as total_jadwal,
+    COUNT(DISTINCT CASE WHEN j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_mulai <= CURTIME()) THEN j.id END) as total_jadwal,
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -218,10 +219,11 @@ $stat_per_lab = mysqli_query($conn, "SELECT
     l.kode_lab, l.nama_lab,
     COUNT(DISTINCT j.kode_kelas) as jumlah_kelas,
     COUNT(DISTINCT j.id) as total_jadwal,
+    COUNT(DISTINCT CASE WHEN j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_mulai <= CURTIME()) THEN j.id END) as total_jadwal,
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN lab l ON j.kode_lab = l.kode_lab
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
@@ -233,16 +235,18 @@ $stat_per_lab = mysqli_query($conn, "SELECT
 // ============ TOTAL KESELURUHAN ============
 $total_all = mysqli_fetch_assoc(mysqli_query($conn, "SELECT 
     COUNT(DISTINCT j.id) as total_jadwal,
+    COUNT(DISTINCT CASE WHEN j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND j.jam_mulai <= CURTIME()) THEN j.id END) as total_jadwal,
     SUM(CASE WHEN p.status = 'hadir' THEN 1 ELSE 0 END) as hadir,
     SUM(CASE WHEN p.status = 'izin' THEN 1 ELSE 0 END) as izin,
     SUM(CASE WHEN p.status = 'sakit' THEN 1 ELSE 0 END) as sakit,
-    SUM(CASE WHEN p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))) THEN 1 ELSE 0 END) as alpha
+    SUM(CASE WHEN (j.sesi = 0 OR j.sesi = m.sesi) AND (p.status = 'alpha' OR ((j.tanggal < CURDATE() OR (j.tanggal = CURDATE() AND ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . ")) < CURTIME())) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha')))) THEN 1 ELSE 0 END) as alpha
     FROM jadwal j
     JOIN mahasiswa m ON m.kode_kelas = j.kode_kelas
     LEFT JOIN presensi_mahasiswa p ON p.jadwal_id = j.id AND p.nim = m.nim
     $base_where"));
 
-$total_presensi = ($total_all['hadir'] ?? 0) + ($total_all['izin'] ?? 0) + ($total_all['sakit'] ?? 0) + ($total_all['alpha'] ?? 0);
+// Hitung total presensi
+$total_presensi = $total_all['hadir'] + $total_all['izin'] + $total_all['sakit'] + $total_all['alpha'];
 $persen_all = $total_presensi > 0 ? round(($total_all['hadir'] / $total_presensi) * 100) : 0;
 ?>
 <?php include 'includes/header.php'; ?>

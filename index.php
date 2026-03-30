@@ -276,6 +276,10 @@ switch ($page) {
         cek_role(['admin']);
         include 'pages/admin/profil.php';
         break;
+    case 'admin_tukar_jadwal':
+        cek_role(['admin']);
+        include 'pages/admin/tukar_jadwal.php';
+        break;
     
     // Asisten pages
     case 'asisten_dashboard':
@@ -395,6 +399,10 @@ switch ($page) {
     case 'mahasiswa_leaderboard':
         cek_role(['mahasiswa']);
         include 'pages/mahasiswa/leaderboard.php';
+        break;
+    case 'mahasiswa_tukar_jadwal':
+        cek_role(['mahasiswa']);
+        include 'pages/mahasiswa/tukar_jadwal.php';
         break;
    
 

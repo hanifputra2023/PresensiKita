@@ -89,16 +89,29 @@ if ($is_inhall) {
     $pertemuan_diganti = $cek_perlu_inhall['pertemuan_ke'];
     
 } else {
-    // Untuk jadwal BIASA: Kelas harus sama
-    if ($mahasiswa['kode_kelas'] != $qr_session['kode_kelas']) {
-        echo json_encode(['success' => false, 'message' => 'Anda bukan dari kelas yang dijadwalkan di lab ini. Kelas Anda: ' . $mahasiswa['kode_kelas'] . ', Jadwal untuk: ' . $qr_session['kode_kelas']]);
-        exit;
+    // Cek apakah ada persetujuan Tukar Jadwal untuk absen di jadwal ini
+    $is_swapped = false;
+    $check_tukar = mysqli_query($conn, "SELECT id FROM tukar_jadwal_sementara 
+        WHERE status = 'disetujui' 
+        AND ((nim_pengaju = '$nim' AND jadwal_tujuan_id = $jadwal_id) 
+            OR (nim_dituju = '$nim' AND jadwal_awal_id = $jadwal_id))");
+
+    if ($check_tukar && mysqli_num_rows($check_tukar) > 0) {
+        $is_swapped = true;
     }
 
-    // VALIDASI SESI: Cek apakah sesi mahasiswa sesuai dengan sesi jadwal
-    if ($qr_session['sesi'] != 0 && $qr_session['sesi'] != $mahasiswa['sesi']) {
-        echo json_encode(['success' => false, 'message' => 'Jadwal ini khusus untuk Sesi ' . $qr_session['sesi'] . '. Anda terdaftar di Sesi ' . $mahasiswa['sesi']]);
-        exit;
+    if (!$is_swapped) {
+        // Untuk jadwal BIASA: Kelas harus sama
+        if ($mahasiswa['kode_kelas'] != $qr_session['kode_kelas']) {
+            echo json_encode(['success' => false, 'message' => 'Anda bukan dari kelas yang dijadwalkan di lab ini. Kelas Anda: ' . $mahasiswa['kode_kelas'] . ', Jadwal untuk: ' . $qr_session['kode_kelas']]);
+            exit;
+        }
+
+        // VALIDASI SESI: Cek apakah sesi mahasiswa sesuai dengan sesi jadwal
+        if ($qr_session['sesi'] != 0 && $qr_session['sesi'] != $mahasiswa['sesi']) {
+            echo json_encode(['success' => false, 'message' => 'Jadwal ini khusus untuk Sesi ' . $qr_session['sesi'] . '. Anda terdaftar di Sesi ' . $mahasiswa['sesi']]);
+            exit;
+        }
     }
 
     // VALIDASI RESPONSI: Cek kehadiran minimal 75%

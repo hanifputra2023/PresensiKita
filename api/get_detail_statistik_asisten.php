@@ -47,6 +47,7 @@ $base_from = "
 $base_where = "
     WHERE DATE_FORMAT(j.tanggal, '%Y-%m') = '$filter_bulan'
       AND j.jenis != 'inhall'
+      AND m.status = 'aktif'
       $where_asisten
       $where_kelas
       $where_mk
@@ -54,20 +55,26 @@ $base_where = "
       AND (
           p.id IS NOT NULL
           OR 
-          ((j.sesi = 0 OR j.sesi = m.sesi) AND NOT EXISTS (
-              SELECT 1 FROM presensi_mahasiswa pm_other 
-              JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
-              WHERE pm_other.nim = m.nim 
-              AND j_other.kode_mk = j.kode_mk 
-              AND j_other.pertemuan_ke = j.pertemuan_ke 
-              AND j_other.id != j.id
-          ))
+          (
+              (j.sesi = 0 OR j.sesi = m.sesi) 
+              AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai)
+              AND NOT EXISTS (
+                  SELECT 1 FROM presensi_mahasiswa pm_other 
+                  JOIN jadwal j_other ON pm_other.jadwal_id = j_other.id 
+                  WHERE pm_other.nim = m.nim 
+                  AND j_other.kode_mk = j.kode_mk 
+                  AND j_other.pertemuan_ke = j.pertemuan_ke 
+                  AND j_other.id != j.id
+              )
+          )
       )
 ";
 
 // For alpha, we must only look at past schedules OR already saved as alpha. For other statuses, we can see the record anytime.
 if ($status == 'alpha') {
-    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() AND m.tanggal_daftar < CONCAT(j.tanggal, ' ', j.jam_selesai) AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
+    $status_condition = "AND (p.status = 'alpha' OR (CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) < NOW() AND (p.status IS NULL OR p.status NOT IN ('hadir', 'izin', 'sakit', 'alpha'))))";
+} elseif ($status == 'belum') {
+    $status_condition = "AND (p.status = 'belum' OR (p.status IS NULL AND CONCAT(j.tanggal, ' ', ADDTIME(j.jam_mulai, SEC_TO_TIME(" . (BATAS_TELAT * 60) . "))) >= NOW()))";
 } else {
     $status_condition = "AND p.status = '$status'";
 }

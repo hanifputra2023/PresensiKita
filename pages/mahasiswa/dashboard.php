@@ -32,6 +32,16 @@ $session_swap_logic = "
                 AND j2.pertemuan_ke = j.pertemuan_ke
                 AND j2.id != j.id
             )
+            AND NOT EXISTS (
+                SELECT 1 FROM tukar_jadwal_sementara tjs 
+                WHERE tjs.status = 'disetujui' 
+                AND ((tjs.nim_pengaju = '$nim' AND tjs.jadwal_awal_id = j.id) OR (tjs.nim_dituju = '$nim' AND tjs.jadwal_tujuan_id = j.id))
+            )
+        )
+        OR EXISTS (
+            SELECT 1 FROM tukar_jadwal_sementara tjs2
+            WHERE tjs2.status = 'disetujui'
+            AND ((tjs2.nim_pengaju = '$nim' AND tjs2.jadwal_tujuan_id = j.id) OR (tjs2.nim_dituju = '$nim' AND tjs2.jadwal_awal_id = j.id))
         )
     )
 ";

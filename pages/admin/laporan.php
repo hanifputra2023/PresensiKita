@@ -26,10 +26,13 @@ if (isset($_GET['ajax_detail'])) {
     $lab_condition = $lab ? "AND j.kode_lab = '$lab'" : "";
     
     $detail_query = mysqli_query($conn, "SELECT j.id as jadwal_id, j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, j.jenis,
-                                         p.status, p.waktu_presensi, mk.nama_mk, j.kode_mk, l.nama_lab
+                                         p.status, p.waktu_presensi, mk.nama_mk, j.kode_mk, l.nama_lab,
+                                         a1.nama as nama_asisten_1, a2.nama as nama_asisten_2
                                          FROM jadwal j
                                          JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                         LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
+                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
                                          WHERE j.kode_kelas = '$kelas'
                                          AND (
@@ -107,11 +110,14 @@ if (isset($_GET['ajax_detail'])) {
             $lab_display = '';
             $lab_name = $d['nama_lab'] ?: '-';
             $lab_display = "<i class='fas fa-map-marker-alt me-1'></i>" . htmlspecialchars($lab_name);
+            
+            $asisten_str = $d['nama_asisten_1'] ?: '-';
+            if ($d['nama_asisten_2']) $asisten_str .= ', ' . $d['nama_asisten_2'];
 
             echo "<tr>
                 <td class='text-center'>{$d['pertemuan_ke']}</td>
                 <td>" . format_tanggal($d['tanggal']) . " <br><small class='text-muted'>" . format_waktu($d['jam_mulai']) . " - " . format_waktu($d['jam_selesai']) . "</small><br><small class='text-primary'>$lab_display</small></td>
-                <td><strong>" . htmlspecialchars($d['nama_mk']) . "</strong><br><small class='text-muted'>" . htmlspecialchars($d['materi']) . "</small> <span class='badge bg-light text-dark border'>{$d['jenis']}</span></td>
+                <td><strong>" . htmlspecialchars($d['nama_mk']) . "</strong><br><small class='text-muted'>" . htmlspecialchars($d['materi']) . "</small> <span class='badge bg-light text-dark border'>{$d['jenis']}</span><div class='small text-info mt-1'><i class='fas fa-user-tie me-1'></i>" . htmlspecialchars($asisten_str) . "</div></td>
                 <td class='text-center'><span class='badge $badge_class'>$status_label</span></td>
                 $status_cell
             </tr>";
@@ -124,7 +130,9 @@ if (isset($_GET['ajax_detail'])) {
 
 // [BARU] Handler Export Rekap Nilai Praktikum (Custom Excel)
 if (isset($_GET['export_rekap_nilai'])) {
-    if (ob_get_length()) ob_end_clean();
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
 
     $filter_kelas = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
     $filter_mk = isset($_GET['mk']) ? escape($_GET['mk']) : '';
@@ -144,8 +152,9 @@ if (isset($_GET['export_rekap_nilai'])) {
     $nama_kelas = $kelas_info['nama_kelas'] ?? $filter_kelas;
 
     // Filter Jadwal
-    $where_jadwal = "kode_kelas = '$filter_kelas' AND kode_mk = '$filter_mk' AND tanggal BETWEEN '$start_date_exp' AND '$end_date_exp'";
-    if ($filter_lab) $where_jadwal .= " AND kode_lab = '$filter_lab'";
+    // [FIX] Hapus filter tanggal agar rekap nilai mengambil seluruh data pertemuan (kumulatif)
+    $where_jadwal = "j.kode_kelas = '$filter_kelas' AND j.kode_mk = '$filter_mk'";
+    if ($filter_lab) $where_jadwal .= " AND j.kode_lab = '$filter_lab'";
 
     $nama_lab = 'SEMUA LAB';
     if ($filter_lab) {
@@ -163,94 +172,65 @@ if (isset($_GET['export_rekap_nilai'])) {
         }
     }
 
-    // Ambil Data Jadwal untuk Header Kolom
-    $q_jadwal = mysqli_query($conn, "SELECT * FROM jadwal WHERE $where_jadwal ORDER BY pertemuan_ke ASC");
-    $meetings = [];
-    $session_info = "";
-    
-    // [BARU] Mapping jadwal berdasarkan pertemuan dan sesi untuk lookup cepat
-    $schedule_map = []; // [pertemuan][sesi] = id
-    $sessions_found = []; // [sesi] => info string
-
+    // Ambil Data Jadwal
+    $q_jadwal = mysqli_query($conn, "SELECT j.*, a1.nama as nama_asisten_1, a2.nama as nama_asisten_2 
+                                     FROM jadwal j 
+                                     LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
+                                     LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
+                                     WHERE $where_jadwal ORDER BY j.pertemuan_ke ASC");
+    $all_schedules = [];
+    $sessions_in_schedule = []; // [BARU] Tampung sesi yang ada di jadwal
     while ($row = mysqli_fetch_assoc($q_jadwal)) {
-        $p = $row['pertemuan_ke'];
-        if ($row['jenis'] == 'praresponsi') $p = 'prares';
-        if ($row['jenis'] == 'responsi') $p = 'responsi';
-
-        $schedule_map[$p][$row['sesi']] = $row;
-
-        // Collect session info (ambil yang pertama ketemu per sesi, karena urut ASC)
-        $s_num = $row['sesi'];
-        if (!isset($sessions_found[$s_num])) {
-            $days = ['Sunday'=>'MINGGU', 'Monday'=>'SENIN', 'Tuesday'=>'SELASA', 'Wednesday'=>'RABU', 'Thursday'=>'KAMIS', 'Friday'=>'JUMAT', 'Saturday'=>'SABTU'];
-            $day = $days[date('l', strtotime($row['tanggal']))] ?? '';
-            $time = date('H.i', strtotime($row['jam_mulai'])) . ' - ' . date('H.i', strtotime($row['jam_selesai']));
-            $sessions_found[$s_num] = "$day / $time";
-        }
-    }
-    
-    // Build session info string
-    ksort($sessions_found);
-    $session_info_parts = [];
-    foreach ($sessions_found as $s_num => $info) {
-        $label = ($s_num == 0) ? "SEMUA SESI" : "SESI $s_num";
-        $session_info_parts[] = "$label : $info";
-    }
-    $session_info = implode("<br>", $session_info_parts);
-
-    mysqli_data_seek($q_jadwal, 0); // Reset pointer
-    
-    while ($row = mysqli_fetch_assoc($q_jadwal)) {
-        if ($row['jenis'] == 'inhall') continue; // Skip inhall di kolom pertemuan
-        
-        $p = $row['pertemuan_ke'];
-        // Prioritaskan jenis khusus jika ada (praresponsi/responsi)
-        if ($row['jenis'] == 'praresponsi') $p = 'prares';
-        if ($row['jenis'] == 'responsi') $p = 'responsi';
-        
-        if (!isset($meetings[$p])) {
-            $meetings[$p] = [
-                'tanggal' => date('d/m/Y', strtotime($row['tanggal'])),
-                'id' => $row['id'] // Ambil ID jadwal utama
-            ];
-        }
-    }
-    
-    // Build session info string
-    ksort($sessions_found);
-    $session_info_parts = [];
-    foreach ($sessions_found as $s_num => $info) {
-        $label = ($s_num == 0) ? "SEMUA SESI" : "SESI $s_num";
-        $session_info_parts[] = "$label : $info";
-    }
-    $session_info = implode("<br>", $session_info_parts);
-
-    mysqli_data_seek($q_jadwal, 0); // Reset pointer
-    
-    while ($row = mysqli_fetch_assoc($q_jadwal)) {
-        if (empty($session_info) && $row['pertemuan_ke'] == 1) {
-            $days = ['Sunday'=>'MINGGU', 'Monday'=>'SENIN', 'Tuesday'=>'SELASA', 'Wednesday'=>'RABU', 'Thursday'=>'KAMIS', 'Friday'=>'JUMAT', 'Saturday'=>'SABTU'];
-            $day = $days[date('l', strtotime($row['tanggal']))] ?? '';
-            $time = date('H.i', strtotime($row['jam_mulai'])) . ' - ' . date('H.i', strtotime($row['jam_selesai']));
-            $session_info = "SESI - $day<br>$time";
-        }
-        if ($row['jenis'] == 'inhall') continue; // Skip inhall di kolom pertemuan
-        
-        $p = $row['pertemuan_ke'];
-        // Prioritaskan jenis khusus jika ada (praresponsi/responsi)
-        if ($row['jenis'] == 'praresponsi') $p = 'prares';
-        if ($row['jenis'] == 'responsi') $p = 'responsi';
-        
-        if (!isset($meetings[$p])) {
-            $meetings[$p] = [
-                'tanggal' => date('d/m/Y', strtotime($row['tanggal'])),
-                'id' => $row['id'] // Ambil ID jadwal utama
-            ];
-        }
+        $all_schedules[] = $row;
+        if ($row['sesi'] > 0) $sessions_in_schedule[$row['sesi']] = true;
     }
 
-    // Ambil Mahasiswa
+    // Ambil Mahasiswa & Grouping per Sesi
     $q_mhs = mysqli_query($conn, "SELECT * FROM mahasiswa WHERE kode_kelas = '$filter_kelas' AND status = 'aktif' ORDER BY sesi ASC, nama ASC");
+    $students_by_session = [];
+    while ($m = mysqli_fetch_assoc($q_mhs)) {
+        $s = $m['sesi'] ?? 1;
+        if ($s == 0) $s = 1; // Default ke sesi 1 jika 0
+        $students_by_session[$s][] = $m;
+    }
+    
+    // [BARU] Gabungkan semua sesi yang ditemukan (dari mahasiswa maupun jadwal) agar tidak ada yang terlewat
+    $all_sessions_found = array_unique(array_merge(array_keys($students_by_session), array_keys($sessions_in_schedule)));
+    sort($all_sessions_found);
+    if (empty($all_sessions_found)) $all_sessions_found = [1]; // Default minimal sesi 1
+
+    // Optimasi: Fetch semua presensi dan inhall sekaligus
+    $q_all_presensi = mysqli_query($conn, "SELECT pm.nim, pm.jadwal_id, pm.status, j.pertemuan_ke, j.jenis, j.sesi as sesi_hadir, j.tanggal as tanggal_hadir 
+                                           FROM presensi_mahasiswa pm 
+                                           JOIN jadwal j ON pm.jadwal_id = j.id 
+                                           WHERE j.kode_kelas = '$filter_kelas' AND j.kode_mk = '$filter_mk'");
+    
+    $presensi_by_meeting = []; // [nim][meeting_key] = ['status' => ..., 'sesi_hadir' => ..., 'tanggal_hadir' => ...]
+
+    while ($p = mysqli_fetch_assoc($q_all_presensi)) {
+        $key = $p['pertemuan_ke'];
+        if ($p['jenis'] == 'praresponsi') $key = 'prares';
+        if ($p['jenis'] == 'responsi') $key = 'responsi';
+        
+        // Prioritaskan 'hadir' jika ada multiple record (misal pindah sesi/tukar jadwal)
+        $curr_status = $presensi_by_meeting[$p['nim']][$key]['status'] ?? null;
+        if (!$curr_status || $p['status'] == 'hadir' || (($p['status'] == 'izin' || $p['status'] == 'sakit') && $curr_status == 'alpha')) {
+            $presensi_by_meeting[$p['nim']][$key] = [
+                'status' => $p['status'],
+                'sesi_hadir' => $p['sesi_hadir'],
+                'tanggal_hadir' => $p['tanggal_hadir']
+            ];
+        }
+    }
+
+    $q_all_inhall = mysqli_query($conn, "SELECT pi.nim FROM penggantian_inhall pi 
+                                         JOIN jadwal j ON pi.jadwal_asli_id = j.id 
+                                         WHERE j.kode_kelas = '$filter_kelas' AND j.kode_mk = '$filter_mk' 
+                                         AND pi.status = 'hadir' AND pi.status_approval = 'approved'");
+    $inhall_map = [];
+    while ($inh = mysqli_fetch_assoc($q_all_inhall)) {
+        $inhall_map[$inh['nim']] = true;
+    }
 
     $filename = 'Rekap_Nilai_' . preg_replace('/[^A-Za-z0-9]/', '_', $nama_mk . '_' . $nama_kelas) . '.xls';
     header("Content-Type: application/vnd.ms-excel");
@@ -268,125 +248,295 @@ if (isset($_GET['export_rekap_nilai'])) {
             .text-red { color: #FF0000; font-weight: bold; }
           </style></head><body>';
 
-    echo '<h3 style="text-align:center; margin-bottom:5px;">REKAP NILAI PRAKTIKUM_' . strtoupper($nama_mk) . '</h3>';
-    echo '<div style="font-weight:bold; margin-bottom:10px;">
-            KELAS : ' . strtoupper($nama_kelas) . '<br>
-            LAB : ' . strtoupper($nama_lab) . '<br>
-            ' . $session_info . '
-          </div>';
+    // Loop per Sesi (Gunakan $all_sessions_found)
+    foreach ($all_sessions_found as $sesi_num) {
+        $students = $students_by_session[$sesi_num] ?? []; // Ambil mahasiswa sesi ini (bisa kosong)
+        
+        // Filter jadwal untuk sesi ini
+        $meetings = [];
+        $schedule_map = [];
+        $session_info_str = "";
+        $assistants_list = [];
+        $found_day_time = false;
+        $swapped_students = []; // Array untuk menampung data tukar sesi
+        $days_map = ['Sunday'=>'MINGGU', 'Monday'=>'SENIN', 'Tuesday'=>'SELASA', 'Wednesday'=>'RABU', 'Thursday'=>'KAMIS', 'Friday'=>'JUMAT', 'Saturday'=>'SABTU'];
 
-    echo '<table><thead>';
-    echo '<tr>
-            <th rowspan="2">NO</th><th rowspan="2">NAMA MAHASISWA</th>
-            <th rowspan="2">SESI</th>
-            <th colspan="4" class="bg-pink">PERTEMUAN 1 - 4</th>
-            <th colspan="4" class="bg-blue">PERTEMUAN 5 - 8</th>
-            <th rowspan="2" class="bg-yellow">PRARES</th>
-            <th rowspan="2" class="bg-yellow">RESPONSI</th>
-            <th rowspan="2">TOTAL ALPHA</th>
-            <th rowspan="2">KET INHALL</th>
-            <th rowspan="2">TOTAL JUMLAH PRESENSI</th>
-            <th rowspan="2">KETERANGAN</th>
-          </tr><tr>';
-    
-    for ($i=1; $i<=4; $i++) echo '<th class="bg-pink">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
-    for ($i=5; $i<=8; $i++) echo '<th class="bg-blue">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
-    echo '</tr></thead><tbody>';
-
-    $no = 1;
-    $current_sesi = null;
-    while ($m = mysqli_fetch_assoc($q_mhs)) {
-        $nim = $m['nim'];
-        $sesi_mhs = $m['sesi'] ?? 1;
-        
-        if ($current_sesi !== $sesi_mhs) {
-            $current_sesi = $sesi_mhs;
-            echo '<tr><td colspan="17" style="background-color:#e0e0e0; font-weight:bold; text-align:left;">SESI ' . $current_sesi . '</td></tr>';
-        }
-        
-        $stats = ['hadir'=>0, 'izin'=>0, 'sakit'=>0, 'alpha'=>0];
-        
-        echo '<tr><td>' . $no++ . '</td><td style="text-align:left;">' . strtoupper($m['nama']) . '</td>';
-        echo '<td>' . $sesi_mhs . '</td>';
-        
-        // Loop P1-P8
-        for ($i=1; $i<=8; $i++) {
-            $status = '-'; $cls = '';
-            
-            // Cari jadwal yang sesuai sesi mahasiswa
-            $jadwal_target = $schedule_map[$i][$sesi_mhs] ?? ($schedule_map[$i][0] ?? null);
-            
-            if ($jadwal_target) {
-                $jid = $jadwal_target['id'];
-                $pres = mysqli_fetch_assoc(mysqli_query($conn, "SELECT status FROM presensi_mahasiswa WHERE nim='$nim' AND jadwal_id='$jid'"));
-                $st = $pres['status'] ?? 'alpha'; // Default alpha jika tidak ada record (asumsi jadwal sudah lewat)
-                // Cek jika jadwal belum lewat
-                $j_check = mysqli_fetch_assoc(mysqli_query($conn, "SELECT tanggal, jam_selesai FROM jadwal WHERE id='$jid'"));
-                if (strtotime($j_check['tanggal'].' '.$j_check['jam_selesai']) > time() && !$pres) $st = '';
+        // Cari jadwal yang relevan (Sesi 0 atau Sesi ini)
+        // Prioritaskan jadwal spesifik sesi ini jika ada
+        $temp_schedules = [];
+        foreach ($all_schedules as $row) {
+            if ($row['sesi'] == 0 || $row['sesi'] == $sesi_num) {
+                $p = $row['pertemuan_ke'];
+                if ($row['jenis'] == 'praresponsi') $p = 'prares';
+                if ($row['jenis'] == 'responsi') $p = 'responsi';
                 
-                if ($st == 'hadir') { $status = 'HADIR'; $cls = 'text-green'; $stats['hadir']++; }
-                elseif ($st == 'izin') { $status = 'IZIN'; $cls = 'text-blue'; $stats['izin']++; }
-                elseif ($st == 'sakit') { $status = 'SAKIT'; $cls = 'text-blue'; $stats['sakit']++; }
-                elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; $stats['alpha']++; }
+                // Jika sudah ada jadwal generic (0), dan ketemu spesifik, replace.
+                // Jika belum ada, set.
+                if (!isset($temp_schedules[$p])) {
+                    $temp_schedules[$p] = $row;
+                } elseif ($row['sesi'] == $sesi_num && $temp_schedules[$p]['sesi'] == 0) {
+                    $temp_schedules[$p] = $row;
+                }
             }
-            echo '<td class="'.$cls.'">'.$status.'</td>';
         }
 
-        // Prares & Responsi
-        foreach (['prares', 'responsi'] as $type) {
-            $status = '-'; $cls = '';
-            $jadwal_target = $schedule_map[$type][$sesi_mhs] ?? ($schedule_map[$type][0] ?? null);
-            
-            if ($jadwal_target) {
-                $jid = $jadwal_target['id'];
-                $pres = mysqli_fetch_assoc(mysqli_query($conn, "SELECT status FROM presensi_mahasiswa WHERE nim='$nim' AND jadwal_id='$jid'"));
-                $st = $pres['status'] ?? 'alpha';
-                if ($st == 'hadir') { $status = 'HADIR'; $cls = 'text-green'; $stats['hadir']++; }
-                elseif ($st == 'izin' || $st == 'sakit') { $status = 'IZIN'; $cls = 'text-blue'; $stats['izin']++; }
-                elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; $stats['alpha']++; }
+        foreach ($temp_schedules as $p => $row) {
+            $schedule_map[$p] = $row;
+            if (!empty($row['nama_asisten_1'])) $assistants_list[] = $row['nama_asisten_1'];
+            if (!empty($row['nama_asisten_2'])) $assistants_list[] = $row['nama_asisten_2'];
+            if ($row['jenis'] != 'inhall') {
+                $meetings[$p] = [
+                    'tanggal' => date('d/m/Y', strtotime($row['tanggal'])),
+                    'id' => $row['id']
+                ];
+                
+                if (!$found_day_time && is_numeric($p)) {
+                    $day = $days_map[date('l', strtotime($row['tanggal']))] ?? '';
+                    $time = date('H.i', strtotime($row['jam_mulai'])) . ' - ' . date('H.i', strtotime($row['jam_selesai']));
+                    $session_info_str = "SESI $sesi_num : $day / $time";
+                    $found_day_time = true;
+                }
             }
-            echo '<td class="'.$cls.'">'.$status.'</td>';
         }
-
-        // Total Alpha
-        echo '<td>' . $stats['alpha'] . '</td>';
-
-        // Inhall
-        $cek_inhall = mysqli_fetch_assoc(mysqli_query($conn, "SELECT id FROM penggantian_inhall WHERE nim='$nim' AND status='hadir' AND jadwal_asli_id IN (SELECT id FROM jadwal WHERE kode_mk='$filter_mk')"));
-        $is_inhall = $cek_inhall ? 'Inhall' : 'No';
-        echo '<td>' . $is_inhall . '</td>';
-
-        // Total Jumlah Presensi (Hadir)
-        echo '<td>' . $stats['hadir'] . '</td>';
-
-        // Logika Status Akademik (Tambahan agar muncul di Excel Rekap Nilai)
-        $total_absen = $stats['izin'] + $stats['sakit'] + $stats['alpha'];
-        $total_valid = $stats['izin'] + $stats['sakit'];
-        $total_alpha = $stats['alpha'];
         
-        $status_ket = 'AMAN';
-        if ($total_absen > 3) $status_ket = 'GUGUR';
-        elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
-        elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
-        elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+        $asisten_str = !empty($assistants_list) ? implode(', ', array_unique($assistants_list)) : '-';
 
-        // Ket Tambahan
-        $ket = [];
-        $ket[] = "<strong>$status_ket</strong>"; // Tampilkan status paling depan
-        if ($stats['sakit'] > 0) $ket[] = "Sakit: " . $stats['sakit'];
-        if ($stats['izin'] > 0) $ket[] = "Izin: " . $stats['izin'];
-        if ($is_inhall == 'Inhall') $ket[] = "Total Inhall: 1";
-        echo '<td>' . implode(', ', $ket) . '</td>';
+        // Render Header
+        echo '<h3 style="text-align:center; margin-bottom:5px; margin-top: 20px;">REKAP NILAI PRAKTIKUM_' . strtoupper($nama_mk) . ' (SESI ' . $sesi_num . ')</h3>';
+        echo '<div style="font-weight:bold; margin-bottom:10px;">
+                KELAS : ' . strtoupper($nama_kelas) . '<br>
+                LAB : ' . strtoupper($nama_lab) . '<br>
+                ASISTEN : ' . strtoupper($asisten_str) . '<br>
+                ' . $session_info_str . '
+              </div>';
 
-        echo '</tr>';
+        echo '<table><thead>';
+        echo '<tr>
+                <th rowspan="2">NO</th><th rowspan="2">NAMA MAHASISWA</th>
+                <th rowspan="2">SESI</th>
+                <th colspan="4" class="bg-pink">PERTEMUAN 1 - 4</th>
+                <th colspan="4" class="bg-blue">PERTEMUAN 5 - 8</th>
+                <th rowspan="2" class="bg-yellow">PRARES</th>
+                <th rowspan="2" class="bg-yellow">RESPONSI</th>
+                <th rowspan="2">TOTAL ALPHA</th>
+                <th rowspan="2">KET INHALL</th>
+                <th rowspan="2">TOTAL JUMLAH PRESENSI</th>
+                <th rowspan="2">KETERANGAN</th>
+              </tr><tr>';
+        
+        for ($i=1; $i<=4; $i++) echo '<th class="bg-pink">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
+        for ($i=5; $i<=8; $i++) echo '<th class="bg-blue">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
+        echo '</tr></thead><tbody>';
+
+        if (empty($students)) {
+            echo '<tr><td colspan="17" class="text-center" style="padding: 20px;">Tidak ada mahasiswa terdaftar di Sesi ' . $sesi_num . '</td></tr>';
+        }
+
+        $no = 1;
+        foreach ($students as $m) {
+            $nim = $m['nim'];
+            $stats = ['hadir'=>0, 'izin'=>0, 'sakit'=>0, 'alpha'=>0];
+            
+            echo '<tr><td>' . $no++ . '</td><td style="text-align:left;">' . strtoupper($m['nama']) . '</td>';
+            echo '<td>' . $sesi_num . '</td>';
+            
+            // Loop P1-P8
+            for ($i=1; $i<=8; $i++) {
+                $status = '-'; $cls = '';
+                $jadwal_target = $schedule_map[$i] ?? null;
+                
+                if ($jadwal_target) {
+                    $jid = $jadwal_target['id'];
+                    $pres_data = $presensi_by_meeting[$nim][$i] ?? null;
+                    $st = $pres_data['status'] ?? 'alpha';
+                    
+                    // Cek jika jadwal belum lewat dan belum ada presensi
+                    if (strtotime($jadwal_target['tanggal'].' '.$jadwal_target['jam_selesai']) > time() && !$pres_data) {
+                        $st = '';
+                    }
+                    
+                    if ($st == 'hadir') { 
+                        $status = 'HADIR'; 
+                        $cls = 'text-green'; 
+                        $stats['hadir']++; 
+                        
+                        // Cek Tukar Sesi
+                        if (isset($pres_data['sesi_hadir']) && $pres_data['sesi_hadir'] != $sesi_num && $pres_data['sesi_hadir'] != 0) {
+                            $status .= " (S" . $pres_data['sesi_hadir'] . ")";
+                            $cls = 'text-purple';
+                            
+                            // Simpan data untuk tabel riwayat tukar sesi
+                            $swapped_students[] = [
+                                'nama' => $m['nama'],
+                                'pertemuan' => $i,
+                                'sesi_asal' => $sesi_num,
+                                'sesi_tujuan' => $pres_data['sesi_hadir'],
+                                'tanggal_asal' => $meetings[$i]['tanggal'],
+                                'tanggal_real' => date('d/m/Y', strtotime($pres_data['tanggal_hadir']))
+                            ];
+                        }
+                    }
+                    elseif ($st == 'izin') { $status = 'IZIN'; $cls = 'text-blue'; $stats['izin']++; }
+                    elseif ($st == 'sakit') { $status = 'SAKIT'; $cls = 'text-blue'; $stats['sakit']++; }
+                    elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; $stats['alpha']++; }
+                }
+                echo '<td class="'.$cls.'">'.$status.'</td>';
+            }
+
+            // Prares & Responsi
+            foreach (['prares', 'responsi'] as $type) {
+                $status = '-'; $cls = '';
+                $jadwal_target = $schedule_map[$type] ?? null;
+                
+                if ($jadwal_target) {
+                    $jid = $jadwal_target['id'];
+                    $pres_data = $presensi_by_meeting[$nim][$type] ?? null;
+                    $st = $pres_data['status'] ?? 'alpha';
+                    
+                    // Cek jika jadwal belum lewat dan belum ada presensi
+                    if (strtotime($jadwal_target['tanggal'].' '.$jadwal_target['jam_selesai']) > time() && !$pres_data) {
+                        $st = '';
+                    }
+                    
+                    if ($st == 'hadir') { $status = 'HADIR'; $cls = 'text-green'; $stats['hadir']++; }
+                    elseif ($st == 'izin' || $st == 'sakit') { $status = 'IZIN'; $cls = 'text-blue'; $stats['izin']++; }
+                    elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; $stats['alpha']++; }
+                }
+                echo '<td class="'.$cls.'">'.$status.'</td>';
+            }
+
+            // Stats
+            echo '<td>' . $stats['alpha'] . '</td>';
+            
+            $is_inhall = isset($inhall_map[$nim]) ? 'Inhall' : 'No';
+            echo '<td>' . $is_inhall . '</td>';
+            echo '<td>' . $stats['hadir'] . '</td>';
+
+            // Status Akademik
+            $total_absen = $stats['izin'] + $stats['sakit'] + $stats['alpha'];
+            $total_valid = $stats['izin'] + $stats['sakit'];
+            $total_alpha = $stats['alpha'];
+            
+            $status_ket = 'AMAN';
+            if ($total_absen > 3) $status_ket = 'GUGUR';
+            elseif ($total_alpha > 0) $status_ket = ($total_absen == 3) ? 'KRITIS (Alpha)' : 'PERINGATAN (Alpha)';
+            elseif ($total_valid == 3) $status_ket = 'WAJIB INHAL';
+            elseif ($total_valid == 2) $status_ket = 'BOLEH INHAL';
+
+            $ket = [];
+            $ket[] = "<strong>$status_ket</strong>";
+            if ($stats['sakit'] > 0) $ket[] = "Sakit: " . $stats['sakit'];
+            if ($stats['izin'] > 0) $ket[] = "Izin: " . $stats['izin'];
+            if ($is_inhall == 'Inhall') $ket[] = "Total Inhall: 1";
+            echo '<td>' . implode(', ', $ket) . '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table>';
+        
+        // [BARU] REKAP PRESENSI ASISTEN
+        // 1. Kumpulkan semua asisten yang terlibat di kelas & MK ini
+        $involved_assistants = [];
+        foreach ($all_schedules as $schedule) {
+            if ($schedule['kode_asisten_1']) $involved_assistants[$schedule['kode_asisten_1']] = true;
+            if ($schedule['kode_asisten_2']) $involved_assistants[$schedule['kode_asisten_2']] = true;
+        }
+        $assistant_codes = array_keys($involved_assistants);
+
+        if (!empty($assistant_codes)) {
+            // 2. Ambil data nama asisten
+            $assistant_codes_str = "'" . implode("','", $assistant_codes) . "'";
+            $q_asisten_names = mysqli_query($conn, "SELECT kode_asisten, nama FROM asisten WHERE kode_asisten IN ($assistant_codes_str)");
+            $assistant_names = [];
+            while ($a = mysqli_fetch_assoc($q_asisten_names)) {
+                $assistant_names[$a['kode_asisten']] = $a['nama'];
+            }
+
+            // 3. Ambil semua data absen asisten untuk jadwal-jadwal ini
+            $jadwal_ids_for_query = array_column($temp_schedules, 'id');
+            if (!empty($jadwal_ids_for_query)) {
+                $jadwal_ids_str = implode(",", $jadwal_ids_for_query);
+                
+                $q_absen_asisten = mysqli_query($conn, "SELECT kode_asisten, jadwal_id, status FROM absen_asisten WHERE jadwal_id IN ($jadwal_ids_str) AND kode_asisten IN ($assistant_codes_str)");
+                $assistant_attendance = [];
+                while ($absen = mysqli_fetch_assoc($q_absen_asisten)) {
+                    $assistant_attendance[$absen['kode_asisten']][$absen['jadwal_id']] = $absen['status'];
+                }
+            }
+
+            // 4. Render Tabel Asisten
+            echo '<br><br><h4 style="text-align:center; margin-bottom:5px;">REKAP PRESENSI ASISTEN</h4>';
+            echo '<table><thead>';
+            // Header sama persis dengan mahasiswa, tapi judul "PARAF"
+            echo '<tr>
+                    <th rowspan="2">NO</th><th rowspan="2">NAMA ASISTEN</th>
+                    <th colspan="4" class="bg-pink">PARAF PERTEMUAN 1 - 4</th>
+                    <th colspan="4" class="bg-blue">PARAF PERTEMUAN 5 - 8</th>
+                    <th rowspan="2" class="bg-yellow">PARAF PRARES</th>
+                    <th rowspan="2" class="bg-yellow">PARAF RESPONSI</th>
+                    <th rowspan="2" colspan="5">KETERANGAN</th>
+                  </tr><tr>';
+            
+            for ($i=1; $i<=4; $i++) echo '<th class="bg-pink">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
+            for ($i=5; $i<=8; $i++) echo '<th class="bg-blue">' . ($meetings[$i]['tanggal'] ?? '-') . '</th>';
+            echo '</tr></thead><tbody>';
+
+            $no_asisten = 1;
+            foreach ($assistant_codes as $kode_asisten) {
+                echo '<tr>';
+                echo '<td>' . $no_asisten++ . '</td>';
+                echo '<td style="text-align:left;">' . strtoupper($assistant_names[$kode_asisten] ?? $kode_asisten) . '</td>';
+
+                $all_meeting_keys = array_merge(range(1, 8), ['prares', 'responsi']);
+                foreach ($all_meeting_keys as $key) {
+                    $status = '-'; $cls = '';
+                    $jadwal_target = $schedule_map[$key] ?? null;
+                    
+                    if ($jadwal_target) {
+                        $jid = $jadwal_target['id'];
+                        $st = $assistant_attendance[$kode_asisten][$jid] ?? ((strtotime($jadwal_target['tanggal'].' '.$jadwal_target['jam_selesai']) < time()) ? 'alpha' : '');
+                        
+                        if ($st == 'hadir') { $status = 'HADIR'; $cls = 'text-green'; }
+                        elseif ($st == 'izin') { $status = 'IZIN'; $cls = 'text-blue'; }
+                        elseif ($st == 'sakit') { $status = 'SAKIT'; $cls = 'text-blue'; }
+                        elseif ($st == 'alpha') { $status = 'ALPHA'; $cls = 'text-red'; }
+                    }
+                    echo '<td class="'.$cls.'">'.$status.'</td>';
+                }
+                echo '<td>-</td><td>-</td><td>-</td><td>-</td><td>-</td>';
+                echo '</tr>';
+            }
+            echo '</tbody></table>';
+        }
+
+        // Render Tabel Riwayat Tukar Sesi jika ada data
+        if (!empty($swapped_students)) {
+            echo '<br>';
+            echo '<h4 style="margin-bottom: 10px;">Riwayat Tukar Sesi (Sesi ' . $sesi_num . ')</h4>';
+            echo '<table style="width: 100%; border: 1px solid #000; margin-bottom: 30px;">';
+            echo '<thead>
+                    <tr style="background-color: #f0f0f0;">
+                        <th>No</th><th>Nama Mahasiswa</th><th>Pertemuan Ke</th><th>Dari Sesi</th><th>Ke Sesi</th><th>Tanggal Seharusnya</th><th>Tanggal Realisasi</th>
+                    </tr>
+                  </thead><tbody>';
+            $no_swap = 1;
+            foreach ($swapped_students as $swap) {
+                echo '<tr>';
+                echo '<td class="text-center">' . $no_swap++ . '</td><td>' . strtoupper($swap['nama']) . '</td><td class="text-center">' . $swap['pertemuan'] . '</td><td class="text-center">' . $swap['sesi_asal'] . '</td><td class="text-center">' . $swap['sesi_tujuan'] . '</td><td class="text-center">' . $swap['tanggal_asal'] . '</td><td class="text-center">' . $swap['tanggal_real'] . '</td>';
+                echo '</tr>';
+            }
+            echo '</tbody></table>';
+        }
     }
+    
     echo '</tbody></table></body></html>';
     exit;
 }
 
 // [BARU] Handler Export Detail Mahasiswa (Single - Excel)
 if (isset($_GET['export_detail_mhs'])) {
-    if (ob_get_length()) ob_end_clean();
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
     
     $nim = escape($_GET['nim']);
     $kelas = escape($_GET['kelas']);
@@ -408,10 +558,13 @@ if (isset($_GET['export_detail_mhs'])) {
     $lab_condition = $lab ? "AND j.kode_lab = '$lab'" : "";
     
     $query = mysqli_query($conn, "SELECT j.pertemuan_ke, j.tanggal, j.jam_mulai, j.jam_selesai, j.materi, j.jenis, j.sesi,
-                                         p.status, p.waktu_presensi, mk.nama_mk, l.nama_lab, j.kode_mk
+                                         p.status, p.waktu_presensi, mk.nama_mk, l.nama_lab, j.kode_mk,
+                                         a1.nama as nama_asisten_1, a2.nama as nama_asisten_2
                                          FROM jadwal j
                                          JOIN mata_kuliah mk ON j.kode_mk = mk.kode_mk
                                          LEFT JOIN lab l ON j.kode_lab = l.kode_lab
+                                         LEFT JOIN asisten a1 ON j.kode_asisten_1 = a1.kode_asisten
+                                         LEFT JOIN asisten a2 ON j.kode_asisten_2 = a2.kode_asisten
                                          LEFT JOIN presensi_mahasiswa p ON j.id = p.jadwal_id AND p.nim = '$nim'
                                          WHERE j.kode_kelas = '$kelas'
                                          AND (
@@ -446,7 +599,7 @@ if (isset($_GET['export_detail_mhs'])) {
     echo "<strong>Periode:</strong> " . date('d-m-Y', strtotime($start_date)) . " s/d " . date('d-m-Y', strtotime($end_date)) . "</p>";
     
     echo '<table><thead><tr>
-            <th>No</th><th>Pertemuan</th><th>Tanggal</th><th>Jam</th><th>Mata Kuliah</th><th>Materi</th><th>Jenis</th><th>Sesi</th><th>Lab</th><th>Status</th><th>Waktu Presensi</th>
+            <th>No</th><th>Pertemuan</th><th>Tanggal</th><th>Jam</th><th>Mata Kuliah</th><th>Materi</th><th>Jenis</th><th>Sesi</th><th>Lab</th><th>Asisten</th><th>Status</th><th>Waktu Presensi</th>
           </tr></thead><tbody>';
           
     $no = 1;
@@ -472,6 +625,9 @@ if (isset($_GET['export_detail_mhs'])) {
             $status = ucfirst($status);
         }
         
+        $asisten_str = $row['nama_asisten_1'] ?: '-';
+        if ($row['nama_asisten_2']) $asisten_str .= ', ' . $row['nama_asisten_2'];
+        
         echo "<tr>
             <td class='text-center'>" . $no++ . "</td>
             <td class='text-center'>" . $row['pertemuan_ke'] . "</td>
@@ -482,6 +638,7 @@ if (isset($_GET['export_detail_mhs'])) {
             <td class='text-center'>" . ucfirst($row['jenis']) . "</td>
             <td class='text-center'>" . ($row['sesi'] == 0 ? 'Semua' : $row['sesi']) . "</td>
             <td>" . ($row['nama_lab'] ?: '-') . "</td>
+            <td>" . htmlspecialchars($asisten_str) . "</td>
             <td class='text-center'>" . $status . "</td>
             <td class='text-center'>" . ($row['waktu_presensi'] ?: '-') . "</td>
         </tr>";
@@ -493,7 +650,9 @@ if (isset($_GET['export_detail_mhs'])) {
 // Export Excel (CSV format)
 if (isset($_GET['export'])) {
     // Hentikan dan bersihkan output buffer yang mungkin sudah terisi oleh index.php
-    if (ob_get_length()) ob_end_clean();
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
     
     $filter_kelas_exp = isset($_GET['kelas']) ? escape($_GET['kelas']) : '';
     $filter_mk_exp = isset($_GET['mk']) ? escape($_GET['mk']) : '';

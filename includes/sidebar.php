@@ -43,6 +43,7 @@
             <li class="nav-item"><a href="index.php?page=admin_mahasiswa" class="nav-link <?= is_active('admin_mahasiswa') ?>"><i class="fas fa-user-graduate"></i> Mahasiswa</a></li>
             <li class="nav-item"><a href="index.php?page=admin_asisten" class="nav-link <?= is_active('admin_asisten') ?>"><i class="fas fa-user-tie"></i> Asisten</a></li>
             <li class="nav-item"><a href="index.php?page=admin_jadwal" class="nav-link <?= is_active(['admin_jadwal', 'admin_materi']) ?>"><i class="fas fa-calendar-alt"></i> Jadwal</a></li>
+            <li class="nav-item"><a href="index.php?page=admin_tukar_jadwal" class="nav-link <?= is_active('admin_tukar_jadwal') ?>"><i class="fas fa-exchange-alt"></i> Tukar Jadwal</a></li>
             <li class="nav-item"><a href="index.php?page=admin_izin_asisten" class="nav-link <?= is_active('admin_izin_asisten') ?>"><i class="fas fa-user-clock"></i> Izin Asisten</a></li>
             <li class="nav-item"><a href="index.php?page=admin_pengumuman" class="nav-link <?= is_active('admin_pengumuman') ?>"><i class="fas fa-bullhorn"></i> Pengumuman</a></li>
             <li class="nav-item"><a href="index.php?page=admin_broadcast" class="nav-link <?= is_active('admin_broadcast') ?>"><i class="fab fa-whatsapp"></i> Broadcast WA</a></li>
@@ -65,6 +66,7 @@
             <li class="nav-item"><a href="index.php?page=mahasiswa_jurnal" class="nav-link <?= is_active('mahasiswa_jurnal') ?>"><i class="fas fa-book-open"></i> Jurnal Praktikum</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_kuis" class="nav-link <?= is_active(['mahasiswa_kuis', 'mahasiswa_kuis_kerjakan']) ?>"><i class="fas fa-pencil-alt"></i> Kuis Online</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_izin" class="nav-link <?= is_active('mahasiswa_izin') ?>"><i class="fas fa-envelope"></i> Pengajuan Izin</a></li>
+            <li class="nav-item"><a href="index.php?page=mahasiswa_tukar_jadwal" class="nav-link <?= is_active('mahasiswa_tukar_jadwal') ?>"><i class="fas fa-exchange-alt"></i> Tukar Jadwal</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_inhall" class="nav-link <?= is_active('mahasiswa_inhall') ?>"><i class="fas fa-redo"></i> Inhall</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_bantuan" class="nav-link <?= is_active('mahasiswa_bantuan') ?>"><i class="fas fa-headset"></i> Pusat Bantuan</a></li>
             <li class="nav-item"><a href="index.php?page=mahasiswa_profil" class="nav-link <?= is_active('mahasiswa_profil') ?>"><i class="fas fa-user-cog"></i> Profil</a></li>

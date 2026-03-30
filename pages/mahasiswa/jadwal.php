@@ -30,20 +30,31 @@ $filter_bulan = isset($_GET['bulan']) ? mysqli_real_escape_string($conn, $_GET['
 // Menampilkan jadwal jika:
 // 1. Mahasiswa punya record presensi di jadwal tersebut (meskipun sesi lama/beda)
 // 2. ATAU (Jadwal sesuai sesi saat ini DAN Mahasiswa TIDAK punya record di jadwal lain untuk pertemuan yang sama)
+// 3. ATAU Mahasiswa telah di-ACC pindah/tukar jadwal ke sesi ini lewat tukar_jadwal_sementara
 $session_swap_logic = "
     AND (
         p.id IS NOT NULL
-        OR 
+        OR
         (
             (j.sesi = 0 OR j.sesi = '$sesi')
             AND NOT EXISTS (
-                SELECT 1 FROM presensi_mahasiswa pm2 
-                JOIN jadwal j2 ON pm2.jadwal_id = j2.id 
-                WHERE pm2.nim = '$nim' 
-                AND j2.kode_mk = j.kode_mk 
+                SELECT 1 FROM presensi_mahasiswa pm2
+                JOIN jadwal j2 ON pm2.jadwal_id = j2.id
+                WHERE pm2.nim = '$nim'
+                AND j2.kode_mk = j.kode_mk
                 AND j2.pertemuan_ke = j.pertemuan_ke
                 AND j2.id != j.id
             )
+            AND NOT EXISTS (
+                SELECT 1 FROM tukar_jadwal_sementara tjs 
+                WHERE tjs.status = 'disetujui' 
+                AND ((tjs.nim_pengaju = '$nim' AND tjs.jadwal_awal_id = j.id) OR (tjs.nim_dituju = '$nim' AND tjs.jadwal_tujuan_id = j.id))
+            )
+        )
+        OR EXISTS (
+            SELECT 1 FROM tukar_jadwal_sementara tjs2
+            WHERE tjs2.status = 'disetujui'
+            AND ((tjs2.nim_pengaju = '$nim' AND tjs2.jadwal_tujuan_id = j.id) OR (tjs2.nim_dituju = '$nim' AND tjs2.jadwal_awal_id = j.id))
         )
     )
 ";
@@ -90,7 +101,9 @@ $tanggal_daftar = $mahasiswa['tanggal_daftar'];
 
 // Export Excel
 if (isset($_GET['export']) && $_GET['export'] == 'excel') {
-    if (ob_get_length()) ob_end_clean();
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
     
     $filename = 'jadwal_praktikum_' . $nim . '_' . date('Y-m-d_His') . '.xls';
     header("Content-Type: application/vnd.ms-excel");
@@ -146,7 +159,9 @@ if (isset($_GET['export']) && $_GET['export'] == 'excel') {
 
 // Export ICS (Calendar)
 if (isset($_GET['export']) && $_GET['export'] == 'ics') {
-    if (ob_get_length()) ob_end_clean();
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
     
     $filename = 'jadwal_praktikum_' . $nim . '.ics';
     header('Content-Type: text/calendar; charset=utf-8');
@@ -948,3 +963,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 
 <?php include 'includes/footer.php'; ?>
+
+
+

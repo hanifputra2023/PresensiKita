@@ -22,6 +22,10 @@ if (isset($_GET['export']) && $_GET['export'] == 'csv') {
                      $where_sql ORDER BY l.created_at DESC";
     $export_result = mysqli_query($conn, $export_query);
     
+    while (ob_get_level()) {
+        ob_end_clean();
+    }
+    
     // Set headers for CSV download
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename=log_aktivitas_' . date('Y-m-d_His') . '.csv');
