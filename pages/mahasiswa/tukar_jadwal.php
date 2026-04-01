@@ -105,10 +105,12 @@ include 'includes/header.php';
                 <!-- Welcome Banner Modern -->
                 <style>
                     .welcome-banner-tukar {
-                        background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff));
+                        background: var(--banner-gradient);
                         border-radius: 24px;
                         padding: 40px;
                         color: white;
+                        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+                        animation: fadeInUp 0.5s ease;
                         position: relative;
                         overflow: hidden;
                     }
@@ -117,16 +119,21 @@ include 'includes/header.php';
                         content: '';
                         position: absolute;
                         top: -50%;
-                        left: -50%;
+                        right: -50%;
                         width: 200%;
                         height: 200%;
-                        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-                        animation: rotateBanner 20s linear infinite;
+                        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+                        animation: pulse-glow-tukar 4s ease-in-out infinite;
                     }
 
-                    @keyframes rotateBanner {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
+                    @keyframes pulse-glow-tukar {
+                        0%, 100% { transform: scale(1); opacity: 0.5; }
+                        50% { transform: scale(1.05); opacity: 0.6; }
+                    }
+
+                    @keyframes fadeInUp {
+                        from { opacity: 0; transform: translateY(30px); }
+                        to { opacity: 1; transform: translateY(0); }
                     }
 
                     .welcome-banner-tukar h1 {

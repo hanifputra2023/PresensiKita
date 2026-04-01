@@ -88,10 +88,12 @@ include 'includes/header.php';
                 <!-- Welcome Banner Modern -->
                 <style>
                     .welcome-banner-tukar {
-                        background: var(--banner-gradient, linear-gradient(90deg, #0066cc, #0099ff, #16a1fdff));
+                        background: var(--banner-gradient);
                         border-radius: 24px;
                         padding: 40px;
                         color: white;
+                        box-shadow: 0 10px 30px rgba(0, 102, 204, 0.3);
+                        animation: fadeInUp 0.5s ease;
                         position: relative;
                         overflow: hidden;
                     }
@@ -100,16 +102,40 @@ include 'includes/header.php';
                         content: '';
                         position: absolute;
                         top: -50%;
-                        left: -50%;
+                        right: -50%;
                         width: 200%;
                         height: 200%;
-                        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 60%);
-                        animation: rotateBanner 20s linear infinite;
+                        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+                        animation: pulse-glow-tukar 4s ease-in-out infinite;
                     }
 
-                    @keyframes rotateBanner {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
+                    @keyframes pulse-glow-tukar {
+                        0%, 100% { transform: scale(1); opacity: 0.5; }
+                        50% { transform: scale(1.05); opacity: 0.6; }
+                    }
+
+                    @keyframes fadeInUp {
+                        from { opacity: 0; transform: translateY(30px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+
+                    .card-tukar {
+                        border-radius: 16px;
+                        border: 1px solid var(--border-color);
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+                        overflow: hidden;
+                        background: var(--bg-card);
+                        transition: all 0.3s ease;
+                    }
+                    
+                    .card-tukar .card-header {
+                        background: var(--bg-card);
+                        border-bottom: 1px solid var(--border-color);
+                        padding: 16px 20px;
+                    }
+
+                    [data-theme="dark"] .card-tukar {
+                        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
                     }
 
                     .welcome-banner-tukar h1 {
@@ -201,12 +227,12 @@ include 'includes/header.php';
 
                 <?= show_alert() ?>
 
-                <div class="card shadow mb-4 border-bottom-primary">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-primary">Menunggu Persetujuan Admin</h6>
+                <div class="card card-tukar mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0 font-weight-bold"><i class="fas fa-hourglass-half me-2"></i>Menunggu Persetujuan Admin</h6>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
+                        <div class="table-responsive d-none d-lg-block">
                             <table class="table table-bordered table-hover align-middle">
                                 <thead class="table-light">
                                     <tr>
@@ -257,16 +283,59 @@ include 'includes/header.php';
                                 </tbody>
                             </table>
                         </div>
+
+                        <!-- Mobile View (Cards) for Pending -->
+                        <div class="d-lg-none mt-2">
+                            <?php 
+                            if(mysqli_num_rows($q_pending) > 0): 
+                                mysqli_data_seek($q_pending, 0);
+                                while($row = mysqli_fetch_assoc($q_pending)): 
+                            ?>
+                                <div class="card mb-3 border">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <h6 class="card-title fw-bold text-primary mb-0"><?= htmlspecialchars($row['nama_pengaju']) ?></h6>
+                                            <small class="text-muted" style="font-size: 0.75rem;"><?= date('d/m/y H:i', strtotime($row['created_at'])) ?></small>
+                                        </div>
+                                        <div class="small text-muted mb-2">
+                                            <?= $row['nim_pengaju'] ?> (Kls <?= $row['kelas_pengaju'] ?>)
+                                        </div>
+                                        <div class="mb-2">
+                                            <div class="fw-bold small text-dark"><i class="fas fa-exchange-alt text-warning me-2"></i>Ditukar dengan:</div>
+                                            <div class="p-2 bg-light border rounded mt-1 small">
+                                                <b class="text-dark"><?= htmlspecialchars($row['nama_dituju'] ?? '-') ?></b><br>
+                                                <?php if($row['nim_dituju']): ?>
+                                                    <?= $row['nim_dituju'] ?> (Kls <?= $row['kelas_dituju'] ?>)<br>
+                                                <?php endif; ?>
+                                                <b class="text-danger mt-1 d-block">Pihak 1 Pindah Ke:</b> <?= $row['mk_tujuan'] ?> - Sesi <?= $row['sesi_tujuan'] ?> (<?= date('d M Y', strtotime($row['tgl_tujuan'])) ?>)<br>
+                                                <b class="text-primary mt-1 d-block">Pihak 2 Pindah Ke:</b> <?= $row['mk_awal'] ?> - Sesi <?= $row['sesi_awal'] ?> (<?= date('d M Y', strtotime($row['tgl_awal'])) ?>)
+                                            </div>
+                                        </div>
+                                        <div class="mb-3 small">
+                                            <strong class="text-dark">Alasan:</strong> <?= nl2br(htmlspecialchars($row['alasan'])) ?>
+                                        </div>
+                                        <div class="d-flex gap-2">
+                                            <a href="index.php?page=admin_tukar_jadwal&action=approve&id=<?= $row['id'] ?>" class="btn btn-success btn-sm flex-fill" onclick="return confirm('Yakin ingin menyetujui pertukaran ini?')"><i class="fas fa-check me-1"></i> Setujui</a>
+                                            <a href="index.php?page=admin_tukar_jadwal&action=reject&id=<?= $row['id'] ?>" class="btn btn-danger btn-sm flex-fill" onclick="return confirm('Yakin ingin menolak?')"><i class="fas fa-times me-1"></i> Tolak</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php 
+                                endwhile; 
+                            else: 
+                            ?>
+                                <div class="text-center text-muted py-4 small border rounded bg-light">Tidak ada pengajuan baru.</div>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Riwayat -->
-                <div class="card shadow mb-4">
-                    <div class="card-header py-3">
-                        <h6 class="m-0 font-weight-bold text-secondary">Riwayat Persetujuan</h6>
+                <div class="card card-tukar mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0 font-weight-bold"><i class="fas fa-history me-2"></i>Riwayat Persetujuan</h6>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive">
+                        <div class="table-responsive d-none d-lg-block">
                             <table class="table table-bordered table-sm align-middle" id="dataTableRiwayat" width="100%" cellspacing="0">
                                 <thead class="table-light">
                                     <tr>
@@ -295,6 +364,37 @@ include 'includes/header.php';
                                     <?php endwhile; ?>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- Mobile View for History -->
+                        <div class="d-lg-none mt-2">
+                            <?php 
+                            if(mysqli_num_rows($q_history) > 0):
+                                mysqli_data_seek($q_history, 0);
+                                while($row = mysqli_fetch_assoc($q_history)): 
+                            ?>
+                                <div class="card mb-3 border">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="card-title fw-bold text-dark mb-0"><?= htmlspecialchars($row['nama_pengaju']) ?></h6>
+                                            <?php if($row['status'] == 'disetujui'): ?>
+                                                <span class="badge bg-success">Disetujui</span>
+                                            <?php else: ?>
+                                                <span class="badge bg-danger">Ditolak</span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="small text-muted mb-2"><i class="fas fa-exchange-alt me-2 text-warning"></i>Ditukar dengan: <span class="fw-bold"><?= htmlspecialchars($row['nama_dituju'] ?? '-') ?></span></div>
+                                        <div class="text-muted small text-end border-top pt-2 mt-2">
+                                            <i class="far fa-clock me-1"></i> <?= date('d M Y H:i', strtotime($row['created_at'])) ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php 
+                                endwhile; 
+                            else: 
+                            ?>
+                                <div class="text-center text-muted py-4 small border rounded bg-light">Belum ada riwayat.</div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
